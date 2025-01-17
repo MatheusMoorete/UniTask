@@ -18,19 +18,24 @@ import {
 import { useTasks } from '../hooks/useTasks'
 import { useSubjects } from '../hooks/useSubjects'
 import { usePomodoro } from '../hooks/usePomodoro'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '../lib/utils'
 import { Input } from '../components/ui/input'
+import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert'
 
 const TaskProgress = () => {
   const { tasks } = useTasks()
+  const navigate = useNavigate()
   const completedTasks = tasks.filter(task => task.completed).length
   const pendingTasks = tasks.filter(task => !task.completed).length
   const totalTasks = tasks.length
   const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
   return (
-    <Card className="border-l-4 border-l-primary shadow-md">
+    <Card 
+      className="border-l-4 border-l-primary shadow-md hover:bg-accent/10 cursor-pointer transition-colors"
+      onClick={() => navigate('/tasks')}
+    >
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <Target className="h-4 w-4 text-primary" />
@@ -58,6 +63,7 @@ const TaskProgress = () => {
 
 const NextDeadlines = () => {
   const { tasks } = useTasks()
+  const navigate = useNavigate()
   
   const upcomingTasks = tasks
     .filter(task => !task.completed && task.dueDate)
@@ -65,7 +71,10 @@ const NextDeadlines = () => {
     .slice(0, 2)
 
   return (
-    <Card className="border-l-4 border-l-accent shadow-md">
+    <Card 
+      className="border-l-4 border-l-accent shadow-md hover:bg-accent/10 cursor-pointer transition-colors"
+      onClick={() => navigate('/calendar')}
+    >
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <Calendar className="h-4 w-4 text-accent" />
@@ -95,6 +104,7 @@ const NextDeadlines = () => {
 
 const AttendanceWarning = () => {
   const { subjects } = useSubjects()
+  const navigate = useNavigate()
   
   const sortedSubjects = subjects
     .map(subject => ({
@@ -105,7 +115,10 @@ const AttendanceWarning = () => {
     .slice(0, 2)
 
   return (
-    <Card className="border-l-4 border-l-destructive shadow-md">
+    <Card 
+      className="border-l-4 border-l-destructive shadow-md hover:bg-accent/10 cursor-pointer transition-colors"
+      onClick={() => navigate('/attendance')}
+    >
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <AlertCircle className="h-4 w-4 text-destructive" />
@@ -115,26 +128,29 @@ const AttendanceWarning = () => {
       <CardContent>
         <div className="space-y-2">
           {sortedSubjects.map((subject) => (
-            <div key={subject.id} className="py-1">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">{subject.name}</span>
-                <span className={cn(
-                  "text-xs font-medium",
-                  subject.absencePercentage > 75 ? "text-red-500" :
-                  subject.absencePercentage > 50 ? "text-yellow-500" :
-                  "text-green-500"
-                )}>
+            <Alert
+              key={subject.id}
+              variant={
+                subject.absencePercentage > 75 ? "destructive" :
+                subject.absencePercentage > 50 ? "warning" :
+                "success"
+              }
+              className="py-2"
+            >
+              <AlertTitle className="flex justify-between items-center">
+                <span>{subject.name}</span>
+                <span className="text-xs">
                   {subject.absences || 0}/{subject.maxAbsences} faltas
                 </span>
-              </div>
+              </AlertTitle>
               {subject.absencePercentage > 50 && (
-                <p className="text-xs text-red-500 mt-1">
+                <AlertDescription>
                   {subject.absencePercentage > 75 
                     ? "Risco de reprovação por faltas!" 
                     : "Atenção ao número de faltas!"}
-                </p>
+                </AlertDescription>
               )}
-            </div>
+            </Alert>
           ))}
           {subjects.length === 0 && (
             <div className="text-sm text-muted-foreground">
@@ -151,9 +167,7 @@ const FocusTime = () => {
   const { loading, getTodayFocusTime, formatTime, getStreak } = usePomodoro()
   const todayTime = getTodayFocusTime()
   const streak = getStreak()
-  
-  const dailyGoal = 7200
-  const progressPercentage = Math.min(100, (todayTime / dailyGoal) * 100)
+  const navigate = useNavigate()
 
   if (loading) {
     return (
@@ -172,7 +186,10 @@ const FocusTime = () => {
   }
 
   return (
-    <Card className="border-l-4 border-l-secondary shadow-md">
+    <Card 
+      className="border-l-4 border-l-secondary shadow-md hover:bg-accent/10 cursor-pointer transition-colors"
+      onClick={() => navigate('/pomodoro')}
+    >
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <Brain className="h-4 w-4 text-secondary" />
@@ -188,7 +205,6 @@ const FocusTime = () => {
               <span>{streak} dias seguidos</span>
             </div>
           </div>
-          <ProgressRing progress={progressPercentage} size={50} />
         </div>
       </CardContent>
     </Card>

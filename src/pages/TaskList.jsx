@@ -25,6 +25,16 @@ import {
 } from '../components/ui/dialog'
 import { Plus, Trash2, Pencil, Loader2, Tag, X, Search, ChevronRight } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog"
 
 // Cores predefinidas para tags
 const tagColors = [
@@ -62,6 +72,7 @@ export default function TaskList() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTags, setSelectedTags] = useState([])
   const [selectedTaskForReading, setSelectedTaskForReading] = useState(null)
+  const [tagToDelete, setTagToDelete] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -132,12 +143,22 @@ export default function TaskList() {
     }))
   }
 
-  const handleDeleteTag = async (tagId) => {
-    try {
-      await deleteTag(tagId)
-    } catch (error) {
-      setError('Erro ao deletar tag')
-    }
+  const handleDeleteTag = async (tag) => {
+    // Remove tag from all tasks that have it
+    const updatedTasks = tasks.map(task => ({
+      ...task,
+      tags: task.tags.filter(t => t !== tag)
+    }))
+    
+    // Update tasks in localStorage
+    localStorage.setItem('tasks', JSON.stringify(updatedTasks))
+    setTasks(updatedTasks)
+
+    // Remove tag from tags list
+    const updatedTags = tags.filter(t => t !== tag)
+    localStorage.setItem('tags', JSON.stringify(updatedTags))
+    setTags(updatedTags)
+    setTagToDelete(null)
   }
 
   const toggleFilterTag = (tag) => {
@@ -322,84 +343,21 @@ export default function TaskList() {
                       </Badge>
                     ))}
                   </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    {showTagInput ? (
-                      <div className="space-y-2 w-full">
-                        <div className="flex gap-2">
-                          <Input
-                            value={newTagName}
-                            onChange={(e) => setNewTagName(e.target.value)}
-                            placeholder="Nome da tag"
-                            className="flex-1"
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={handleAddTag}
-                          >
-                            Adicionar
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setShowTagInput(false)
-                              setNewTagName('')
-                              setSelectedColor(tagColors[0])
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                        </div>
-                        <div className="flex flex-wrap gap-1 p-2 bg-muted/50 rounded-lg">
-                          {tagColors.map((color) => (
-                            <button
-                              key={color}
-                              type="button"
-                              className={`w-6 h-6 rounded-full transition-transform ${
-                                selectedColor === color ? 'scale-125 ring-2 ring-primary ring-offset-2' : 'hover:scale-110'
-                              }`}
-                              style={{ backgroundColor: color }}
-                              onClick={() => setSelectedColor(color)}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowTagInput(true)}
-                        className="flex-1"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Nova Tag
-                      </Button>
-                    )}
-                  </div>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {tags.map((tag) => (
-                      <div key={tag.id} className="flex items-center gap-1">
-                        <Badge
-                          variant="secondary"
-                          className="cursor-pointer"
-                          style={{ backgroundColor: tag.color }}
-                          onClick={() => handleTagSelect(tag)}
-                        >
-                          {tag.name}
-                        </Badge>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5"
-                          onClick={() => handleDeleteTag(tag.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
+                      <Badge
+                        key={tag.id}
+                        variant="outline"
+                        className="cursor-pointer"
+                        style={{ 
+                          borderColor: tag.color,
+                          color: tag.color,
+                          backgroundColor: newTask.tags.some(t => t.id === tag.id) ? tag.color : 'transparent',
+                        }}
+                        onClick={() => handleTagSelect(tag)}
+                      >
+                        {tag.name}
+                      </Badge>
                     ))}
                   </div>
                 </div>
@@ -419,7 +377,7 @@ export default function TaskList() {
         </Dialog>
       </div>
 
-      {/* Filtros */}
+      {/* Filtros e Gerenciamento de Tags */}
       <div className="flex flex-col gap-4">
         <div className="flex gap-4">
           <div className="flex-1">
@@ -437,26 +395,93 @@ export default function TaskList() {
           </div>
         </div>
         
-        {/* Tags para filtro */}
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <Badge
-                key={tag.id}
-                variant={selectedTags.some(t => t.id === tag.id) ? "default" : "outline"}
-                className="cursor-pointer"
-                style={{ 
-                  backgroundColor: selectedTags.some(t => t.id === tag.id) ? tag.color : 'transparent',
-                  borderColor: tag.color,
-                  color: selectedTags.some(t => t.id === tag.id) ? 'white' : tag.color
-                }}
-                onClick={() => toggleFilterTag(tag)}
-              >
-                {tag.name}
-              </Badge>
-            ))}
+        {/* Gerenciamento de Tags */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2 flex-1">
+              {tags.map((tag) => (
+                <div key={tag.id} className="flex items-center gap-1">
+                  <Badge
+                    variant={selectedTags.some(t => t.id === tag.id) ? "default" : "outline"}
+                    className="cursor-pointer"
+                    style={{ 
+                      backgroundColor: selectedTags.some(t => t.id === tag.id) ? tag.color : 'transparent',
+                      borderColor: tag.color,
+                      color: selectedTags.some(t => t.id === tag.id) ? 'white' : tag.color
+                    }}
+                    onClick={() => toggleFilterTag(tag)}
+                  >
+                    {tag.name}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => setTagToDelete(tag)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTagInput(true)}
+              className={showTagInput ? 'hidden' : 'shrink-0'}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Tag
+            </Button>
           </div>
-        )}
+          
+          {showTagInput && (
+            <Card className="p-4">
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    placeholder="Nome da tag"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddTag}
+                  >
+                    Adicionar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowTagInput(false)
+                      setNewTagName('')
+                      setSelectedColor(tagColors[0])
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1 p-2 bg-muted/50 rounded-lg">
+                  {tagColors.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className={`w-6 h-6 rounded-full transition-transform ${
+                        selectedColor === color ? 'scale-125 ring-2 ring-primary ring-offset-2' : 'hover:scale-110'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setSelectedColor(color)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -479,7 +504,7 @@ export default function TaskList() {
                   </CardDescription>
                   {task.moreInfo && (
                     <div className="space-y-2">
-                      <div className="text-sm text-muted-foreground line-clamp-3">
+                      <div className="text-sm text-muted-foreground line-clamp-3 break-all">
                         {task.moreInfo}
                       </div>
                       <div className="flex items-center justify-between">
@@ -581,6 +606,27 @@ export default function TaskList() {
           </div>
         </div>
       )}
+
+      {/* Diálogo de confirmação para exclusão de tag */}
+      <AlertDialog open={!!tagToDelete} onOpenChange={() => setTagToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. A tag será removida de todas as tarefas que a utilizam.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              variant="destructive"
+              onClick={() => handleDeleteTag(tagToDelete)}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 } 
