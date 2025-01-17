@@ -2,13 +2,6 @@ import { Timer } from "lucide-react"
 import PomodoroTimer from '../components/pomodoro/PomodoroTimer'
 import PomodoroReport from '../components/pomodoro/PomodoroReport'
 
-const defaultSettings = {
-  focusTime: 25,
-  shortBreakTime: 5,
-  longBreakTime: 15,
-  sessionsUntilLongBreak: 4,
-}
-
 const Pomodoro = () => {
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col">
@@ -26,7 +19,7 @@ const Pomodoro = () => {
 
       <div className="flex-1 grid gap-4 lg:grid-cols-[400px,1fr]">
         <div className="flex items-center justify-center">
-          <PomodoroTimer defaultSettings={defaultSettings} />
+          <PomodoroTimer />
         </div>
         <div className="overflow-auto">
           <PomodoroReport />

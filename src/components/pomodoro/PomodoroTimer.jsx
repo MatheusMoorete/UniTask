@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
 import { Timer, Play, Pause, RotateCcw, Coffee, Brain, Settings } from 'lucide-react'
 import PomodoroSettings from './PomodoroSettings'
-import { usePomodoro } from '../../hooks/usePomodoro'
+import { useState } from 'react'
+import { useGlobalPomodoro } from '../../contexts/PomodoroContext'
 
 const formatTime = (seconds) => {
   const mins = Math.floor(seconds / 60)
@@ -11,104 +11,22 @@ const formatTime = (seconds) => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
-const PomodoroTimer = ({ defaultSettings }) => {
-  const { addSession } = usePomodoro()
-  const [settings, setSettings] = useState(defaultSettings)
-  const [timeLeft, setTimeLeft] = useState(settings.focusTime * 60)
-  const [isRunning, setIsRunning] = useState(false)
-  const [mode, setMode] = useState('focus') // focus, shortBreak, longBreak
-  const [sessionsCompleted, setSessionsCompleted] = useState(0)
+const PomodoroTimer = () => {
   const [showSettings, setShowSettings] = useState(false)
-  const [startTime, setStartTime] = useState(null)
-
-  // Atualiza o timer quando as configurações mudam
-  useEffect(() => {
-    if (mode === 'focus') {
-      setTimeLeft(settings.focusTime * 60)
-    } else if (mode === 'shortBreak') {
-      setTimeLeft(settings.shortBreakTime * 60)
-    } else if (mode === 'longBreak') {
-      setTimeLeft(settings.longBreakTime * 60)
-    }
-  }, [settings, mode])
-
-  useEffect(() => {
-    let interval = null
-    if (isRunning && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((time) => time - 1)
-      }, 1000)
-    } else if (timeLeft === 0) {
-      // Play notification sound
-      const audio = new Audio('/notification.mp3')
-      audio.play()
-      
-      // Salva a sessão completada
-      const sessionDuration = mode === 'focus' 
-        ? settings.focusTime * 60 
-        : mode === 'shortBreak' 
-          ? settings.shortBreakTime * 60 
-          : settings.longBreakTime * 60
-
-      addSession({
-        type: mode,
-        duration: sessionDuration,
-        startedAt: startTime,
-        completedAt: new Date()
-      })
-      
-      // Switch modes
-      if (mode === 'focus') {
-        const newSessions = sessionsCompleted + 1
-        setSessionsCompleted(newSessions)
-        
-        if (newSessions % settings.sessionsUntilLongBreak === 0) {
-          setMode('longBreak')
-          setTimeLeft(settings.longBreakTime * 60)
-        } else {
-          setMode('shortBreak')
-          setTimeLeft(settings.shortBreakTime * 60)
-        }
-      } else {
-        setMode('focus')
-        setTimeLeft(settings.focusTime * 60)
-      }
-      setIsRunning(false)
-      setStartTime(null)
-    }
-
-    return () => clearInterval(interval)
-  }, [isRunning, timeLeft, mode, sessionsCompleted, settings, addSession, startTime])
-
-  const toggleTimer = () => {
-    if (!isRunning && !startTime) {
-      setStartTime(new Date())
-    }
-    setIsRunning(!isRunning)
-  }
-
-  const resetTimer = () => {
-    setIsRunning(false)
-    setMode('focus')
-    setTimeLeft(settings.focusTime * 60)
-    setSessionsCompleted(0)
-    setStartTime(null)
-  }
+  const {
+    timeLeft,
+    isRunning,
+    mode,
+    sessionsCompleted,
+    settings,
+    toggleTimer,
+    resetTimer,
+    updateSettings
+  } = useGlobalPomodoro()
 
   const handleSettingsSave = (newSettings) => {
-    setSettings(newSettings)
+    updateSettings(newSettings)
     setShowSettings(false)
-    
-    // Se o timer não estiver rodando, atualiza o tempo restante
-    if (!isRunning) {
-      if (mode === 'focus') {
-        setTimeLeft(newSettings.focusTime * 60)
-      } else if (mode === 'shortBreak') {
-        setTimeLeft(newSettings.shortBreakTime * 60)
-      } else if (mode === 'longBreak') {
-        setTimeLeft(newSettings.longBreakTime * 60)
-      }
-    }
   }
 
   const getModeIcon = () => {

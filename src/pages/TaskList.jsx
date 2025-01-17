@@ -23,7 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../components/ui/dialog'
-import { Plus, Trash2, Pencil, Loader2, Tag, X } from 'lucide-react'
+import { Plus, Trash2, Pencil, Loader2, Tag, X, Search, ChevronRight } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 // Cores predefinidas para tags
@@ -43,7 +43,7 @@ const tagColors = [
 
 export default function TaskList() {
   const { user } = useAuth()
-  const { tasks, loading, addTask, updateTask, deleteTask, toggleTaskStatus, addTagToTask, removeTagFromTask } = useTasks()
+  const { tasks, loading, addTask, updateTask, deleteTask, toggleTaskStatus } = useTasks()
   const { tags, addTag, deleteTag } = useTags()
   const [newTask, setNewTask] = useState({ 
     title: '', 
@@ -57,6 +57,11 @@ export default function TaskList() {
   const [newTagName, setNewTagName] = useState('')
   const [selectedColor, setSelectedColor] = useState(tagColors[0])
   const [error, setError] = useState(null)
+  
+  // Estados para filtros
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTags, setSelectedTags] = useState([])
+  const [selectedTaskForReading, setSelectedTaskForReading] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -133,6 +138,83 @@ export default function TaskList() {
     } catch (error) {
       setError('Erro ao deletar tag')
     }
+  }
+
+  const toggleFilterTag = (tag) => {
+    setSelectedTags(prev => {
+      const isSelected = prev.some(t => t.id === tag.id)
+      if (isSelected) {
+        return prev.filter(t => t.id !== tag.id)
+      } else {
+        return [...prev, tag]
+      }
+    })
+  }
+
+  // Filtra as tarefas baseado na busca e tags selecionadas
+  const filteredTasks = tasks.filter(task => {
+    const matchesSearch = searchQuery === '' || 
+      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.moreInfo?.toLowerCase().includes(searchQuery.toLowerCase())
+
+    const matchesTags = selectedTags.length === 0 || 
+      selectedTags.every(tag => task.tags?.some(t => t.id === tag.id))
+
+    return matchesSearch && matchesTags
+  })
+
+  // Componente para o Dialog de leitura
+  const ReadMoreDialog = ({ task, onClose }) => {
+    if (!task) return null
+
+    return (
+      <Dialog open={!!task} onOpenChange={() => onClose()}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{task.title}</DialogTitle>
+            {task.description && (
+              <DialogDescription>
+                {task.description}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {task.moreInfo && (
+              <div className="text-sm space-y-2">
+                <Label>Mais Informações</Label>
+                <div className="prose prose-sm max-w-none">
+                  {task.moreInfo.split('\n').map((paragraph, index) => (
+                    <p key={index}>{paragraph}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+            {task.tags && task.tags.length > 0 && (
+              <div className="space-y-2">
+                <Label>Tags</Label>
+                <div className="flex flex-wrap gap-1">
+                  {task.tags.map((tag) => (
+                    <Badge
+                      key={tag.id}
+                      variant="secondary"
+                      style={{ backgroundColor: tag.color }}
+                    >
+                      {tag.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onClose()}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
   }
 
   if (!user) {
@@ -337,6 +419,46 @@ export default function TaskList() {
         </Dialog>
       </div>
 
+      {/* Filtros */}
+      <div className="flex flex-col gap-4">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <Label htmlFor="search" className="sr-only">Buscar tarefas</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="search"
+                placeholder="Buscar tarefas..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+        </div>
+        
+        {/* Tags para filtro */}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => (
+              <Badge
+                key={tag.id}
+                variant={selectedTags.some(t => t.id === tag.id) ? "default" : "outline"}
+                className="cursor-pointer"
+                style={{ 
+                  backgroundColor: selectedTags.some(t => t.id === tag.id) ? tag.color : 'transparent',
+                  borderColor: tag.color,
+                  color: selectedTags.some(t => t.id === tag.id) ? 'white' : tag.color
+                }}
+                onClick={() => toggleFilterTag(tag)}
+              >
+                {tag.name}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+
       {error && (
         <div className="rounded-md bg-red-50 p-4">
           <div className="text-sm text-red-500">
@@ -346,7 +468,7 @@ export default function TaskList() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {tasks.map((task) => (
+        {filteredTasks.map((task) => (
           <Card key={task.id}>
             <CardHeader className="space-y-1">
               <div className="flex items-start justify-between">
@@ -356,11 +478,39 @@ export default function TaskList() {
                     {task.description}
                   </CardDescription>
                   {task.moreInfo && (
-                    <div className="mt-2 text-sm text-muted-foreground line-clamp-3">
-                      {task.moreInfo}
+                    <div className="space-y-2">
+                      <div className="text-sm text-muted-foreground line-clamp-3">
+                        {task.moreInfo}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        {task.tags && task.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {task.tags.map((tag) => (
+                              <Badge
+                                key={tag.id}
+                                variant="secondary"
+                                style={{ backgroundColor: tag.color }}
+                              >
+                                {tag.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {task.moreInfo.length > 150 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="ml-2 shrink-0 hover:bg-transparent hover:text-foreground"
+                            onClick={() => setSelectedTaskForReading(task)}
+                          >
+                            Ler mais
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
-                  {task.tags && task.tags.length > 0 && (
+                  {!task.moreInfo && task.tags && task.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {task.tags.map((tag) => (
                         <Badge
@@ -413,12 +563,20 @@ export default function TaskList() {
         ))}
       </div>
 
-      {tasks.length === 0 && (
+      {/* Dialog para leitura completa */}
+      <ReadMoreDialog
+        task={selectedTaskForReading}
+        onClose={() => setSelectedTaskForReading(null)}
+      />
+
+      {filteredTasks.length === 0 && (
         <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed">
           <div className="text-center">
-            <h3 className="text-lg font-medium">Nenhuma tarefa</h3>
+            <h3 className="text-lg font-medium">Nenhuma tarefa encontrada</h3>
             <p className="text-sm text-muted-foreground">
-              Comece adicionando uma nova tarefa
+              {tasks.length === 0 
+                ? "Comece adicionando uma nova tarefa"
+                : "Tente ajustar seus filtros"}
             </p>
           </div>
         </div>
