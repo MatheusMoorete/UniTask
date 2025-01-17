@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ 
+@layer base {
+  :root {
+    /* Cores principais - Tons de azul profundo e cinza */
+    --background: 220 33% 98%;
+    --foreground: 224 71% 4%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+ 
+    /* Azul universitário */
+    --primary: 215 90% 30%;
+    --primary-foreground: 210 40% 98%;
+ 
+    /* Cinza acadêmico */
+    --secondary: 215 25% 27%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --muted: 215 25% 90%;
+    --muted-foreground: 215 25% 40%;
+ 
+    /* Roxo para destaque */
+    --accent: 251 80% 42%;
+    --accent-foreground: 210 40% 98%;
+ 
+    /* Vermelho para alertas */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Verde para sucesso */
+    --success: 142 72% 29%;
+    --success-foreground: 210 40% 98%;
+ 
+    --border: 215 25% 85%;
+    --input: 215 25% 85%;
+    --ring: 215 90% 30%;
+ 
+    --radius: 0.5rem;
+  }
+ 
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 210 40% 98%;
+ 
+    --card: 224 71% 4%;
+    --card-foreground: 210 40% 98%;
+ 
+    --popover: 224 71% 4%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --primary: 215 90% 50%;
+    --primary-foreground: 224 71% 4%;
+ 
+    --secondary: 215 25% 27%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --muted: 215 25% 27%;
+    --muted-foreground: 215 25% 70%;
+ 
+    --accent: 251 80% 50%;
+    --accent-foreground: 210 40% 98%;
+ 
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142 72% 29%;
+    --success-foreground: 210 40% 98%;
+ 
+    --border: 215 25% 27%;
+    --input: 215 25% 27%;
+    --ring: 215 90% 50%;
+  }
+}
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Estilos personalizados para componentes */
+.card {
+  @apply border-l-4 shadow-md transition-shadow;
+}
+
+.button {
+  @apply font-medium tracking-wide;
+}
+
+.input {
+  @apply bg-background;
+}
+
+.progress {
+  @apply rounded-full;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-muted/50;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-primary/50 rounded-full hover:bg-primary/70 transition-colors;
+}
+
+/* Tipografia */
+h1, h2, h3, h4, h5, h6 {
+  @apply font-bold tracking-tight;
+}
+
+/* Links */
+a {
+  @apply text-primary hover:text-primary/80 transition-colors;
+}
+
+/* Gradientes */
+.gradient-border {
+  background: linear-gradient(to right, hsl(var(--primary)), hsl(var(--accent)));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+ 
+ 
