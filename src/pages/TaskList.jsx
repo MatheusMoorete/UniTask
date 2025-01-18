@@ -53,8 +53,8 @@ const tagColors = [
 
 export default function TaskList() {
   const { user } = useAuth()
-  const { tasks, loading, addTask, updateTask, deleteTask, toggleTaskStatus } = useTasks()
-  const { tags, addTag, deleteTag } = useTags()
+  const { tasks, loading, addTask, updateTask, deleteTask, toggleTaskStatus, setTasks } = useTasks()
+  const { tags, addTag, deleteTag, setTags } = useTags()
   const [newTask, setNewTask] = useState({ 
     title: '', 
     description: '', 
@@ -77,6 +77,12 @@ export default function TaskList() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
+
+    // Validar se tem pelo menos uma tag
+    if (newTask.tags.length === 0) {
+      setError('Adicione pelo menos uma tag à tarefa')
+      return
+    }
 
     try {
       if (editingTask) {
@@ -116,12 +122,19 @@ export default function TaskList() {
 
   const handleAddTag = async () => {
     if (!newTagName.trim()) return
+    
+    // Validar tamanho máximo da tag
+    if (newTagName.length > 25) {
+      setError('O nome da tag não pode ter mais de 25 caracteres')
+      return
+    }
 
     try {
       await addTag(newTagName.trim(), selectedColor)
       setNewTagName('')
       setSelectedColor(tagColors[0])
       setShowTagInput(false)
+      setError(null)
     } catch (error) {
       setError('Erro ao criar tag')
     }
@@ -144,21 +157,23 @@ export default function TaskList() {
   }
 
   const handleDeleteTag = async (tag) => {
-    // Remove tag from all tasks that have it
-    const updatedTasks = tasks.map(task => ({
-      ...task,
-      tags: task.tags.filter(t => t !== tag)
-    }))
-    
-    // Update tasks in localStorage
-    localStorage.setItem('tasks', JSON.stringify(updatedTasks))
-    setTasks(updatedTasks)
+    try {
+      // Remove tag from all tasks
+      const updatedTasks = tasks.map(task => ({
+        ...task,
+        tags: task.tags.filter(t => t.id !== tag.id)
+      }))
+      
+      // Update tasks
+      await Promise.all(updatedTasks.map(task => updateTask(task.id, task)))
 
-    // Remove tag from tags list
-    const updatedTags = tags.filter(t => t !== tag)
-    localStorage.setItem('tags', JSON.stringify(updatedTags))
-    setTags(updatedTags)
-    setTagToDelete(null)
+      // Remove tag from tags list
+      await deleteTag(tag.id)
+      setTagToDelete(null)
+    } catch (error) {
+      console.error('Erro ao deletar tag:', error)
+      setError('Houve um erro ao deletar a tag. Tente novamente.')
+    }
   }
 
   const toggleFilterTag = (tag) => {
@@ -442,8 +457,9 @@ export default function TaskList() {
                   <Input
                     value={newTagName}
                     onChange={(e) => setNewTagName(e.target.value)}
-                    placeholder="Nome da tag"
+                    placeholder="Nome da tag (max. 25 caracteres)"
                     className="flex-1"
+                    maxLength={25}
                   />
                   <Button
                     type="button"
@@ -549,20 +565,22 @@ export default function TaskList() {
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => handleEdit(task)}
+                    className="h-7 w-7"
                   >
-                    <Pencil className="h-4 w-4" />
+                    <Pencil className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => handleDelete(task.id)}
+                    className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>

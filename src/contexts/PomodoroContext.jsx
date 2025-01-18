@@ -53,9 +53,13 @@ export function PomodoroProvider({ children, defaultSettings }) {
   useEffect(() => {
     let interval = null
     if (isRunning && timeLeft > 0) {
+      const startTime = Date.now()
       interval = setInterval(() => {
-        setTimeLeft((time) => time - 1)
-      }, 1000)
+        const elapsedTime = Math.floor((Date.now() - startTime) / 1000)
+        if (elapsedTime >= 1) {
+          setTimeLeft((time) => time - 1)
+        }
+      }, 100) // Atualiza mais frequentemente para maior precisão
     } else if (timeLeft === 0 && isRunning) {
       // Play notification sound
       const audio = new Audio('/notification.mp3')
