@@ -1,5 +1,6 @@
 // Credenciais do OAuth 2.0
-const CLIENT_ID = '77261562506-6ijc21lj2gju8u33pd7hq72rpba194ma.apps.googleusercontent.com'
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
 const DISCOVERY_DOCS = [
   'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest',
   'https://www.googleapis.com/discovery/v1/apis/oauth2/v2/rest'
