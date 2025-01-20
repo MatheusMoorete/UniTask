@@ -38,3 +38,6 @@ firebase-debug.*.log
 # Google API credentials
 google-credentials.json
 client_secret*.json
+
+# Apenas permitir o exemplo
+!.env.example

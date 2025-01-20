@@ -55,81 +55,66 @@ const PomodoroTimer = () => {
   }
 
   return (
-    <div className="relative">
-      <Card className="w-[400px]">
-        <CardContent className="pt-6">
-          <div className="flex flex-col items-center gap-6">
-            {/* Settings Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowSettings(true)}
-              className="absolute right-4 top-4"
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
+    <Card className="w-full max-w-[400px] sm:w-[400px]">
+      <CardContent className="pt-6">
+        <div className="flex flex-col items-center gap-4 sm:gap-6">
+          {/* Settings Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSettings(true)}
+            className="absolute right-2 top-2 sm:right-4 sm:top-4"
+          >
+            <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+          </Button>
 
-            {/* Timer Display */}
-            <div className="relative flex items-center justify-center w-48 h-48 rounded-full border-4 border-muted">
-              <div className={`absolute inset-2 rounded-full ${getModeColor()} opacity-10`} />
-              <div className="text-4xl font-bold">{formatTime(timeLeft)}</div>
-            </div>
-
-            {/* Mode Indicator */}
-            <div className="flex items-center gap-2 text-lg font-medium">
-              {getModeIcon()}
-              <span>
-                {mode === 'focus' ? 'Tempo de Foco' : 
-                mode === 'shortBreak' ? 'Pausa Curta' : 'Pausa Longa'}
-              </span>
-            </div>
-
-            {/* Controls */}
-            <div className="flex gap-2">
-              <Button
-                size="lg"
-                onClick={toggleTimer}
-                className="w-24"
-              >
-                {isRunning ? (
-                  <Pause className="h-4 w-4 mr-2" />
-                ) : (
-                  <Play className="h-4 w-4 mr-2" />
-                )}
-                {isRunning ? 'Pausar' : 'Iniciar'}
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={resetTimer}
-                className="w-24"
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Resetar
-              </Button>
-            </div>
-
-            {/* Sessions Counter */}
-            <div className="text-sm text-muted-foreground">
-              Sessões completadas: {sessionsCompleted}
-            </div>
+          {/* Timer Display */}
+          <div className="relative flex items-center justify-center w-36 h-36 sm:w-48 sm:h-48 rounded-full border-4 border-muted">
+            <div className={`absolute inset-2 rounded-full ${getModeColor()} opacity-10`} />
+            <div className="text-3xl sm:text-4xl font-bold">{formatTime(timeLeft)}</div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Settings Dialog */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="relative">
-            <PomodoroSettings
-              settings={settings}
-              onSave={handleSettingsSave}
-              onClose={() => setShowSettings(false)}
-            />
+          {/* Mode Indicator */}
+          <div className="flex items-center gap-2 text-base sm:text-lg font-medium">
+            {getModeIcon()}
+            <span>
+              {mode === 'focus' ? 'Tempo de Foco' : 
+              mode === 'shortBreak' ? 'Pausa Curta' : 'Pausa Longa'}
+            </span>
+          </div>
+
+          {/* Controls */}
+          <div className="flex gap-2 w-full px-4 sm:px-0">
+            <Button
+              size="lg"
+              onClick={toggleTimer}
+              className="flex-1 sm:w-24"
+            >
+              {isRunning ? (
+                <Pause className="h-4 w-4 mr-2" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
+              )}
+              {isRunning ? 'Pausar' : 'Iniciar'}
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={resetTimer}
+              className="flex-1 sm:w-24"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Resetar
+            </Button>
+          </div>
+
+          {/* Sessions Counter */}
+          <div className="text-sm text-muted-foreground">
+            Sessões completadas: {sessionsCompleted}
           </div>
         </div>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 

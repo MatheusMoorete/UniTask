@@ -12,22 +12,23 @@ const priorityColors = {
 const Task = ({ task, onComplete, onDelete }) => {
   return (
     <div className={cn(
-      "group flex items-center justify-between p-4 rounded-lg border",
+      "group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border gap-4",
       task.completed && "bg-muted/50"
     )}>
-      <div className="flex items-center gap-3">
+      <div className="flex items-start sm:items-center gap-3 w-full">
         <Checkbox
           checked={task.completed}
           onCheckedChange={() => onComplete(task.id)}
+          className="mt-1 sm:mt-0"
         />
-        <div>
+        <div className="flex-1 min-w-0">
           <p className={cn(
-            "font-medium",
+            "font-medium truncate",
             task.completed && "line-through text-muted-foreground"
           )}>
             {task.title}
           </p>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex flex-wrap items-center gap-2 mt-1">
             <div className={cn(
               "flex items-center gap-1 text-xs px-2 py-0.5 rounded-full",
               priorityColors[task.priority]
@@ -44,7 +45,7 @@ const Task = ({ task, onComplete, onDelete }) => {
       <Button
         variant="ghost"
         size="icon"
-        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity ml-auto"
         onClick={() => onDelete(task.id)}
       >
         <Trash2 className="h-4 w-4 text-muted-foreground hover:text-red-500" />

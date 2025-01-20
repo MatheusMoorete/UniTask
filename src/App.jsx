@@ -11,6 +11,9 @@ import TaskList from './pages/TaskList'
 import Calendar from './pages/Calendar'
 import Pomodoro from './pages/Pomodoro'
 import Attendance from './pages/Attendance'
+import { GoogleCalendarProvider } from './contexts/GoogleCalendarContext'
+import Notebook from './pages/Notebook'
+import { CadernoVirtual } from './pages/CadernoVirtual'
 
 const defaultSettings = {
   focusTime: 25,
@@ -22,30 +25,33 @@ const defaultSettings = {
 function App() {
   return (
     <AuthProvider>
-      <PomodoroProvider defaultSettings={defaultSettings}>
-        <Routes>
-          {/* Auth Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+      <GoogleCalendarProvider>
+        <PomodoroProvider defaultSettings={defaultSettings}>
+          <Routes>
+            {/* Auth Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Protected Routes */}
-          <Route element={
-            <PrivateRoute>
-              <RootLayout />
-            </PrivateRoute>
-          }>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/tasks" element={<TaskList />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/pomodoro" element={<Pomodoro />} />
-            <Route path="/attendance" element={<Attendance />} />
-          </Route>
+            {/* Protected Routes */}
+            <Route element={
+              <PrivateRoute>
+                <RootLayout />
+              </PrivateRoute>
+            }>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/tasks" element={<TaskList />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/pomodoro" element={<Pomodoro />} />
+              <Route path="/attendance" element={<Attendance />} />
+              <Route path="/caderno-virtual" element={<CadernoVirtual />} />
+            </Route>
 
-          {/* Fallback Route */}
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </PomodoroProvider>
+            {/* Fallback Route */}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </PomodoroProvider>
+      </GoogleCalendarProvider>
     </AuthProvider>
   )
 }

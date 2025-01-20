@@ -1,2 +1,632 @@
 @import './styles/globals.css';
 @import './styles/calendar.css';
+
+/* Estilos do FullCalendar */
+.fc {
+  font-family: "Google Sans", Roboto, RobotoDraft, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 22px !important;
+  font-weight: 400 !important;
+  color: #3c4043;
+  font-family: "Google Sans", Roboto, Arial, sans-serif;
+}
+
+.fc .fc-button {
+  background-color: transparent;
+  border: 1px solid #dadce0;
+  color: #3c4043;
+  font-weight: 500;
+  text-transform: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-family: "Google Sans", Roboto, Arial, sans-serif !important;
+  font-size: 14px !important;
+}
+
+.fc .fc-button:hover {
+  background-color: #f1f3f4;
+  border-color: #dadce0;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background-color: #e8f0fe;
+  border-color: #dadce0;
+  color: #1a73e8;
+}
+
+.fc .fc-daygrid-day-number,
+.fc .fc-col-header-cell-cushion {
+  color: #3c4043;
+  text-decoration: none;
+  padding: 8px;
+}
+
+.fc .fc-daygrid-day.fc-day-today {
+  background-color: #e8f0fe;
+}
+
+.fc .fc-timegrid-slot-label {
+  font-size: 11px !important;
+  color: #70757a !important;
+  text-transform: lowercase !important;
+}
+
+.fc .fc-event {
+  border-radius: 4px;
+  border: none;
+  padding: 1px;
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  padding: 0 2px !important;
+}
+
+.fc .fc-more-popover {
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.fc .fc-daygrid-day-frame {
+  padding: 2px;
+}
+
+.fc .fc-day-other .fc-daygrid-day-number {
+  color: #70757a;
+}
+
+.fc .fc-toolbar.fc-header-toolbar {
+  margin-bottom: 1.5em;
+  padding: 0 1rem;
+}
+
+.fc .fc-view-harness {
+  background-color: white;
+}
+
+/* Estilo dos cabeçalhos dos dias */
+.fc .fc-col-header-cell {
+  padding: 4px 0;
+  background: transparent;
+  border-bottom: none;
+}
+
+.fc .fc-col-header-cell-cushion {
+  padding: 4px 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #70757a;
+  text-transform: uppercase;
+}
+
+/* Estilo para os números dos dias */
+.fc .fc-daygrid-day-number {
+  font-size: 12px;
+  color: #70757a;
+  padding: 8px;
+}
+
+/* Estilo para o dia atual */
+.fc .fc-day-today .fc-daygrid-day-number {
+  color: #1a73e8;
+  font-weight: 500;
+}
+
+/* Estilo para o título do mês/ano */
+.fc .fc-toolbar-title::first-letter {
+  text-transform: uppercase !important;
+}
+
+/* Ajuste do espaçamento da grade */
+.fc .fc-daygrid-day-frame {
+  min-height: 100px;
+}
+
+/* Estilo para dias de outros meses */
+.fc .fc-day-other {
+  background-color: #f8f9fa;
+}
+
+.fc .fc-day-other .fc-daygrid-day-top {
+  opacity: 0.7;
+}
+
+/* Ajuste do layout da semana */
+.fc .fc-daygrid-day-top {
+  flex-direction: row;
+  padding: 4px 8px 0;
+}
+
+/* Estilo para o botão "mais eventos" */
+.fc .fc-daygrid-more-link {
+  font-size: 11px !important;
+  color: #1a73e8 !important;
+  font-weight: 500 !important;
+}
+
+/* Ajuste do container de eventos */
+.fc .fc-daygrid-day-events {
+  margin-top: 2px !important;
+}
+
+/* Estilo para o indicador de hoje */
+.fc .fc-day-today {
+  background-color: #e8f0fe !important;
+}
+
+/* Ajuste do layout do cabeçalho */
+.fc .fc-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #dadce0;
+}
+
+/* Ajuste dos botões de navegação */
+.fc .fc-toolbar .fc-toolbar-chunk {
+  display: flex;
+  align-items: center;
+}
+
+/* Estilo específico para o botão Hoje */
+.fc .fc-today-button {
+  margin-right: 0.5rem !important;
+  border-radius: 4px !important;
+  font-size: 14px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  background-color: transparent !important;
+}
+
+/* Ajuste do título */
+.fc .fc-toolbar-title {
+  font-size: 22px !important;
+  font-weight: 400 !important;
+  color: #3c4043;
+  margin-left: 1rem !important;
+  text-transform: lowercase !important;
+}
+
+/* Ajuste dos botões prev/next */
+.fc .fc-prev-button,
+.fc .fc-next-button {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  background-color: transparent !important;
+  border: none !important;
+  color: #5f6368 !important;
+}
+
+/* Botões da direita (Mês, Semana, Dia) */
+.fc .fc-toolbar-chunk:last-child .fc-button {
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 8px 12px !important;
+  font-size: 14px !important;
+  height: 36px !important;
+  background-color: transparent !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.fc .fc-toolbar-chunk:last-child .fc-button:hover {
+  background-color: #f1f3f4 !important;
+  color: #3c4043 !important;
+}
+
+.fc .fc-toolbar-chunk:last-child .fc-button-active {
+  background-color: #e8f0fe !important;
+  color: #1a73e8 !important;
+}
+
+/* Remover efeito de hover que faz o texto sumir */
+.fc .fc-button:focus {
+  box-shadow: none !important;
+  color: inherit !important;
+}
+
+/* Container dos botões de navegação */
+.fc .fc-button-group {
+  display: flex;
+  gap: 0;
+}
+
+/* Ajuste do espaçamento entre os elementos do cabeçalho */
+.fc .fc-toolbar.fc-header-toolbar {
+  margin-bottom: 1em;
+  flex-wrap: wrap;
+}
+
+/* Estilo para os botões do cabeçalho */
+.fc .fc-button {
+  text-transform: none;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid #dadce0;
+  color: #3c4043;
+}
+
+/* Hover dos botões */
+.fc .fc-button:hover {
+  background-color: #f1f3f4;
+  border-color: #dadce0;
+}
+
+/* Botão ativo */
+.fc .fc-button-active {
+  background-color: #e8f0fe !important;
+  color: #1a73e8 !important;
+  border-color: #dadce0 !important;
+}
+
+/* Ajuste do container dos dias da semana */
+.fc .fc-col-header {
+  background-color: transparent;
+}
+
+/* Estilo dos nomes dos dias da semana */
+.fc .fc-col-header-cell-cushion {
+  padding: 8px 4px;
+  font-weight: 500;
+  color: #70757a;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+/* Eventos */
+.fc-event {
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  padding: 0 2px !important;
+}
+
+/* Formatação do horário nos eventos */
+.fc-event-time {
+  font-size: 11px !important;
+  text-transform: lowercase !important;
+  color: #202124 !important;
+  font-weight: 500 !important;
+  margin-right: 4px !important;
+}
+
+/* Esconder o texto "Dia Todo" */
+.fc-list-day-cushion {
+  background: none !important;
+}
+
+.fc .fc-timegrid-axis-cushion {
+  display: none !important;
+}
+
+/* Ajuste do espaçamento quando não tem horário */
+.fc-event.fc-event-all-day .fc-event-main-content {
+  padding-left: 4px !important;
+}
+
+/* Título do evento */
+.fc-event-title {
+  font-weight: 500 !important;
+  font-size: 12px !important;
+}
+
+/* Remover completamente a área de "Dia todo" */
+.fc .fc-timegrid-axis-frame {
+  display: none !important;
+}
+
+.fc .fc-timegrid-slot.fc-timegrid-slot-label {
+  display: none !important;
+}
+
+.fc .fc-timegrid-divider {
+  display: none !important;
+}
+
+/* Remover espaço extra no topo da grade de horários */
+.fc .fc-timegrid-cols table {
+  border-top: none !important;
+}
+
+/* Estilo para os cabeçalhos dos dias na visão de semana */
+.fc-timeGridWeek-view .fc-col-header-cell {
+  text-align: center;
+}
+
+.fc-timeGridWeek-view .fc-col-header-cell-cushion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.fc-timeGridWeek-view .fc-col-header-cell-cushion .fc-weekday {
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 500;
+  color: #70757a;
+}
+
+.fc-timeGridWeek-view .fc-col-header-cell-cushion .fc-date {
+  font-size: 20px;
+  font-weight: 400;
+  color: #3c4043;
+  margin-top: 4px;
+}
+
+/* Estilo para as horas na lateral */
+.fc .fc-timegrid-slot-label {
+  font-size: 11px !important;
+  color: #70757a !important;
+  vertical-align: middle;
+  text-transform: uppercase;
+}
+
+.fc .fc-timegrid-axis {
+  padding-right: 8px;
+}
+
+/* Ajuste do alinhamento vertical das horas */
+.fc .fc-timegrid-slot-label-cushion {
+  padding: 0;
+  vertical-align: middle;
+}
+
+/* Remova todos os estilos do FullCalendar e adicione: */
+
+/* Estilos do react-big-calendar */
+.rbc-calendar {
+  font-family: "Google Sans", Roboto, Arial, sans-serif;
+}
+
+.rbc-toolbar {
+  padding: 1rem;
+  margin-bottom: 0;
+  border-bottom: 1px solid #dadce0;
+}
+
+.rbc-toolbar button {
+  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #dadce0;
+  background: transparent;
+  color: #3c4043;
+  font-weight: 500;
+}
+
+.rbc-toolbar button:hover {
+  background-color: #f1f3f4;
+}
+
+.rbc-toolbar button.rbc-active {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+}
+
+.rbc-header {
+  padding: 8px;
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #70757a;
+}
+
+.rbc-event {
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 2px 4px !important;
+}
+
+.rbc-today {
+  background-color: #e8f0fe;
+}
+
+.rbc-off-range-bg {
+  background-color: #f8f9fa;
+}
+
+.rbc-time-view {
+  border: none;
+}
+
+.rbc-time-header {
+  border-bottom: 1px solid #dadce0;
+}
+
+.rbc-timeslot-group {
+  border-bottom: 1px solid #dadce0;
+}
+
+.rbc-time-gutter .rbc-timeslot-group {
+  border-bottom: none;
+}
+
+/* Estilos para os botões de navegação */
+.rbc-toolbar button {
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.rbc-toolbar .rbc-btn-group button[class*="prev"],
+.rbc-toolbar .rbc-btn-group button[class*="next"] {
+  padding: 8px 16px;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+/* Ajuste do espaçamento entre os botões */
+.rbc-toolbar .rbc-btn-group {
+  gap: 4px;
+}
+
+/* Estilo do botão ativo */
+.rbc-toolbar button.rbc-active {
+  background-color: #e8f0fe !important;
+  color: #1a73e8 !important;
+  border-color: #dadce0 !important;
+}
+
+/* Hover dos botões */
+.rbc-toolbar button:hover {
+  background-color: #f1f3f4 !important;
+  border-color: #dadce0 !important;
+}
+
+/* Ajuste do título do mês/semana */
+.rbc-toolbar-label {
+  font-size: 20px;
+  font-weight: 400;
+  color: #3c4043;
+  text-transform: capitalize;
+}
+
+/* Ajuste dos dias da semana */
+.rbc-header {
+  padding: 8px;
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #70757a;
+}
+
+/* Ajuste do formato da data nos eventos */
+.rbc-event-content {
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+/* ... mais estilos conforme necessário */
+
+/* Remova os estilos anteriores do react-big-calendar e adicione: */
+
+/* Estilos do calendário personalizado */
+.calendar-cell {
+  @apply p-3.5 bg-white border-b border-gray-200 flex flex-col min-h-[120px] transition-all duration-300 hover:bg-gray-50;
+}
+
+.calendar-cell.other-month {
+  @apply bg-gray-50/50;
+}
+
+.calendar-cell.today {
+  @apply bg-blue-50/50;
+}
+
+.calendar-date {
+  @apply text-sm font-medium text-gray-900 flex items-center justify-center w-7 h-7 rounded-full;
+}
+
+.calendar-date.other-month {
+  @apply text-gray-400;
+}
+
+.calendar-date.today {
+  @apply bg-blue-600 text-white;
+}
+
+/* Estilos para os eventos */
+.event-container {
+  @apply rounded px-2 py-1 text-xs space-y-0.5;
+}
+
+.event-title {
+  @apply font-medium text-gray-900 truncate;
+}
+
+.event-time {
+  @apply text-[10px] text-gray-600 block;
+}
+
+/* Estilos para as visualizações de semana e dia */
+.week-view-container,
+.day-view-container {
+  @apply relative overflow-y-auto;
+  height: calc(100vh - 200px);
+}
+
+.time-slot {
+  @apply relative border-t border-gray-200;
+  height: 40px;
+}
+
+.time-label {
+  @apply absolute -top-3 left-2 text-xs text-gray-500;
+}
+
+.event-block {
+  @apply absolute left-1 right-1 rounded overflow-hidden shadow-sm;
+}
+
+.event-block-content {
+  @apply p-1 text-white;
+}
+
+.event-block-title {
+  @apply text-xs font-medium truncate;
+}
+
+.event-block-time {
+  @apply text-[10px] opacity-90;
+}
+
+/* Ajustes para os cabeçalhos das visualizações */
+.week-header-cell {
+  @apply p-2 text-center border-l first:border-l-0;
+}
+
+.week-header-weekday {
+  @apply text-xs font-medium text-gray-500;
+}
+
+.week-header-date {
+  @apply text-xl mt-1 font-medium;
+}
+
+.day-header {
+  @apply p-4 border-b border-gray-200 bg-white;
+}
+
+.day-header-weekday {
+  @apply text-sm font-medium text-gray-500;
+}
+
+.day-header-date {
+  @apply text-2xl font-medium text-gray-900;
+}
+
+/* Ajuste para o scroll da grade de eventos */
+.events-grid {
+  @apply flex-1 overflow-y-auto;
+  height: calc(100% - 60px); /* Altura total menos altura do cabeçalho */
+}
+
+/* Estilos para o botão de conexão do Google Calendar */
+.google-calendar-button {
+  @apply flex items-center justify-center gap-2 px-6 py-3 rounded-lg;
+  @apply bg-[#4285f4] hover:bg-[#3367d6] text-white;
+  @apply transition-colors duration-200;
+  @apply shadow-md hover:shadow-lg;
+}
+
+.google-calendar-button img {
+  @apply w-5 h-5;
+  filter: brightness(0) invert(1);
+}
+
+.google-calendar-icon-container {
+  @apply p-4 rounded-full;
+  background-color: rgba(66, 133, 244, 0.1);
+}
+
+.google-calendar-icon {
+  @apply h-8 w-8;
+  color: #4285f4;
+}

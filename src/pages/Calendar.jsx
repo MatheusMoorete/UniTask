@@ -1,123 +1,211 @@
-import { useState, useEffect } from 'react'
-import { Calendar as CalendarIcon } from 'lucide-react'
-import GoogleCalendarConnect from '../components/calendar/GoogleCalendarConnect'
+import { useState, useMemo } from 'react'
+import { useGoogleCalendar } from '../contexts/GoogleCalendarContext'
+import { Button } from '../components/ui/button'
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Info, LogOut } from 'lucide-react'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { CreateEventDialog } from '../components/calendar/CreateEventDialog'
+import { ConnectGoogleCalendar } from '../components/calendar/ConnectGoogleCalendar'
+import { EditEventDialog } from '../components/calendar/EditEventDialog'
+import { CalendarSettings } from '../components/calendar/CalendarSettings'
+
+const WEEKDAYS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
 
 export default function Calendar() {
-  const [isConnected, setIsConnected] = useState(false)
-  const [calendarList, setCalendarList] = useState([])
+  const { 
+    isAuthenticated, 
+    loading, 
+    events,
+    handleSignOut,
+  } = useGoogleCalendar()
 
-  // Mapa de cores personalizadas para cada calendário
-  const calendarColors = {
-    'Provas 111': '#ff0000',      // Vermelho
-    'prazos!': '#ff9900',         // Laranja
-    'estudo': '#16a765',          // Verde
-    'exercício físico': '#7bd148', // Verde limão
-    'saúde': '#92e1c0',           // Turquesa
-    'pessoal': '#4986e7',         // Azul
-    'projetos': '#9a9cff',        // Roxo claro
-    'aulas teórica': '#b99aff',   // Roxo
-    'MedUfes 111': '#cd74e6',     // Magenta
-    'ambulatório': '#f691b2',     // Rosa
-    'Turma B': '#c2c2c2'          // Cinza
+  const [currentDate, setCurrentDate] = useState(new Date())
+
+  // Estado para controlar qual dia está mostrando todos os eventos
+  const [expandedDay, setExpandedDay] = useState(null)
+  const [eventToEdit, setEventToEdit] = useState(null)
+
+  // Formatação dos eventos
+  const formattedEvents = useMemo(() => {
+    return events.map(event => ({
+      id: event.id,
+      title: event.summary,
+      start: new Date(event.start.dateTime || event.start.date),
+      end: new Date(event.end.dateTime || event.end.date),
+      allDay: !event.start.dateTime,
+      color: event.calendarColor
+    }))
+  }, [events])
+
+  // Função para filtrar eventos do dia
+  const getEventsForDay = (date) => {
+    return formattedEvents.filter(event => isSameDay(event.start, date))
   }
 
-  const handleGoogleCalendarConnect = async (events, calendars) => {
-    if (calendars && calendars.length > 0) {
-      console.log('Calendários recebidos:', calendars)
-      setCalendarList(calendars)
-      setIsConnected(true)
-    }
+  const nextMonth = () => {
+    setCurrentDate(prev => new Date(prev.setMonth(prev.getMonth() + 1)))
   }
 
-  const handleDisconnect = () => {
-    setIsConnected(false)
-    setCalendarList([])
+  const prevMonth = () => {
+    setCurrentDate(prev => new Date(prev.setMonth(prev.getMonth() - 1)))
   }
 
-  // Constrói a URL do iframe com todos os calendários
-  const buildCalendarUrl = () => {
-    if (!calendarList.length) return ''
+  // Gera os dias do mês atual
+  const daysInMonth = useMemo(() => {
+    const start = startOfMonth(currentDate)
+    const end = endOfMonth(currentDate)
+    return eachDayOfInterval({ start, end })
+  }, [currentDate])
 
-    const baseUrl = 'https://calendar.google.com/calendar/embed?'
-    let url = baseUrl
-
-    // Parâmetros básicos
-    url += [
-      'wkst=1',
-      'bgcolor=%23ffffff',
-      'ctz=America/Sao_Paulo',
-      'hl=pt_BR',
-      'showTitle=0',
-      'showNav=1',
-      'showDate=1',
-      'showPrint=0',
-      'showTabs=1',
-      'showCalendars=1',
-      'showTz=0',
-      'mode=MONTH'
-    ].join('&')
-
-    // Adiciona cada calendário com sua cor personalizada
-    calendarList.forEach(calendar => {
-      const encodedId = encodeURIComponent(calendar.id)
-      url += `&src=${encodedId}`
-
-      // Usa a cor personalizada se existir, senão mantém a cor padrão
-      const customColor = calendarColors[calendar.summary]
-      if (customColor) {
-        url += `&color=${encodedId}=${customColor.replace('#', '%23')}`
-      }
-    })
-
-    console.log('URL final do calendário:', url)
-    return url
+  const goToToday = () => {
+    setCurrentDate(new Date())
   }
 
-  useEffect(() => {
-    if (calendarList.length > 0) {
-      console.log('Calendários e suas cores:', calendarList.map(cal => ({
-        summary: cal.summary,
-        customColor: calendarColors[cal.summary] || 'cor padrão'
-      })))
-    }
-  }, [calendarList])
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <ConnectGoogleCalendar />
+  }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Calendário</h2>
-          <p className="text-muted-foreground">
-            Visualize e gerencie seus eventos
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-4">
-          <GoogleCalendarConnect 
-            onConnect={handleGoogleCalendarConnect}
-            onDisconnect={handleDisconnect}
-          />
+          <button 
+            onClick={goToToday}
+            className="flex py-2 pl-1.5 pr-3 rounded-md bg-gray-50 border border-gray-300 items-center gap-1.5 text-xs font-medium text-gray-900 transition-all duration-500 hover:bg-gray-100"
+          >
+            <CalendarIcon className="h-4 w-4" />
+            Hoje
+          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={prevMonth}
+              className="text-gray-500 rounded transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 p-2"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button 
+              onClick={nextMonth}
+              className="text-gray-500 rounded transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 p-2"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <h5 className="text-xl leading-8 font-semibold text-gray-900">
+            {format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })}
+          </h5>
+        </div>
+
+        <div className="hidden md:flex items-center gap-3">
+          <CreateEventDialog />
+          <div className="flex items-center gap-2">
+            <CalendarSettings />
+            <span className="w-px h-7 bg-gray-200"></span>
+            <button 
+              onClick={handleSignOut} 
+              className="p-3 text-gray-500 hover:text-gray-900"
+              title="Sair"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 bg-background rounded-lg border shadow-sm p-4">
-        {isConnected && calendarList.length > 0 ? (
-          <iframe
-            key={calendarList.map(cal => cal.id).join(',')} // Força recarregamento ao mudar calendários
-            src={buildCalendarUrl()}
-            style={{ border: 0 }}
-            width="100%"
-            height="100%"
-            frameBorder="0"
-            scrolling="no"
-            title="Google Calendar"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            Conecte-se ao Google Calendar para visualizar seus eventos
-          </div>
-        )}
+      <div className="border border-gray-200 rounded-lg">
+        {/* Cabeçalho dos dias da semana */}
+        <div className="grid grid-cols-7 divide-x divide-gray-200 border-b border-gray-200">
+          {WEEKDAYS.map((day) => (
+            <div key={day} className="p-3.5 flex flex-col items-center">
+              <span className="text-sm font-medium text-gray-500">{day}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Grid do calendário */}
+        <div className="grid grid-cols-7 divide-x divide-gray-200">
+          {daysInMonth.map((day) => {
+            const dayEvents = getEventsForDay(day)
+            const isCurrentMonth = isSameMonth(day, currentDate)
+            const isExpanded = expandedDay === day.toISOString()
+            const eventsToShow = isExpanded ? dayEvents : dayEvents.slice(0, 2)
+            
+            return (
+              <div 
+                key={day.toISOString()}
+                className={`calendar-cell ${!isCurrentMonth ? 'other-month' : ''} ${
+                  isToday(day) ? 'today' : ''
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={`calendar-date ${!isCurrentMonth ? 'other-month' : ''} ${
+                    isToday(day) ? 'today' : ''
+                  }`}>
+                    {format(day, 'd')}
+                  </span>
+                  {dayEvents.length > 0 && (
+                    <span className="text-xs text-gray-500">
+                      {dayEvents.length === 1 ? '1 evento' : `${dayEvents.length} eventos`}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-1 space-y-1">
+                  {eventsToShow.map((event) => (
+                    <div
+                      key={event.id}
+                      className="event-container cursor-pointer hover:brightness-95"
+                      style={{
+                        borderLeftColor: event.color || '#1a73e8',
+                        backgroundColor: `${event.color}15` || '#e8f0fe'
+                      }}
+                      onClick={() => setEventToEdit(event)}
+                    >
+                      {!event.allDay && (
+                        <span className="event-time">
+                          {format(event.start, 'HH:mm')}
+                        </span>
+                      )}
+                      <div className="event-title">{event.title}</div>
+                    </div>
+                  ))}
+                  {!isExpanded && dayEvents.length > 2 && (
+                    <button 
+                      onClick={() => setExpandedDay(day.toISOString())}
+                      className="text-xs text-blue-600 hover:text-blue-800 w-full text-left"
+                    >
+                      +{dayEvents.length - 2} mais
+                    </button>
+                  )}
+                  {isExpanded && (
+                    <button 
+                      onClick={() => setExpandedDay(null)}
+                      className="text-xs text-blue-600 hover:text-blue-800 w-full text-left"
+                    >
+                      Mostrar menos
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
+
+      {/* Diálogo de edição */}
+      {eventToEdit && (
+        <EditEventDialog
+          event={eventToEdit}
+          onClose={() => setEventToEdit(null)}
+        />
+      )}
     </div>
   )
 } 

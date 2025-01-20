@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import ProgressRing from '../components/ui/progress-ring'
@@ -22,6 +22,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '../lib/utils'
 import { Input } from '../components/ui/input'
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert'
+import UpcomingDeadlines from '../components/dashboard/UpcomingDeadlines'
+import { useAuth } from '../contexts/AuthContext'
+import { NextDeadlines } from '../components/dashboard/NextDeadlines'
 
 const TaskProgress = () => {
   const { tasks } = useTasks()
@@ -55,47 +58,6 @@ const TaskProgress = () => {
             </div>
           </div>
           <ProgressRing progress={progressPercentage} size={50} />
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-const NextDeadlines = () => {
-  const { tasks } = useTasks()
-  const navigate = useNavigate()
-  
-  const upcomingTasks = tasks
-    .filter(task => !task.completed && task.dueDate)
-    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-    .slice(0, 2)
-
-  return (
-    <Card 
-      className="border-l-4 border-l-accent shadow-md hover:bg-accent/10 cursor-pointer transition-colors"
-      onClick={() => navigate('/calendar')}
-    >
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Calendar className="h-4 w-4 text-accent" />
-          Próximos Prazos
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {upcomingTasks.map((task) => (
-            <div key={task.id} className="border-l-2 border-accent/30 pl-2">
-              <p className="text-sm font-medium">{task.title}</p>
-              <p className="text-xs text-muted-foreground">
-                {new Date(task.dueDate).toLocaleDateString()}
-              </p>
-            </div>
-          ))}
-          {upcomingTasks.length === 0 && (
-            <div className="text-sm text-muted-foreground">
-              Nenhuma tarefa pendente
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
@@ -212,9 +174,20 @@ const FocusTime = () => {
 }
 
 const Dashboard = () => {
+  const { user } = useAuth()
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 420)
   const [isEditingSemester, setIsEditingSemester] = useState(false)
   const [semester, setSemester] = useState('2º Semestre 2024')
   const [tempSemester, setTempSemester] = useState(semester)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 420)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const handleSemesterEdit = () => {
     if (isEditingSemester) {
@@ -223,6 +196,46 @@ const Dashboard = () => {
     setIsEditingSemester(!isEditingSemester)
   }
 
+  // Versão mobile do dashboard
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        {/* Cards simplificados para mobile */}
+        <div className="grid grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center text-center">
+                <Brain className="h-8 w-8 text-primary mb-2" />
+                <div className="text-2xl font-bold">4h</div>
+                <p className="text-xs text-muted-foreground">Tempo Focado</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center text-center">
+                <Target className="h-8 w-8 text-primary mb-2" />
+                <div className="text-2xl font-bold">8</div>
+                <p className="text-xs text-muted-foreground">Tarefas Concluídas</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Próximos Prazos */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Próximos Prazos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <UpcomingDeadlines />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Versão desktop do dashboard (mantenha o layout original)
   return (
     <div className="h-full">
       <div className="flex items-center justify-between mb-6">

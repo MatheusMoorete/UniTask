@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, ListTodo, Calendar, Timer, GraduationCap } from 'lucide-react'
+import { LayoutDashboard, ListTodo, Calendar, Timer, GraduationCap, Book } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { icon: Calendar, label: 'Calendário', href: '/calendar' },
   { icon: Timer, label: 'Timer Pomodoro', href: '/pomodoro' },
   { icon: GraduationCap, label: 'Faltômetro', href: '/attendance' },
+  { icon: Book, label: 'Caderno Virtual', href: '/notebook' },
 ]
 
 const Sidebar = ({ className }) => {

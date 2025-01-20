@@ -1,25 +1,26 @@
+import { useState, useEffect } from 'react'
 import { Timer } from "lucide-react"
 import PomodoroTimer from '../components/pomodoro/PomodoroTimer'
 import PomodoroReport from '../components/pomodoro/PomodoroReport'
 
 const Pomodoro = () => {
+  const [showReport, setShowReport] = useState(true)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setShowReport(window.innerWidth > 640) // 640px é o breakpoint sm do Tailwind
+    }
+
+    handleResize() // Checar tamanho inicial
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Timer Pomodoro</h1>
-          <p className="text-sm text-muted-foreground">
-            Gerencie seu tempo de estudo com o método Pomodoro
-          </p>
-        </div>
-
-        <div className="flex justify-center">
-          <PomodoroTimer />
-        </div>
-      </div>
-
-      <div className="flex-1 mt-6">
-        <PomodoroReport />
+    <div className="container mx-auto p-4">
+      <div className="flex flex-col items-center gap-8">
+        <PomodoroTimer />
+        {showReport && <PomodoroReport />}
       </div>
     </div>
   )
