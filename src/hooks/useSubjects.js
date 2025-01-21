@@ -11,23 +11,51 @@ import {
   onSnapshot,
   serverTimestamp
 } from 'firebase/firestore'
-import { db } from '../lib/firebase'
+import { useFirestore } from '../contexts/FirestoreContext'
 
 export function useSubjects() {
+  const { db } = useFirestore()
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
 
   // Função auxiliar para calcular o máximo de faltas
-  const calculateMaxAbsences = (totalHours, type1Hours, type2Hours, hasMultipleTypes, maxAbsencePercentage) => {
-    // Calcula o número máximo de horas que pode faltar
-    const maxHoursAbsence = (totalHours * maxAbsencePercentage) / 100
-    
-    // Se tem dois tipos de aula, usa o maior valor de horas por aula
-    const hoursPerClass = hasMultipleTypes ? Math.max(type1Hours, type2Hours) : type1Hours
-    
-    // Converte para número de aulas e arredonda para baixo
-    return Math.floor(maxHoursAbsence / hoursPerClass)
+  const calculateMaxAbsences = (totalHours, type1Hours, type2Hours, type1HoursPerClass, type2HoursPerClass, hasMultipleTypes, maxAbsencePercentage) => {
+    try {
+      const maxAbsencePercentageNum = Number(maxAbsencePercentage)
+      
+      if (hasMultipleTypes) {
+        // Calcula separadamente para cada tipo
+        const type1TotalHours = Number(type1Hours)
+        const type2TotalHours = Number(type2Hours)
+        const type1HoursPerClassNum = Number(type1HoursPerClass)
+        const type2HoursPerClassNum = Number(type2HoursPerClass)
+        
+        // Calcula o máximo de faltas para cada tipo
+        const maxType1Hours = (type1TotalHours * maxAbsencePercentageNum) / 100
+        const maxType2Hours = (type2TotalHours * maxAbsencePercentageNum) / 100
+        
+        // Retorna objeto com máximo de faltas para cada tipo
+        return {
+          type1: Math.floor(maxType1Hours / type1HoursPerClassNum), // Número de aulas teóricas que pode faltar
+          type2: Math.floor(maxType2Hours / type2HoursPerClassNum), // Número de aulas práticas que pode faltar
+          totalHours: (maxType1Hours + maxType2Hours) // Total de horas que pode faltar
+        }
+      } else {
+        // Para matérias com apenas um tipo de aula
+        const totalHoursNum = Number(totalHours)
+        const hoursPerClassNum = Number(type1HoursPerClass)
+        const maxHoursAbsence = (totalHoursNum * maxAbsencePercentageNum) / 100
+        
+        return {
+          type1: Math.floor(maxHoursAbsence / hoursPerClassNum),
+          totalHours: maxHoursAbsence
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao calcular máximo de faltas:', error)
+      return { type1: 0, type2: 0, totalHours: 0 }
+    }
   }
 
   useEffect(() => {
@@ -64,19 +92,41 @@ export function useSubjects() {
 
   const addSubject = async (subjectData) => {
     try {
+      const totalHours = Number(subjectData.totalHours)
+      const type1Hours = Number(subjectData.type1.hours)
+      const type2Hours = subjectData.hasMultipleTypes ? Number(subjectData.type2.hours) : 0
+      const type1HoursPerClass = Number(subjectData.type1.hoursPerClass)
+      const type2HoursPerClass = subjectData.hasMultipleTypes ? Number(subjectData.type2.hoursPerClass) : 0
+      const maxAbsencePercentage = Number(subjectData.maxAbsencePercentage)
+
       const maxAbsences = calculateMaxAbsences(
-        subjectData.totalHours,
-        subjectData.type1.hours,
-        subjectData.type2.hours,
+        totalHours,
+        type1Hours,
+        type2Hours,
+        type1HoursPerClass,
+        type2HoursPerClass,
         subjectData.hasMultipleTypes,
-        subjectData.maxAbsencePercentage
+        maxAbsencePercentage
       )
       
       await addDoc(collection(db, 'subjects'), {
         ...subjectData,
+        totalHours,
+        type1: {
+          ...subjectData.type1,
+          hours: type1Hours,
+          hoursPerClass: type1HoursPerClass,
+          absences: 0,
+        },
+        type2: {
+          ...subjectData.type2,
+          hours: type2Hours,
+          hoursPerClass: type2HoursPerClass,
+          absences: 0,
+        },
+        maxAbsencePercentage,
         userId: user.uid,
         createdAt: serverTimestamp(),
-        absences: 0,
         maxAbsences
       })
     } catch (error) {
@@ -103,6 +153,8 @@ export function useSubjects() {
             updates.totalHours || currentSubject.totalHours,
             updates.type1?.hours || currentSubject.type1.hours,
             updates.type2?.hours || currentSubject.type2.hours,
+            updates.type1?.hoursPerClass || currentSubject.type1.hoursPerClass,
+            updates.type2?.hoursPerClass || currentSubject.type2.hoursPerClass,
             updates.hasMultipleTypes !== undefined ? updates.hasMultipleTypes : currentSubject.hasMultipleTypes,
             updates.maxAbsencePercentage || currentSubject.maxAbsencePercentage
           )
@@ -129,34 +181,64 @@ export function useSubjects() {
     }
   }
 
-  const addAbsence = async (subjectId) => {
+  const addAbsence = async (subjectId, type) => {
     try {
       const subject = subjects.find(s => s.id === subjectId)
       if (!subject) throw new Error('Matéria não encontrada')
-      if ((subject.absences || 0) >= subject.maxAbsences) return
 
       const subjectRef = doc(db, 'subjects', subjectId)
-      await updateDoc(subjectRef, {
-        absences: (subject.absences || 0) + 1,
-        updatedAt: serverTimestamp()
-      })
+      
+      if (subject.hasMultipleTypes) {
+        // Verifica se ainda pode faltar neste tipo de aula
+        const currentAbsences = subject[type].absences || 0
+        const maxAbsencesForType = subject.maxAbsences[type]
+        
+        if (currentAbsences >= maxAbsencesForType) return
+
+        await updateDoc(subjectRef, {
+          [`${type}.absences`]: currentAbsences + 1,
+          updatedAt: serverTimestamp()
+        })
+      } else {
+        // Para matérias com apenas um tipo
+        const currentAbsences = subject.type1.absences || 0
+        if (currentAbsences >= subject.maxAbsences.type1) return
+
+        await updateDoc(subjectRef, {
+          'type1.absences': currentAbsences + 1,
+          updatedAt: serverTimestamp()
+        })
+      }
     } catch (error) {
       console.error('Erro ao adicionar falta:', error)
       throw error
     }
   }
 
-  const removeAbsence = async (subjectId) => {
+  const removeAbsence = async (subjectId, type) => {
     try {
       const subject = subjects.find(s => s.id === subjectId)
       if (!subject) throw new Error('Matéria não encontrada')
-      if (subject.absences <= 0) return
 
       const subjectRef = doc(db, 'subjects', subjectId)
-      await updateDoc(subjectRef, {
-        absences: subject.absences - 1,
-        updatedAt: serverTimestamp()
-      })
+      
+      if (subject.hasMultipleTypes) {
+        const currentAbsences = subject[type].absences || 0
+        if (currentAbsences <= 0) return
+
+        await updateDoc(subjectRef, {
+          [`${type}.absences`]: currentAbsences - 1,
+          updatedAt: serverTimestamp()
+        })
+      } else {
+        const currentAbsences = subject.type1.absences || 0
+        if (currentAbsences <= 0) return
+
+        await updateDoc(subjectRef, {
+          'type1.absences': currentAbsences - 1,
+          updatedAt: serverTimestamp()
+        })
+      }
     } catch (error) {
       console.error('Erro ao remover falta:', error)
       throw error

@@ -3,6 +3,11 @@ import { useAuth } from './AuthContext'
 
 const GoogleCalendarContext = createContext({})
 
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/calendar.events'
+]
+
 export function GoogleCalendarProvider({ children }) {
   const { user } = useAuth()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -15,6 +20,8 @@ export function GoogleCalendarProvider({ children }) {
   const [visibleCalendars, setVisibleCalendars] = useState([])
   const [dashboardCalendars, setDashboardCalendars] = useState([])
   const [isInitialized, setIsInitialized] = useState(false)
+  const [gapiInited, setGapiInited] = useState(false)
+  const [error, setError] = useState(null)
 
   // Função para inicializar o cliente GAPI
   const initializeGapiClient = async () => {
@@ -139,7 +146,7 @@ export function GoogleCalendarProvider({ children }) {
         // Configurar cliente OAuth2 com acesso offline
         const client = window.google.accounts.oauth2.initTokenClient({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-          scope: import.meta.env.VITE_GOOGLE_CALENDAR_SCOPES,
+          scope: SCOPES.join(' '),
           prompt: 'consent',
           access_type: 'offline',
           callback: async (tokenResponse) => {

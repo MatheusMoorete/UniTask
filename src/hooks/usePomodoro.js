@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useFirestore } from '../contexts/FirestoreContext'
 import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
   collection,
   query,
   where,
@@ -9,12 +14,12 @@ import {
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore'
-import { db } from '../lib/firebase'
 
-export function usePomodoro() {
+export function usePomodoro(defaultSettings) {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
+  const { db } = useFirestore()
 
   useEffect(() => {
     if (!user) {

@@ -15,6 +15,23 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
-export const db = getFirestore(app)
 export const analytics = getAnalytics(app)
+
+let firestoreInstance = null
+
+export async function setupFirestore() {
+    if (firestoreInstance) return firestoreInstance
+
+    try {
+        firestoreInstance = getFirestore(app)
+        return firestoreInstance
+    } catch (err) {
+        console.error('Erro ao configurar Firestore:', err)
+        if (!firestoreInstance) {
+            firestoreInstance = getFirestore(app)
+        }
+        return firestoreInstance
+    }
+}
+
 export default app 

@@ -1,5 +1,6 @@
 import { format, addHours, isSameDay, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { capitalizeMonth } from '../../lib/date-utils'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 

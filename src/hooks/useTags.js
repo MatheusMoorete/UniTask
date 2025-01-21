@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useFirestore } from '../contexts/FirestoreContext'
 import {
   collection,
   query,
@@ -10,12 +11,12 @@ import {
   onSnapshot,
   serverTimestamp
 } from 'firebase/firestore'
-import { db } from '../lib/firebase'
 
 export function useTags() {
   const [tags, setTags] = useState([])
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
+  const { db } = useFirestore()
 
   useEffect(() => {
     if (!user) {

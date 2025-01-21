@@ -11,6 +11,7 @@ import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { format } from 'date-fns'
 import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
+import { capitalizeMonth } from '../../lib/date-utils'
 
 export function EditEventDialog({ event, onClose }) {
   const [editedEvent, setEditedEvent] = useState({

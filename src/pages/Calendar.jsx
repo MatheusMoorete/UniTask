@@ -8,6 +8,7 @@ import { CreateEventDialog } from '../components/calendar/CreateEventDialog'
 import { ConnectGoogleCalendar } from '../components/calendar/ConnectGoogleCalendar'
 import { EditEventDialog } from '../components/calendar/EditEventDialog'
 import { CalendarSettings } from '../components/calendar/CalendarSettings'
+import { capitalizeMonth } from '../lib/date-utils'
 
 const WEEKDAYS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
 
@@ -98,9 +99,11 @@ export default function Calendar() {
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-          <h5 className="text-xl leading-8 font-semibold text-gray-900">
-            {format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })}
-          </h5>
+          <div className="flex items-center justify-between mb-4">
+            <h5 className="text-xl leading-8 font-semibold text-gray-900">
+              {capitalizeMonth(currentDate)} de {format(currentDate, 'yyyy')}
+            </h5>
+          </div>
         </div>
 
         <div className="hidden md:flex items-center gap-3">

@@ -1,5 +1,6 @@
 import { format, isSameMonth, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { capitalizeMonth } from '../../lib/date-utils'
 
 export function MonthView({ currentDate, daysInMonth, getEventsForDay }) {
   return (

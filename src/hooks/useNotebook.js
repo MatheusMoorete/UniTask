@@ -1,20 +1,25 @@
 import { useState, useEffect } from 'react'
-import { db } from '../config/firebase'
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  orderBy, 
-  getDocs,
-  doc,
-  updateDoc,
-  deleteDoc
-} from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
+import { useFirestore } from '../contexts/FirestoreContext'
+import {
+  collection,
+  query,
+  where,
+  addDoc,
+  deleteDoc,
+  updateDoc,
+  doc,
+  onSnapshot,
+  serverTimestamp
+} from 'firebase/firestore'
+import { 
+  orderBy, 
+  getDocs
+} from 'firebase/firestore'
 
 export function useNotebook() {
   const { user } = useAuth()
+  const { db } = useFirestore()
   const [notes, setNotes] = useState([])
   const [topics, setTopics] = useState([])
   const [loading, setLoading] = useState(true)

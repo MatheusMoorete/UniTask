@@ -9,22 +9,11 @@ export function NextDeadlines() {
   const { events, isAuthenticated, dashboardCalendars } = useGoogleCalendar()
   const navigate = useNavigate()
 
-  console.log('Debug NextDeadlines:', {
-    totalEvents: events.length,
-    dashboardCalendars,
-    filteredEvents: events.filter(event => dashboardCalendars.includes(event.calendarId)).length
-  })
-
   // Filtra e ordena os próximos eventos (próximos 7 dias)
   const upcomingEvents = events
     .filter(event => {
       // Primeiro verifica se o calendário do evento está visível no dashboard
       if (!dashboardCalendars.includes(event.calendarId)) {
-        console.log('Evento filtrado:', {
-          eventId: event.id,
-          calendarId: event.calendarId,
-          dashboardCalendars
-        })
         return false
       }
 

@@ -33,11 +33,14 @@ export default function Attendance() {
     type1: {
       name: 'Teórica',
       hours: '',
+      hoursPerClass: '',
     },
     type2: {
       name: 'Prática',
       hours: '',
-    }
+      hoursPerClass: '',
+    },
+    maxAbsencePercentage: ''
   })
   const [editingSubject, setEditingSubject] = useState(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -47,61 +50,87 @@ export default function Attendance() {
     e.preventDefault()
     setError(null)
 
-    // Validação dos campos
-    const formData = {
-      ...newSubject,
-      totalHours: parseInt(newSubject.totalHours),
-      type1: {
-        ...newSubject.type1,
-        hours: parseInt(newSubject.type1.hours) || 0
-      },
-      type2: {
-        ...newSubject.type2,
-        hours: parseInt(newSubject.type2.hours) || 0
-      }
-    }
-
-    if (formData.totalHours <= 0) {
-      setError('A carga horária total deve ser maior que zero')
-      return
-    }
-
-    if (formData.hasMultipleTypes) {
-      if (!formData.type1.hours || !formData.type2.hours) {
-        setError('Informe a carga horária para ambos os tipos de aula')
-        return
-      }
-      if (formData.type1.hours <= 0 || formData.type2.hours <= 0) {
-        setError('A carga horária por aula deve ser maior que zero')
-        return
-      }
-    } else {
-      if (!formData.type1.hours) {
-        setError('Informe a carga horária por aula')
-        return
-      }
-      if (formData.type1.hours <= 0) {
-        setError('A carga horária por aula deve ser maior que zero')
-        return
-      }
-    }
-
-    if (!formData.maxAbsencePercentage) {
-      setError('Informe a porcentagem máxima de faltas')
-      return
-    }
-
-    if (formData.maxAbsencePercentage <= 0 || formData.maxAbsencePercentage > 100) {
-      setError('A porcentagem máxima de faltas deve estar entre 1 e 100')
-      return
-    }
-
     try {
+      // Validação dos campos
+      const formData = {
+        ...newSubject,
+        type1: {
+          ...newSubject.type1,
+          hours: parseInt(newSubject.type1.hours) || 0
+        },
+        type2: {
+          ...newSubject.type2,
+          hours: parseInt(newSubject.type2.hours) || 0
+        }
+      }
+
+      // Se tem dois tipos de aula
+      if (formData.hasMultipleTypes) {
+        // Valida campos dos dois tipos
+        if (!formData.type1.hours || !formData.type2.hours || 
+            !formData.type1.hoursPerClass || !formData.type2.hoursPerClass) {
+          setError('Preencha todos os campos de carga horária')
+          return
+        }
+        if (formData.type1.hours <= 0 || formData.type2.hours <= 0 ||
+            formData.type1.hoursPerClass <= 0 || formData.type2.hoursPerClass <= 0) {
+          setError('As cargas horárias devem ser maiores que zero')
+          return
+        }
+        // Valida se as horas por aula são compatíveis com o total
+        if (formData.type1.hoursPerClass > formData.type1.hours ||
+            formData.type2.hoursPerClass > formData.type2.hours) {
+          setError('As horas por aula não podem ser maiores que a carga horária total')
+          return
+        }
+        // Calcula a carga horária total
+        formData.totalHours = Number(formData.type1.hours) + Number(formData.type2.hours)
+      } else {
+        // Valida campos para tipo único
+        if (!formData.totalHours) {
+          setError('Informe a carga horária total')
+          return
+        }
+        if (formData.totalHours <= 0) {
+          setError('A carga horária total deve ser maior que zero')
+          return
+        }
+        if (!formData.type1.hoursPerClass) {
+          setError('Informe a carga horária por aula')
+          return
+        }
+        if (formData.type1.hoursPerClass <= 0) {
+          setError('A carga horária por aula deve ser maior que zero')
+          return
+        }
+        // Valida se a carga horária por aula é compatível com o total
+        if (formData.type1.hoursPerClass > formData.totalHours) {
+          setError('A carga horária por aula não pode ser maior que a carga horária total')
+          return
+        }
+        // Define a carga horária total do tipo1 igual à carga horária total
+        formData.type1.hours = formData.totalHours
+      }
+
+      // Validação da porcentagem de faltas
+      if (!formData.maxAbsencePercentage) {
+        setError('Informe a porcentagem máxima de faltas')
+        return
+      }
+
+      if (formData.maxAbsencePercentage <= 0 || formData.maxAbsencePercentage > 100) {
+        setError('A porcentagem máxima de faltas deve estar entre 1 e 100')
+        return
+      }
+
+      // Salva os dados
       if (editingSubject) {
         await updateSubject(editingSubject.id, formData)
       } else {
         await addSubject(formData)
       }
+
+      // Reseta o formulário
       setNewSubject({
         name: '',
         totalHours: '',
@@ -109,10 +138,12 @@ export default function Attendance() {
         type1: {
           name: 'Teórica',
           hours: '',
+          hoursPerClass: '',
         },
         type2: {
           name: 'Prática',
           hours: '',
+          hoursPerClass: '',
         },
         maxAbsencePercentage: ''
       })
@@ -133,10 +164,12 @@ export default function Attendance() {
       type1: {
         name: subject.type1?.name || 'Teórica',
         hours: subject.type1?.hours?.toString() || '',
+        hoursPerClass: subject.type1?.hoursPerClass?.toString() || '',
       },
       type2: {
         name: subject.type2?.name || 'Prática',
         hours: subject.type2?.hours?.toString() || '',
+        hoursPerClass: subject.type2?.hoursPerClass?.toString() || '',
       },
       maxAbsencePercentage: subject.maxAbsencePercentage.toString()
     })
@@ -200,26 +233,17 @@ export default function Attendance() {
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="totalHours">Carga Horária Total (horas)</Label>
-                  <Input
-                    id="totalHours"
-                    type="number"
-                    value={newSubject.totalHours}
-                    onChange={(e) =>
-                      setNewSubject((prev) => ({ ...prev, totalHours: e.target.value }))
-                    }
-                    placeholder="Ex: 60"
-                    required
-                  />
-                </div>
 
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="hasMultipleTypes"
                     checked={newSubject.hasMultipleTypes}
                     onCheckedChange={(checked) =>
-                      setNewSubject((prev) => ({ ...prev, hasMultipleTypes: checked }))
+                      setNewSubject((prev) => ({ 
+                        ...prev, 
+                        hasMultipleTypes: checked,
+                        totalHours: checked ? '' : prev.totalHours
+                      }))
                     }
                   />
                   <label
@@ -230,13 +254,11 @@ export default function Attendance() {
                   </label>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>
-                      {newSubject.hasMultipleTypes ? "Aulas Teóricas" : "Horas por Aula"}
-                    </Label>
-                    <div className="flex gap-2">
-                      {newSubject.hasMultipleTypes && (
+                {newSubject.hasMultipleTypes ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Aulas Teóricas</Label>
+                      <div className="grid grid-cols-3 gap-2">
                         <Input
                           value={newSubject.type1.name}
                           onChange={(e) =>
@@ -246,29 +268,40 @@ export default function Attendance() {
                             }))
                           }
                           placeholder="Nome do tipo"
-                          className="w-1/2"
+                          className="col-span-1"
                         />
-                      )}
-                      <Input
-                        type="number"
-                        value={newSubject.type1.hours}
-                        onChange={(e) =>
-                          setNewSubject((prev) => ({
-                            ...prev,
-                            type1: { ...prev.type1, hours: e.target.value }
-                          }))
-                        }
-                        placeholder="Horas"
-                        className={newSubject.hasMultipleTypes ? "w-1/2" : "w-full"}
-                        required
-                      />
+                        <Input
+                          type="number"
+                          value={newSubject.type1.hours}
+                          onChange={(e) =>
+                            setNewSubject((prev) => ({
+                              ...prev,
+                              type1: { ...prev.type1, hours: e.target.value }
+                            }))
+                          }
+                          placeholder="Carga horária total"
+                          className="col-span-1"
+                          required
+                        />
+                        <Input
+                          type="number"
+                          value={newSubject.type1.hoursPerClass}
+                          onChange={(e) =>
+                            setNewSubject((prev) => ({
+                              ...prev,
+                              type1: { ...prev.type1, hoursPerClass: e.target.value }
+                            }))
+                          }
+                          placeholder="Horas por aula"
+                          className="col-span-1"
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  {newSubject.hasMultipleTypes && (
                     <div className="space-y-2">
                       <Label>Aulas Práticas</Label>
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <Input
                           value={newSubject.type2.name}
                           onChange={(e) =>
@@ -278,7 +311,7 @@ export default function Attendance() {
                             }))
                           }
                           placeholder="Nome do tipo"
-                          className="w-1/2"
+                          className="col-span-1"
                         />
                         <Input
                           type="number"
@@ -289,14 +322,57 @@ export default function Attendance() {
                               type2: { ...prev.type2, hours: e.target.value }
                             }))
                           }
-                          placeholder="Horas"
-                          className="w-1/2"
+                          placeholder="Carga horária total"
+                          className="col-span-1"
+                          required
+                        />
+                        <Input
+                          type="number"
+                          value={newSubject.type2.hoursPerClass}
+                          onChange={(e) =>
+                            setNewSubject((prev) => ({
+                              ...prev,
+                              type2: { ...prev.type2, hoursPerClass: e.target.value }
+                            }))
+                          }
+                          placeholder="Horas por aula"
+                          className="col-span-1"
                           required
                         />
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="totalHours">Carga Horária Total (horas)</Label>
+                    <Input
+                      id="totalHours"
+                      type="number"
+                      value={newSubject.totalHours}
+                      onChange={(e) =>
+                        setNewSubject((prev) => ({ ...prev, totalHours: e.target.value }))
+                      }
+                      placeholder="Ex: 60"
+                      required
+                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="type1Hours">Horas por Aula</Label>
+                      <Input
+                        id="type1Hours"
+                        type="number"
+                        value={newSubject.type1.hoursPerClass}
+                        onChange={(e) =>
+                          setNewSubject((prev) => ({
+                            ...prev,
+                            type1: { ...prev.type1, hoursPerClass: e.target.value }
+                          }))
+                        }
+                        placeholder="Ex: 2"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="maxAbsencePercentage">Porcentagem Máxima de Faltas (%)</Label>
@@ -347,11 +423,11 @@ export default function Attendance() {
                     {subject.totalHours}h • 
                     {subject.hasMultipleTypes ? (
                       <>
-                        {subject.type1.name}: {subject.type1.hours}h, 
-                        {subject.type2.name}: {subject.type2.hours}h
+                        {subject.type1?.name || 'Teórica'}: {subject.type1?.hours || 0}h, 
+                        {subject.type2?.name || 'Prática'}: {subject.type2?.hours || 0}h
                       </>
                     ) : (
-                      `${subject.type1.hours}h por aula`
+                      `${subject.type1?.hours || 0}h por aula`
                     )}
                   </CardDescription>
                 </div>
@@ -374,37 +450,100 @@ export default function Attendance() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Faltas: {subject.absences || 0} aulas ({(subject.absences || 0) * (subject.hasMultipleTypes ? Math.max(subject.type1.hours, subject.type2.hours) : subject.type1.hours)}h)</span>
-                  <span>Máximo: {subject.maxAbsences} aulas ({subject.maxAbsences * (subject.hasMultipleTypes ? Math.max(subject.type1.hours, subject.type2.hours) : subject.type1.hours)}h)</span>
+              {subject.hasMultipleTypes ? (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Faltas Teóricas: {subject.type1.absences || 0} aulas ({(subject.type1.absences || 0) * subject.type1.hoursPerClass}h)</span>
+                      <span>Máximo: {subject.maxAbsences.type1} aulas ({subject.maxAbsences.type1 * subject.type1.hoursPerClass}h)</span>
+                    </div>
+                    <Progress
+                      value={(subject.type1.absences || 0) / subject.maxAbsences.type1 * 100}
+                      className="h-2"
+                    />
+                    <div className="flex justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => removeAbsence(subject.id, 'type1')}
+                        disabled={!subject.type1.absences}
+                      >
+                        <MinusCircle className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => addAbsence(subject.id, 'type1')}
+                        disabled={subject.type1.absences >= subject.maxAbsences.type1}
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Faltas Práticas: {subject.type2.absences || 0} aulas ({(subject.type2.absences || 0) * subject.type2.hoursPerClass}h)</span>
+                      <span>Máximo: {subject.maxAbsences.type2} aulas ({subject.maxAbsences.type2 * subject.type2.hoursPerClass}h)</span>
+                    </div>
+                    <Progress
+                      value={(subject.type2.absences || 0) / subject.maxAbsences.type2 * 100}
+                      className="h-2"
+                    />
+                    <div className="flex justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => removeAbsence(subject.id, 'type2')}
+                        disabled={!subject.type2.absences}
+                      >
+                        <MinusCircle className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => addAbsence(subject.id, 'type2')}
+                        disabled={subject.type2.absences >= subject.maxAbsences.type2}
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground border-t pt-2">
+                    <p>Total de faltas: {((subject.type1.absences || 0) * subject.type1.hoursPerClass) + ((subject.type2.absences || 0) * subject.type2.hoursPerClass)}h de {subject.maxAbsences.totalHours}h permitidas</p>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Faltas: {subject.type1.absences || 0} aulas ({(subject.type1.absences || 0) * subject.type1.hoursPerClass}h)</span>
+                    <span>Máximo: {subject.maxAbsences.type1} aulas ({subject.maxAbsences.type1 * subject.type1.hoursPerClass}h)</span>
+                  </div>
+                  <Progress
+                    value={(subject.type1.absences || 0) / subject.maxAbsences.type1 * 100}
+                    className="h-2"
+                  />
+                  <div className="flex justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => removeAbsence(subject.id, 'type1')}
+                      disabled={!subject.type1.absences}
+                    >
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => addAbsence(subject.id, 'type1')}
+                      disabled={subject.type1.absences >= subject.maxAbsences.type1}
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <Progress
-                  value={(subject.absences || 0) / subject.maxAbsences * 100}
-                  className="h-2"
-                />
-                <div className="text-xs text-muted-foreground">
-                  Ainda pode faltar {Math.max(0, subject.maxAbsences - (subject.absences || 0))} aulas ({Math.max(0, (subject.maxAbsences - (subject.absences || 0)) * (subject.hasMultipleTypes ? Math.max(subject.type1.hours, subject.type2.hours) : subject.type1.hours))}h)
-                </div>
-              </div>
-              <div className="flex justify-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => removeAbsence(subject.id)}
-                  disabled={!subject.absences}
-                >
-                  <MinusCircle className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => addAbsence(subject.id)}
-                  disabled={subject.absences >= subject.maxAbsences}
-                >
-                  <PlusCircle className="h-4 w-4" />
-                </Button>
-              </div>
+              )}
             </CardContent>
           </Card>
         ))}

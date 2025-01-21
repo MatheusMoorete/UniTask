@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { usePomodoro } from '../hooks/usePomodoro'
+import { useFirestore } from './FirestoreContext'
 
 const PomodoroContext = createContext({})
 
@@ -27,6 +28,7 @@ const loadInitialState = (defaultSettings) => {
 }
 
 export function PomodoroProvider({ children, defaultSettings }) {
+  const { db } = useFirestore()
   const initialState = loadInitialState(defaultSettings)
   const [timeLeft, setTimeLeft] = useState(initialState.timeLeft)
   const [isRunning, setIsRunning] = useState(initialState.isRunning)

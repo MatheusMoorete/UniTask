@@ -1,5 +1,6 @@
 import { format, addHours, startOfWeek, addDays, isSameDay, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { capitalizeMonth } from '../../lib/date-utils'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 
@@ -110,6 +111,10 @@ export function WeekView({ currentDate, events }) {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="text-lg font-semibold">
+        {capitalizeMonth(startOfWeek)} {format(startOfWeek, 'yyyy')}
       </div>
     </div>
   )
