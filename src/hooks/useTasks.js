@@ -11,7 +11,8 @@ import {
   updateDoc,
   doc,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  limit
 } from 'firebase/firestore'
 
 export function useTasks() {
@@ -28,37 +29,51 @@ export function useTasks() {
     }
 
     try {
-      const q = query(
+      const tasksQuery = query(
         collection(db, 'tasks'),
         where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        limit(100)
       )
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const tasksData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }))
-        setTasks(tasksData)
-        setLoading(false)
-      })
+      const unsubscribe = onSnapshot(tasksQuery, 
+        (snapshot) => {
+          const tasksData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate() || new Date(),
+            updatedAt: doc.data().updatedAt?.toDate() || new Date()
+          }))
+          setTasks(tasksData)
+          setLoading(false)
+        },
+        (error) => {
+          console.error('Erro ao carregar tarefas:', error)
+          setLoading(false)
+        }
+      )
 
       return () => unsubscribe()
     } catch (error) {
-      console.error('Erro ao carregar tarefas:', error)
+      console.error('Erro ao configurar listener de tarefas:', error)
       setLoading(false)
     }
   }, [user, db])
 
   const addTask = async (taskData) => {
     try {
-      await addDoc(collection(db, 'tasks'), {
-        ...taskData,
+      const newTask = {
+        title: taskData.title.trim(),
+        description: taskData.description || '',
+        moreInfo: taskData.moreInfo || '',
+        tags: taskData.tags || [],
+        completed: false,
         userId: user.uid,
         createdAt: serverTimestamp(),
-        completed: false,
-        tags: taskData.tags || []
-      })
+        updatedAt: serverTimestamp()
+      }
+      
+      await addDoc(collection(db, 'tasks'), newTask)
     } catch (error) {
       console.error('Erro ao adicionar tarefa:', error)
       throw error
