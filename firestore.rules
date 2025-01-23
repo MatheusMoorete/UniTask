@@ -23,25 +23,20 @@ service cloud.firestore {
       function isValidTask() {
         let incoming = request.resource.data;
         return incoming.title is string
-          && incoming.description is string
-          && incoming.moreInfo is string
-          && incoming.completed is bool
-          && incoming.userId is string
+          && incoming.userId == request.auth.uid
           && incoming.columnId is string
-          && incoming.position is number
-          && isValidDate(incoming.createdAt)
-          && isValidDate(incoming.updatedAt)
-          && incoming.tags is list;
+          && incoming.position is number;
       }
 
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() 
-        && request.resource.data.userId == request.auth.uid
-        && isValidTask();
-      allow update: if isAuthenticated() 
-        && resource.data.userId == request.auth.uid
-        && isValidTask();
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
+      allow create: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null 
+        && resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null 
+        && resource.data.userId == request.auth.uid;
     }
     
     match /subjects/{subjectId} {
@@ -193,8 +188,8 @@ service cloud.firestore {
         return incoming.title is string
           && incoming.userId is string
           && incoming.position is number
-          && isValidDate(incoming.createdAt)
-          && isValidDate(incoming.updatedAt);
+          && (incoming.createdAt == null || isValidDate(incoming.createdAt))
+          && (incoming.updatedAt == null || isValidDate(incoming.updatedAt));
       }
 
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
@@ -203,7 +198,12 @@ service cloud.firestore {
         && isValidColumn();
       allow update: if isAuthenticated() 
         && resource.data.userId == request.auth.uid
-        && isValidColumn();
+        && (
+          // Permite atualização parcial para reordenação
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['position', 'updatedAt', 'title'])
+          || isValidColumn() // Ou validação completa para outras atualizações
+        );
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
   }

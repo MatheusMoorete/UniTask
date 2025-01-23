@@ -66,7 +66,6 @@ export function useTasks() {
         title: taskData.title.trim(),
         description: taskData.description || '',
         moreInfo: taskData.moreInfo || '',
-        tags: taskData.tags || [],
         completed: false,
         userId: user.uid,
         createdAt: serverTimestamp(),
@@ -83,8 +82,10 @@ export function useTasks() {
   const updateTask = async (taskId, updates) => {
     try {
       const taskRef = doc(db, 'tasks', taskId)
+      const { tags, ...updateData } = updates
+      
       await updateDoc(taskRef, {
-        ...updates,
+        ...updateData,
         updatedAt: serverTimestamp()
       })
     } catch (error) {
@@ -116,48 +117,12 @@ export function useTasks() {
     }
   }
 
-  const addTagToTask = async (taskId, tag) => {
-    try {
-      const taskRef = doc(db, 'tasks', taskId)
-      const task = tasks.find(t => t.id === taskId)
-      const currentTags = task.tags || []
-      
-      if (!currentTags.some(t => t.id === tag.id)) {
-        await updateDoc(taskRef, {
-          tags: [...currentTags, tag],
-          updatedAt: serverTimestamp()
-        })
-      }
-    } catch (error) {
-      console.error('Erro ao adicionar tag à tarefa:', error)
-      throw error
-    }
-  }
-
-  const removeTagFromTask = async (taskId, tagId) => {
-    try {
-      const taskRef = doc(db, 'tasks', taskId)
-      const task = tasks.find(t => t.id === taskId)
-      const currentTags = task.tags || []
-      
-      await updateDoc(taskRef, {
-        tags: currentTags.filter(tag => tag.id !== tagId),
-        updatedAt: serverTimestamp()
-      })
-    } catch (error) {
-      console.error('Erro ao remover tag da tarefa:', error)
-      throw error
-    }
-  }
-
   return {
     tasks,
     loading,
     addTask,
     updateTask,
     deleteTask,
-    toggleTaskStatus,
-    addTagToTask,
-    removeTagFromTask
+    toggleTaskStatus
   }
 } 

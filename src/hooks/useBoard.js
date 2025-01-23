@@ -13,6 +13,7 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  getDoc,
 } from 'firebase/firestore'
 
 export function useBoard() {
@@ -24,6 +25,7 @@ export function useBoard() {
 
   // Carregar colunas e tarefas
   useEffect(() => {
+    console.log('User auth state:', user);
     if (!user) {
       setColumns([])
       setTasks([])
@@ -136,41 +138,50 @@ export function useBoard() {
   }
 
   // Adicionar tarefa
-  const addTask = async (columnId, taskData) => {
+  const addTask = async (taskData) => {
     try {
-      const columnTasks = tasks.filter(task => task.columnId === columnId)
+      if (!user?.uid) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const columnTasks = tasks.filter(task => task.columnId === taskData.columnId)
       const lastTask = columnTasks[columnTasks.length - 1]
       const position = lastTask ? lastTask.position + 1000 : 1000
 
       const newTask = {
-        title: taskData.title.trim(),
-        description: taskData.description?.trim() || '',
-        moreInfo: taskData.moreInfo?.trim() || '',
-        tags: taskData.tags || [],
-        columnId,
-        position,
-        completed: false,
-        userId: user.uid,
+        title: String(taskData?.title || '').trim(),
+        description: String(taskData?.description || '').trim(),
+        moreInfo: String(taskData?.moreInfo || '').trim(),
+        priority: String(taskData?.priority || 'média'),
+        columnId: String(taskData?.columnId || 'todo'),
+        position: Number(position),
+        completed: Boolean(false),
+        userId: String(user.uid),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       }
 
-      await addDoc(collection(db, 'tasks'), newTask)
+      const docRef = await addDoc(collection(db, 'tasks'), newTask);
+      return docRef.id;
     } catch (error) {
-      console.error('Erro ao adicionar tarefa:', error)
-      throw error
+      console.error('Erro ao adicionar tarefa:', error);
+      throw error;
     }
   }
 
-  // Mover tarefa
+  // Mover tarefa - versão minimalista
   const moveTask = async (taskId, sourceColumnId, destinationColumnId, newPosition) => {
     try {
       const taskRef = doc(db, 'tasks', taskId)
-      await updateDoc(taskRef, {
+      
+      // Atualizar apenas os campos necessários para a movimentação
+      const updateData = {
         columnId: destinationColumnId,
         position: newPosition,
         updatedAt: serverTimestamp()
-      })
+      }
+
+      await updateDoc(taskRef, updateData)
     } catch (error) {
       console.error('Erro ao mover tarefa:', error)
       throw error
@@ -197,6 +208,29 @@ export function useBoard() {
     }
   }
 
+  // Adicione esta função no useBoard
+  const updateTask = async (taskId, updates) => {
+    try {
+      const taskRef = doc(db, 'tasks', taskId)
+      
+      // Remover campos que não devem ser atualizados
+      const { id, createdAt, ...updateData } = updates
+
+      await updateDoc(taskRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      })
+    } catch (error) {
+      console.error('Erro ao atualizar tarefa:', error)
+      throw error
+    }
+  }
+
+  const deleteTask = async (taskId) => {
+    const taskRef = doc(db, 'tasks', taskId)
+    await deleteDoc(taskRef)
+  }
+
   return {
     columns,
     tasks,
@@ -206,6 +240,8 @@ export function useBoard() {
     deleteColumn,
     addTask,
     moveTask,
-    reorderColumns
+    updateTask,
+    reorderColumns,
+    deleteTask,
   }
 } 

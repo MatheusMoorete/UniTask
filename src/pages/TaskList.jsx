@@ -67,6 +67,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu"
+import { useTaskBoard } from '../contexts/BoardContext'
+import { BoardHeader } from '../components/tasks/BoardHeader'
+import { BoardColumn } from '../components/tasks/BoardColumn'
+import { useDragAndDrop } from '../hooks/useDragAndDrop'
+import { DragPreview } from '../components/tasks/DragPreview'
+import { motion, AnimatePresence } from "framer-motion"
 
 // Cores predefinidas para tags
 const tagColors = [
@@ -83,78 +89,11 @@ const tagColors = [
   '#64748b', // Cinza Azulado
 ]
 
-// Componente para tornar o cartão arrastável
-const SortableTaskCard = ({ task, onEdit }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ 
-    id: task.id,
-    transition: {
-      duration: 200,
-      easing: 'cubic-bezier(0.25, 1, 0.5, 1)'
-    }
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.3 : 1,
-    cursor: 'move',
-    position: 'relative',
-    zIndex: isDragging ? 1 : 0
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-    >
-      <Card>
-        <CardHeader className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <CardTitle className="text-base">
-                {task.title}
-              </CardTitle>
-              {task.description && (
-                <CardDescription>
-                  {task.description}
-                </CardDescription>
-              )}
-              {task.tags && task.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {task.tags.map((tag) => (
-                    <Badge
-                      key={tag.id}
-                      variant="secondary"
-                      style={{ backgroundColor: tag.color }}
-                    >
-                      {tag.name}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onEdit(task)}
-              className="h-6 w-6"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardHeader>
-      </Card>
-    </div>
-  )
+// Função auxiliar para garantir que o valor seja uma string
+const getTagName = (tag) => {
+  if (typeof tag === 'string') return tag
+  if (typeof tag.name === 'string') return tag.name
+  return ''
 }
 
 // Componente para tornar a coluna arrastável
@@ -279,11 +218,29 @@ const SortableColumn = ({ column, children, onEdit, onDelete, filteredTasks, set
           >
             {columnTasks.length > 0 ? (
               columnTasks.map((task) => (
-                <SortableTaskCard
-                  key={task.id}
-                  task={task}
-                  onEdit={handleEdit}
-                />
+                <div key={task.id} className="mb-2">
+                  <Card>
+                    <CardHeader className="p-4">
+                      <CardTitle className="text-base">{task.title}</CardTitle>
+                      {task.description && (
+                        <CardDescription>{task.description}</CardDescription>
+                      )}
+                      {task.tags && task.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {task.tags.map((tag) => (
+                            <Badge
+                              key={tag.id}
+                              variant="secondary"
+                              style={{ backgroundColor: tag.color }}
+                            >
+                              {getTagName(tag)}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </CardHeader>
+                  </Card>
+                </div>
               ))
             ) : (
               <div
@@ -327,7 +284,19 @@ const SortableColumn = ({ column, children, onEdit, onDelete, filteredTasks, set
 export default function TaskList() {
   const { user } = useAuth()
   const { isAuthenticated } = useGoogleCalendar()
-  const { columns, tasks, loading, addColumn, updateColumn, deleteColumn, addTask, moveTask, reorderColumns } = useBoard()
+  const { 
+    columns, 
+    tasks, 
+    loading, 
+    addColumn, 
+    updateColumn, 
+    deleteColumn, 
+    addTask, 
+    moveTask, 
+    updateTask,
+    deleteTask,
+    reorderColumns,
+  } = useBoard()
   const { tags, addTag, deleteTag, setTags } = useTags()
   const [newTask, setNewTask] = useState({ 
     title: '', 
@@ -352,6 +321,7 @@ export default function TaskList() {
   const [scrollPosition, setScrollPosition] = useState(0)
   const boardRef = useRef(null)
   const [draggedColumnId, setDraggedColumnId] = useState(null)
+  const [isColumnDialogOpen, setIsColumnDialogOpen] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -365,19 +335,19 @@ export default function TaskList() {
     setError(null)
 
     // Validar campos obrigatórios
-    if (!newTask.title?.trim()) {
+    if (!newTask?.title?.trim()) {
       setError('O título da tarefa é obrigatório')
       return
     }
 
     // Validar se tem pelo menos uma tag
-    if (newTask.tags.length === 0) {
+    if (!newTask?.tags?.length) {
       setError('Adicione pelo menos uma tag à tarefa')
       return
     }
 
     // Validar se uma coluna foi selecionada
-    if (!newTask.columnId) {
+    if (!newTask?.columnId) {
       setError('Selecione uma coluna para a tarefa')
       return
     }
@@ -387,13 +357,14 @@ export default function TaskList() {
         title: newTask.title.trim(),
         description: newTask.description?.trim() || '',
         moreInfo: newTask.moreInfo?.trim() || '',
-        tags: newTask.tags || []
+        tags: newTask.tags || [],
+        columnId: newTask.columnId
       }
 
       if (editingTask) {
         await updateTask(editingTask.id, taskData)
       } else {
-        await addTask(newTask.columnId, taskData)
+        await addTask(taskData)
       }
 
       setNewTask({ 
@@ -411,16 +382,13 @@ export default function TaskList() {
     }
   }
 
-  const handleEdit = (task) => {
-    setEditingTask(task)
-    setNewTask({
-      title: task.title,
-      description: task.description,
-      moreInfo: task.moreInfo || '',
-      tags: task.tags || [],
-      columnId: task.columnId
-    })
-    setIsDialogOpen(true)
+  const handleEdit = async (taskId, updates) => {
+    try {
+      await updateTask(taskId, updates)
+    } catch (error) {
+      console.error('Erro ao atualizar tarefa:', error)
+      setError('Houve um erro ao atualizar a tarefa. Tente novamente.')
+    }
   }
 
   const handleDelete = async (taskId) => {
@@ -564,13 +532,13 @@ export default function TaskList() {
   }
 
   const handleAddColumn = async () => {
-    if (!newColumnTitle.trim()) return
-    
     try {
-      await addColumn(newColumnTitle.trim())
+      await addColumn(newColumnTitle)
       setNewColumnTitle('')
+      setIsColumnDialogOpen(false)
     } catch (error) {
-      setError('Erro ao adicionar coluna')
+      console.error('Erro ao criar coluna:', error)
+      setError('Erro ao criar coluna')
     }
   }
 
@@ -638,7 +606,7 @@ export default function TaskList() {
                       variant="secondary"
                       style={{ backgroundColor: tag.color }}
                     >
-                      {tag.name}
+                      {getTagName(tag)}
                     </Badge>
                   ))}
                 </div>
@@ -667,6 +635,45 @@ export default function TaskList() {
     }
   }
 
+  const handleAddTask = (columnId) => {
+    setNewTask({
+      title: '',
+      description: '',
+      moreInfo: '',
+      tags: [],
+      columnId: columnId
+    })
+    setIsDialogOpen(true)
+  }
+
+  const handleEditTask = async (taskId, updates) => {
+    try {
+      const task = tasks.find(t => t.id === taskId)
+      if (!task) return
+
+      await updateTask(taskId, {
+        ...task,
+        ...updates,
+        updatedAt: new Date()
+      })
+
+      setError(null)
+    } catch (error) {
+      console.error('Erro ao atualizar tarefa:', error)
+      setError('Ocorreu um erro ao atualizar a tarefa. Tente novamente.')
+    }
+  }
+
+  const handleDeleteTask = async (taskId) => {
+    try {
+      await deleteTask(taskId)
+      setError(null)
+    } catch (error) {
+      console.error('Erro ao excluir tarefa:', error)
+      setError('Ocorreu um erro ao excluir a tarefa. Tente novamente.')
+    }
+  }
+
   if (!user) {
     return (
       <div className="flex h-[200px] items-center justify-center">
@@ -684,365 +691,66 @@ export default function TaskList() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Quadro de Tarefas</h2>
-          <p className="text-muted-foreground">
-            Organize suas tarefas em colunas e arraste para reordenar
-          </p>
-        </div>
+    <div className="h-full flex flex-col">
+      <div className="container py-4">
+        <BoardHeader />
       </div>
 
-      {/* Barra de pesquisa e filtros */}
-      <div className="flex gap-4 items-center">
-        <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 hover:bg-muted/50"
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-0" align="start">
-              <div className="flex items-center border-b border-border p-2">
-                <Search className="h-4 w-4 text-muted-foreground ml-2" />
-                <Input
-                  placeholder="Pesquisar tarefas..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="border-0 focus-visible:ring-0"
-                />
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-              >
-                <Tag className="h-4 w-4" />
-                Gerenciar Tags
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Tags</h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowTagInput(prev => !prev)}
-                    className="h-8 px-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                {showTagInput && (
-                  <div className="space-y-2">
-                    <Input
-                      placeholder="Nome da tag"
-                      value={newTagName}
-                      onChange={(e) => setNewTagName(e.target.value)}
-                      className="h-8"
-                      maxLength={20}
-                    />
-                    <div className="flex gap-1 flex-wrap">
-                      {tagColors.map((color) => (
-                        <button
-                          key={color}
-                          onClick={() => setSelectedColor(color)}
-                          className={cn(
-                            "w-6 h-6 rounded-full",
-                            selectedColor === color ? "ring-2 ring-offset-2 ring-ring" : ""
-                          )}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setShowTagInput(false)
-                          setNewTagName('')
-                          setSelectedColor(tagColors[0])
-                        }}
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={handleAddTag}
-                        disabled={!newTagName.trim()}
-                      >
-                        Adicionar
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                <div className="space-y-2">
-                  {tags.map((tag) => (
-                    <div
-                      key={tag.id}
-                      className="flex items-center justify-between group"
-                    >
-                      <Badge
-                        variant="secondary"
-                        style={{ backgroundColor: tag.color }}
-                        className="cursor-pointer"
-                        onClick={() => {
-                          setSelectedTags(prev => 
-                            prev.some(t => t.id === tag.id)
-                              ? prev.filter(t => t.id !== tag.id)
-                              : [...prev, tag]
-                          )
-                        }}
-                      >
-                        {tag.name}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setTagToDelete(tag)}
-                      >
-                        <Trash2 className="h-3 w-3 text-red-500" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground"></span>
-          <div className="flex gap-2 items-center">
-            {selectedTags.map((tag) => (
-              <Badge
-                key={tag.id}
-                style={{ 
-                  backgroundColor: tag.color,
-                  color: 'white'
-                }}
-              >
-                {tag.name}
-                <button
-                  onClick={() => setSelectedTags(prev => prev.filter(t => t.id !== tag.id))}
-                  className="ml-1 hover:bg-background/20 rounded-full p-0.5"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Quadro Trello com navegação */}
-      <div className="relative">
-        <div
-          ref={boardRef}
-          className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent select-none touch-pan-x"
-          style={{
-            scrollbarWidth: 'thin',
-            msOverflowStyle: 'none',
-          }}
-          onMouseDown={(e) => {
-            if (
-              e.target instanceof HTMLInputElement ||
-              e.target instanceof HTMLButtonElement ||
-              e.target.closest('.cursor-move')
-            ) {
-              return
-            }
-
-            const container = boardRef.current
-            if (!container) return
-
-            const startX = e.pageX - container.offsetLeft
-            const scrollLeft = container.scrollLeft
-            let isDragging = true
-
-            const handleMouseMove = (e) => {
-              if (!isDragging) return
-              if (!container) return
-
-              const x = e.pageX - container.offsetLeft
-              const walk = (x - startX) * 2
-              container.scrollLeft = scrollLeft - walk
-            }
-
-            const handleMouseUp = () => {
-              isDragging = false
-              document.removeEventListener('mousemove', handleMouseMove)
-              document.removeEventListener('mouseup', handleMouseUp)
-              document.removeEventListener('mouseleave', handleMouseUp)
-            }
-
-            document.addEventListener('mousemove', handleMouseMove)
-            document.addEventListener('mouseup', handleMouseUp)
-            document.addEventListener('mouseleave', handleMouseUp)
-          }}
-        >
+      <div className="flex-1 overflow-x-auto scrollbar-thin hover:scrollbar-thin transition-all duration-200">
+        <div className="container py-4 min-w-full">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <SortableContext
-              items={columns.map(col => col.id)}
-              strategy={horizontalListSortingStrategy}
+            <motion.div 
+              className="flex gap-4 pb-4"
+              layout
             >
-              {columns.map((column) => (
-                <SortableColumn
-                  key={column.id}
-                  column={column}
-                  onEdit={(id, title, save) => {
-                    if (save) {
-                      handleUpdateColumn(id, title)
-                    } else {
-                      setEditingColumn(id)
-                    }
-                  }}
-                  onDelete={handleDeleteColumn}
-                  filteredTasks={filteredTasks}
-                  setNewTask={setNewTask}
-                  setIsDialogOpen={setIsDialogOpen}
-                  handleEdit={handleEdit}
+              <AnimatePresence mode="popLayout">
+                <SortableContext
+                  items={columns.map(col => col.id)}
+                  strategy={horizontalListSortingStrategy}
+                >
+                  {columns.map((column) => (
+                    <BoardColumn
+                      key={column.id}
+                      column={column}
+                      tasks={tasks.filter(task => task.columnId === column.id)}
+                      onEdit={updateColumn}
+                      onDelete={deleteColumn}
+                      onTaskAdd={handleAddTask}
+                      onTaskEdit={handleEditTask}
+                      onTaskDelete={handleDeleteTask}
+                    />
+                  ))}
+                </SortableContext>
+              </AnimatePresence>
+
+              {/* Botão de adicionar coluna */}
+              <motion.div layout>
+                <AddColumnButton
+                  isOpen={isColumnDialogOpen}
+                  onOpenChange={setIsColumnDialogOpen}
+                  title={newColumnTitle}
+                  onTitleChange={setNewColumnTitle}
+                  onAdd={handleAddColumn}
                 />
-              ))}
-            </SortableContext>
+              </motion.div>
+            </motion.div>
 
-            {/* Botão de adicionar coluna */}
-            <div className="flex-shrink-0 w-80 bg-muted/20 rounded-lg border-2 border-dashed border-muted-foreground/20 transition-all duration-200 hover:bg-muted/30 hover:border-muted-foreground/30 group">
-              <Dialog>
-          <DialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-full h-full min-h-[200px] flex flex-col items-center justify-center gap-2 text-muted-foreground group-hover:text-foreground transition-colors duration-200 hover:bg-transparent"
-                  >
-                    <Plus className="h-8 w-8 transition-transform duration-200 group-hover:scale-110" />
-                    <span>Adicionar Coluna</span>
-            </Button>
-          </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Nova Coluna</DialogTitle>
-                    <DialogDescription>
-                      Digite o nome da nova coluna abaixo
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="columnTitle">Nome da Coluna</Label>
-                      <Input
-                        id="columnTitle"
-                        value={newColumnTitle}
-                        onChange={(e) => setNewColumnTitle(e.target.value)}
-                        placeholder="Digite o nome da coluna"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      onClick={() => {
-                        handleAddColumn()
-                        document.querySelector('[role="dialog"]').querySelector('button[aria-label="Close"]').click()
-                      }}
-                      disabled={!newColumnTitle.trim()}
-                    >
-                      Criar Coluna
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <DragOverlay dropAnimation={{
-              duration: 200,
-              easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
-              scale: 1.05
-            }}>
+            <DragOverlay>
               {draggedColumnId ? (
-                <div className="w-80 bg-muted/50 rounded-lg shadow-lg">
-                  <div className="p-4 border-b border-muted">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold">
-                        {columns.find(c => c.id === draggedColumnId)?.title}
-                      </h3>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    {filteredTasks
-                      .filter(task => task.columnId === draggedColumnId)
-                      .map(task => (
-                        <div key={task.id} className="mb-2">
-                          <Card>
-                            <CardHeader className="p-4">
-                              <CardTitle className="text-base">{task.title}</CardTitle>
-                              {task.description && (
-                                <CardDescription>{task.description}</CardDescription>
-                              )}
-                              {task.tags && task.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                  {task.tags.map((tag) => (
-                                    <Badge
-                                      key={tag.id}
-                                      variant="secondary"
-                                      style={{ backgroundColor: tag.color }}
-                                    >
-                                      {tag.name}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
-                            </CardHeader>
-                          </Card>
-                        </div>
-                      ))}
-                  </div>
-                </div>
+                <DragPreview 
+                  draggedItem={columns.find(c => c.id === draggedColumnId)}
+                  type="column"
+                />
               ) : activeId ? (
-                <div className="shadow-lg">
-                  <Card>
-                    <CardHeader className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <CardTitle className="text-base">
-                            {tasks.find(t => t.id === activeId)?.title}
-                          </CardTitle>
-                          <CardDescription>
-                            {tasks.find(t => t.id === activeId)?.description}
-                          </CardDescription>
-                          {tasks.find(t => t.id === activeId)?.tags?.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {tasks.find(t => t.id === activeId)?.tags.map((tag) => (
-                                <Badge
-                                  key={tag.id}
-                                  variant="secondary"
-                                  style={{ backgroundColor: tag.color }}
-                                >
-                                  {tag.name}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                </div>
+                <DragPreview 
+                  draggedItem={tasks.find(t => t.id === activeId)}
+                  type="task"
+                />
               ) : null}
             </DragOverlay>
           </DndContext>
@@ -1113,7 +821,7 @@ export default function TaskList() {
                         className="flex items-center gap-1"
                         style={{ backgroundColor: tag.color }}
                       >
-                        {tag.name}
+                        {getTagName(tag)}
                         <button
                           type="button"
                           onClick={() => handleRemoveTag(tag.id)}
@@ -1137,7 +845,7 @@ export default function TaskList() {
                         }}
                         onClick={() => handleTagSelect(tag)}
                       >
-                        {tag.name}
+                        {getTagName(tag)}
                       </Badge>
                     ))}
                   </div>
@@ -1177,15 +885,66 @@ export default function TaskList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {error && (
+        <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
     </div>
   )
-} 
+}
+
+function AddColumnButton({ isOpen, onOpenChange, title, onTitleChange, onAdd }) {
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          className="flex-shrink-0 w-80 h-full min-h-[200px] border-2 border-dashed 
+                     border-muted-foreground/20 hover:border-muted-foreground/30 
+                     hover:bg-muted/30 transition-all"
+        >
+          <Plus className="h-8 w-8 mr-2" />
+          Adicionar Coluna
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Nova Coluna</DialogTitle>
+          <DialogDescription>
+            Digite o nome da nova coluna abaixo
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="columnTitle">Nome da Coluna</Label>
+            <Input
+              id="columnTitle"
+              value={title}
+              onChange={(e) => onTitleChange(e.target.value)}
+              placeholder="Digite o nome da coluna"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            onClick={onAdd}
+            disabled={!title.trim()}
+          >
+            Criar Coluna
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 // Adicione estes estilos globais ao seu arquivo CSS global
 const globalStyles = `
   /* Estilização da barra de rolagem */
   .scrollbar-thin::-webkit-scrollbar {
-    height: 6px;
+    height: 4px; /* Reduzido de 6px para 4px */
   }
 
   .scrollbar-thin::-webkit-scrollbar-track {
@@ -1193,17 +952,24 @@ const globalStyles = `
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--muted));
-    border-radius: 3px;
+    background-color: hsl(var(--muted-foreground) / 0.3); /* Mais transparente */
+    border-radius: 2px;
+    transition: background-color 0.2s;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--muted-foreground));
+    background-color: hsl(var(--muted-foreground) / 0.5); /* Um pouco mais visível no hover */
   }
 
-  /* Esconder a barra de rolagem no Firefox */
+  /* Esconder a barra de rolagem quando não estiver em uso */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted)) transparent;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.2s;
+  }
+
+  /* Mostrar a barra de rolagem apenas quando houver hover na área */
+  .scrollbar-thin:hover {
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
   }
 ` 

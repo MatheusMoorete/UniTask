@@ -1,7 +1,7 @@
 import { useState } from "react"
-import { Card, CardContent } from "../ui/card"
-import { Input } from "../ui/input"
 import { Button } from "../ui/button"
+import { Input } from "../ui/input"
+import { Label } from "../ui/label"
 import {
   Select,
   SelectContent,
@@ -10,68 +10,56 @@ import {
   SelectValue,
 } from "../ui/select"
 
-const AddTaskForm = ({ onAddTask }) => {
-  const [title, setTitle] = useState("")
-  const [priority, setPriority] = useState("")
-  const [subject, setSubject] = useState("")
+export function AddTaskForm({ onAddTask }) {
+  const [newTask, setNewTask] = useState({
+    title: "",
+    priority: "média"
+  })
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!title.trim() || !priority || !subject) return
+    if (!newTask.title.trim()) return
 
     onAddTask({
-      id: Date.now(),
-      title: title.trim(),
-      priority,
-      subject,
-      completed: false
+      title: newTask.title.trim(),
+      priority: newTask.priority,
+      columnId: 'todo' // Todas as novas tarefas começam em "todo"
     })
 
-    setTitle("")
-    setPriority("")
-    setSubject("")
+    // Limpa o formulário
+    setNewTask({
+      title: "",
+      priority: "média"
+    })
   }
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="grid gap-2">
-            <Input
-              placeholder="Digite o título da tarefa"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Prioridade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="alta">Alta</SelectItem>
-                  <SelectItem value="média">Média</SelectItem>
-                  <SelectItem value="baixa">Baixa</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={subject} onValueChange={setSubject}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Disciplina" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Cálculo III">Cálculo III</SelectItem>
-                  <SelectItem value="Física II">Física II</SelectItem>
-                  <SelectItem value="Programação">Programação</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <Button type="submit" className="w-full">
-            Adicionar Tarefa
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="title">Nova Tarefa</Label>
+        <div className="flex gap-2">
+          <Input
+            id="title"
+            value={newTask.title}
+            onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+            placeholder="Digite o título da tarefa"
+          />
+          <Select
+            value={newTask.priority}
+            onValueChange={(value) => setNewTask({ ...newTask, priority: value })}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Prioridade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="alta">Alta</SelectItem>
+              <SelectItem value="média">Média</SelectItem>
+              <SelectItem value="baixa">Baixa</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button type="submit">Adicionar</Button>
+        </div>
+      </div>
+    </form>
   )
-}
-
-export default AddTaskForm 
+} 
