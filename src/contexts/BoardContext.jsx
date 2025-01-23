@@ -1,64 +1,13 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useMemo, useState } from 'react'
 import { useBoard } from '../hooks/useBoard'
 import { useTags } from '../hooks/useTags'
 
 const BoardContext = createContext({})
 
 export function BoardProvider({ children }) {
-  const { 
-    columns, 
-    tasks, 
-    loading, 
-    addColumn, 
-    updateColumn, 
-    deleteColumn, 
-    addTask, 
-    moveTask,
-    updateTask,
-    deleteTask,
-    reorderColumns 
-  } = useBoard()
-
-  const { 
-    tags, 
-    addTag, 
-    deleteTag 
-  } = useTags()
-
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedTags, setSelectedTags] = useState([])
-  const [error, setError] = useState(null)
-
-  // Filtragem de tasks
-  const getFilteredTasks = useCallback(() => {
-    return tasks.filter(task => {
-      // Busca por texto
-      const searchTerms = searchQuery.toLowerCase().trim()
-      const matchesSearch = !searchTerms || 
-        task.title?.toLowerCase().includes(searchTerms) ||
-        task.description?.toLowerCase().includes(searchTerms)
-
-      // Filtragem por tags
-      const matchesTags = selectedTags.length === 0 ||
-        selectedTags.every(selectedTag =>
-          task.tags?.some(taskTag => taskTag.id === selectedTag.id)
-        )
-
-      return matchesSearch && matchesTags
-    })
-  }, [tasks, searchQuery, selectedTags])
-
-  const handleError = (error, customMessage) => {
-    console.error(error)
-    setError(customMessage || 'Ocorreu um erro. Tente novamente.')
-    setTimeout(() => setError(null), 5000)
-  }
-
-  // Valor do contexto
-  const contextValue = {
+  const {
     columns,
-    tasks: getFilteredTasks(),
-    tags: tags || [],
+    tasks,
     loading,
     error,
     searchQuery,
@@ -69,13 +18,60 @@ export function BoardProvider({ children }) {
     addTask,
     moveTask,
     updateTask,
-    deleteTask,
     reorderColumns,
-    addTag,
+    deleteTask,
     deleteTag,
     setSearchQuery,
     setSelectedTags,
     setError
+  } = useBoard()
+
+  const { tags, addTag } = useTags()
+
+  const [filterTags, setFilterTags] = useState([])
+
+  // Filtragem de tasks
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      // Busca por texto
+      const searchTerms = searchQuery.toLowerCase().trim()
+      const matchesSearch = !searchTerms || 
+        task.title?.toLowerCase().includes(searchTerms) ||
+        task.description?.toLowerCase().includes(searchTerms)
+
+      // Filtro por tags
+      const matchesTags = selectedTags.length === 0 || 
+        selectedTags.every(selectedTag => 
+          task.tags?.some(taskTag => taskTag.id === selectedTag.id)
+        )
+
+      return matchesSearch && matchesTags
+    })
+  }, [tasks, searchQuery, selectedTags])
+
+  const contextValue = {
+    columns,
+    tasks: filteredTasks,
+    loading,
+    error,
+    tags,
+    searchQuery,
+    selectedTags,
+    addColumn,
+    updateColumn,
+    deleteColumn,
+    addTask,
+    moveTask,
+    updateTask,
+    reorderColumns,
+    deleteTask,
+    deleteTag,
+    addTag,
+    setSearchQuery,
+    setSelectedTags,
+    setError,
+    filterTags,
+    setFilterTags
   }
 
   return (

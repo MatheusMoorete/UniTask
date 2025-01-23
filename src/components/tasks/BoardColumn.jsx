@@ -83,9 +83,6 @@ export const BoardColumn = forwardRef(({
     }
   }
 
-  // Cria um ID único para a área de drop vazia
-  const emptyDropId = `${column.id}-empty`
-
   return (
     <motion.div
       ref={handleRefs}
@@ -100,7 +97,7 @@ export const BoardColumn = forwardRef(({
         opacity: isDragging ? 0.6 : 1,
       }}
       className={cn(
-        "flex-shrink-0 w-80 bg-muted/50 rounded-lg group",
+        "flex flex-col flex-shrink-0 w-80 bg-muted/50 rounded-lg group",
         isOverlay && "pointer-events-none"
       )}
       layout
@@ -168,38 +165,37 @@ export const BoardColumn = forwardRef(({
       </div>
 
       {/* Área de tarefas */}
-      <div className="p-4">
-        <div className="space-y-2">
-          <SortableContext
-            items={tasks.length > 0 ? tasks.map(task => task.id) : [emptyDropId]}
-            strategy={verticalListSortingStrategy}
-          >
-            {tasks.length > 0 ? (
-              tasks.map((task) => (
+      <div className="flex-1 p-4">
+        <SortableContext
+          items={tasks.length > 0 ? tasks.map(task => task.id) : [column.id + '-empty']}
+          strategy={verticalListSortingStrategy}
+        >
+          {tasks.length > 0 ? (
+            <div className="space-y-2">
+              {tasks.map((task) => (
                 <DraggableTask
                   key={task.id}
                   task={task}
                   onEdit={onTaskEdit}
                   onDelete={onTaskDelete}
                 />
-              ))
-            ) : (
-              <div
-                id={emptyDropId}
-                data-id={emptyDropId}
-                className="h-32 border-2 border-dashed border-muted-foreground/20 rounded-lg flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
-              >
-                <p className="text-center px-4">
-                  Crie uma nova tarefa ou arraste uma existente para esta coluna
-                </p>
-              </div>
-            )}
-          </SortableContext>
-        </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              id={column.id + '-empty'}
+              className="h-32 border-2 border-dashed border-muted-foreground/20 rounded-lg flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
+            >
+              <p className="text-center px-4">
+                Crie uma nova tarefa
+              </p>
+            </div>
+          )}
+        </SortableContext>
       </div>
 
       {/* Botão de adicionar tarefa */}
-      <div className="px-4 pb-4">
+      <div className="p-4 pt-0 mt-auto">
         <Button
           variant="ghost"
           className="w-full justify-start text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-200"

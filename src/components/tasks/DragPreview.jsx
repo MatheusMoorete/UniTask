@@ -1,46 +1,51 @@
 import { Card, CardHeader, CardTitle, CardDescription } from "../ui/card"
 import { Badge } from "../ui/badge"
-import { BoardColumn } from "./BoardColumn"
-import { useTaskBoard } from "../../contexts/BoardContext"
+import { motion } from "framer-motion"
 
-export function DragPreview({ draggedItem, type }) {
-  const { tasks } = useTaskBoard()
-  
-  if (!draggedItem) return null
+export function DragPreview({ item, type }) {
+  if (!item) return null
 
   if (type === 'column') {
-    const columnTasks = tasks.filter(task => task.columnId === draggedItem.id)
     return (
-      <div className="w-80 opacity-80 rotate-3 pointer-events-none">
-        <BoardColumn
-          column={draggedItem}
-          tasks={columnTasks}
-          isDragging
-          isOverlay
-          onEdit={() => {}}
-          onDelete={() => {}}
-          onTaskAdd={() => {}}
-          onTaskEdit={() => {}}
-          onTaskDelete={() => {}}
-        />
-      </div>
+      <motion.div
+        initial={{ scale: 1.05 }}
+        animate={{ scale: 1.05 }}
+        className="w-80 opacity-80 rotate-3 pointer-events-none"
+      >
+        <div className="flex flex-col bg-muted/50 rounded-lg border-2 border-primary">
+          <div className="p-4 border-b border-muted">
+            <h3 className="font-semibold">{item.title}</h3>
+          </div>
+          <div className="p-4 flex-1 min-h-[100px] bg-muted/30" />
+        </div>
+      </motion.div>
     )
   }
 
   return (
-    <div className="w-[calc(100%-2rem)] max-w-sm opacity-80 rotate-3 pointer-events-none">
-      <Card className="shadow-lg">
-        <CardHeader className="p-4">
-          <CardTitle className="text-base">{draggedItem.title}</CardTitle>
-          {draggedItem.description && (
-            <CardDescription>{draggedItem.description}</CardDescription>
+    <motion.div
+      initial={{ scale: 1.05 }}
+      animate={{ scale: 1.05 }}
+      className="w-[calc(100%-2rem)] max-w-sm opacity-80 rotate-3 pointer-events-none"
+    >
+      <Card className="border-2 border-primary shadow-lg">
+        <CardHeader className="p-3">
+          <CardTitle className="text-base">{item.title}</CardTitle>
+          {item.description && (
+            <CardDescription className="leading-snug">
+              {item.description}
+            </CardDescription>
           )}
-          {draggedItem.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {draggedItem.tags.map((tag) => (
+          {item.tags?.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {item.tags.map((tag) => (
                 <Badge
                   key={tag.id}
-                  style={{ backgroundColor: tag.color }}
+                  style={{ 
+                    backgroundColor: tag.color,
+                    color: 'white'
+                  }}
+                  className="text-xs px-2 py-0"
                 >
                   {tag.name}
                 </Badge>
@@ -49,6 +54,6 @@ export function DragPreview({ draggedItem, type }) {
           )}
         </CardHeader>
       </Card>
-    </div>
+    </motion.div>
   )
 } 

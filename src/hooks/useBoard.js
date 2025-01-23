@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useFirestore } from '../contexts/FirestoreContext'
 import {
@@ -16,10 +16,20 @@ import {
   getDoc,
 } from 'firebase/firestore'
 
+// Função auxiliar para calcular a próxima posição
+const getNextPosition = (columns) => {
+  if (!columns.length) return 1000
+  const lastColumn = columns[columns.length - 1]
+  return lastColumn.position + 1000
+}
+
 export function useBoard() {
   const [columns, setColumns] = useState([])
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTags, setSelectedTags] = useState([])
   const { user } = useAuth()
   const { db } = useFirestore()
 
@@ -75,6 +85,7 @@ export function useBoard() {
       }
     } catch (error) {
       console.error('Erro ao carregar quadro:', error)
+      setError('Erro ao carregar o quadro')
       setLoading(false)
     }
   }, [user, db])
@@ -82,18 +93,24 @@ export function useBoard() {
   // Adicionar coluna
   const addColumn = async (title) => {
     try {
-      const lastColumn = columns[columns.length - 1]
-      const position = lastColumn ? lastColumn.position + 1000 : 1000
+      if (!title || typeof title !== 'string') {
+        throw new Error('O título deve ser uma string')
+      }
 
-      const columnData = {
-        title: title.trim(),
-        position,
+      const trimmedTitle = title.trim()
+      if (!trimmedTitle) {
+        throw new Error('O título não pode estar vazio')
+      }
+      
+      const newColumn = {
+        title: trimmedTitle,
         userId: user.uid,
+        position: getNextPosition(columns),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       }
-
-      await addDoc(collection(db, 'columns'), columnData)
+      
+      await addDoc(collection(db, 'columns'), newColumn)
     } catch (error) {
       console.error('Erro ao adicionar coluna:', error)
       throw error
@@ -157,6 +174,7 @@ export function useBoard() {
         position: Number(position),
         completed: Boolean(false),
         userId: String(user.uid),
+        tags: Array.isArray(taskData?.tags) ? taskData.tags : [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       }
@@ -231,10 +249,41 @@ export function useBoard() {
     await deleteDoc(taskRef)
   }
 
+  const deleteTag = async (tagId) => {
+    try {
+      const batch = writeBatch(db)
+      
+      // Deletar a tag
+      const tagRef = doc(db, 'tags', tagId)
+      batch.delete(tagRef)
+
+      // Atualizar todas as tarefas que usam esta tag
+      const tasksWithTag = tasks.filter(task => 
+        task.tags?.some(tag => tag.id === tagId)
+      )
+
+      tasksWithTag.forEach(task => {
+        const taskRef = doc(db, 'tasks', task.id)
+        batch.update(taskRef, {
+          tags: task.tags.filter(tag => tag.id !== tagId),
+          updatedAt: serverTimestamp()
+        })
+      })
+
+      await batch.commit()
+    } catch (error) {
+      console.error('Erro ao deletar tag:', error)
+      throw error
+    }
+  }
+
   return {
     columns,
     tasks,
     loading,
+    error,
+    searchQuery,
+    selectedTags,
     addColumn,
     updateColumn,
     deleteColumn,
@@ -243,5 +292,6 @@ export function useBoard() {
     updateTask,
     reorderColumns,
     deleteTask,
+    deleteTag,
   }
 } 
