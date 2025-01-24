@@ -164,34 +164,11 @@ const FocusTime = () => {
   const { loading, getTodayFocusTime, formatTime, getStreak } = usePomodoro()
   const todayTime = getTodayFocusTime()
   const streak = getStreak()
-  const navigate = useNavigate()
-
-  if (loading) {
-    return (
-      <Card className="border-l-4 border-l-secondary shadow-md">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Brain className="h-4 w-4 text-secondary" />
-            Tempo Focado
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-4">
-          <div className="h-8 w-8 bg-secondary/20" />
-        </CardContent>
-      </Card>
-    )
-  }
 
   return (
-    <Card 
-      className="border-l-4 border-l-secondary shadow-md hover:bg-accent/10 cursor-pointer transition-colors"
-      onClick={() => navigate('/pomodoro')}
-    >
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Brain className="h-4 w-4 text-secondary" />
-          Tempo Focado
-        </CardTitle>
+    <Card className="border-l-4 border-l-secondary shadow-md">
+      <CardHeader>
+        <CardTitle>Tempo Focado</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between">

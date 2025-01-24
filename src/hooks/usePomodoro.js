@@ -12,15 +12,18 @@ import {
   addDoc,
   onSnapshot,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  orderBy,
+  limit
 } from 'firebase/firestore'
 
-export function usePomodoro(defaultSettings) {
+export function usePomodoro() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
   const { db } = useFirestore()
 
+  // Carrega as sessões do Firestore
   useEffect(() => {
     if (!user) {
       setSessions([])
@@ -29,44 +32,47 @@ export function usePomodoro(defaultSettings) {
     }
 
     try {
+      // Query ordenada por data de criação, limitada aos últimos 6 meses
+      const sixMonthsAgo = new Date()
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
       const q = query(
         collection(db, 'pomodoro_sessions'),
-        where('userId', '==', user.uid)
+        where('userId', '==', user.uid),
+        where('createdAt', '>=', Timestamp.fromDate(sixMonthsAgo)),
+        orderBy('createdAt', 'desc')
       )
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const sessionsData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
-          // Converte os timestamps do Firestore para Date
           createdAt: doc.data().createdAt?.toDate(),
           startedAt: doc.data().startedAt?.toDate(),
           completedAt: doc.data().completedAt?.toDate()
         }))
         setSessions(sessionsData)
         setLoading(false)
-      }, (error) => {
-        console.error('Erro ao carregar sessões:', error)
-        setLoading(false)
       })
 
       return () => unsubscribe()
     } catch (error) {
-      console.error('Erro na configuração da query:', error)
+      console.error('Erro ao carregar sessões:', error)
       setLoading(false)
     }
-  }, [user])
+  }, [user, db])
 
+  // Adiciona uma nova sessão ao Firestore
   const addSession = async (sessionData) => {
+    if (!user) return
+
     try {
       await addDoc(collection(db, 'pomodoro_sessions'), {
         ...sessionData,
         userId: user.uid,
         createdAt: serverTimestamp(),
         startedAt: Timestamp.fromDate(sessionData.startedAt),
-        completedAt: Timestamp.fromDate(sessionData.completedAt),
-        duration: sessionData.duration || 25 * 60, // duração em segundos (padrão: 25 minutos)
-        type: sessionData.type || 'focus' // 'focus' ou 'break'
+        completedAt: Timestamp.fromDate(sessionData.completedAt)
       })
     } catch (error) {
       console.error('Erro ao adicionar sessão:', error)
@@ -86,7 +92,7 @@ export function usePomodoro(defaultSettings) {
     const now = new Date()
     const startOfWeek = new Date(now)
     startOfWeek.setHours(0, 0, 0, 0)
-    startOfWeek.setDate(now.getDate() - now.getDay()) // Domingo como início da semana
+    startOfWeek.setDate(now.getDate() - now.getDay())
 
     return sessions
       .filter(session => 
@@ -247,9 +253,9 @@ export function usePomodoro(defaultSettings) {
     sessions,
     loading,
     addSession,
+    getTotalFocusTime,
     getWeeklyFocusTime,
     getTodayFocusTime,
-    getTotalFocusTime,
     getAccessDays,
     getStreak,
     getWeeklyChartData,

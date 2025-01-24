@@ -1,7 +1,7 @@
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
 import { Timer, Play, Pause, RotateCcw, Coffee, Brain, Settings } from 'lucide-react'
-import PomodoroSettings from './PomodoroSettings'
+import { PomodoroSettings } from './PomodoroSettings'
 import { useState } from 'react'
 import { useGlobalPomodoro } from '../../contexts/PomodoroContext'
 
@@ -12,21 +12,19 @@ const formatTime = (seconds) => {
 }
 
 const PomodoroTimer = () => {
-  const [showSettings, setShowSettings] = useState(false)
   const {
     timeLeft,
     isRunning,
     mode,
     sessionsCompleted,
-    settings,
     toggleTimer,
-    resetTimer,
-    updateSettings
+    resetTimer
   } = useGlobalPomodoro()
 
-  const handleSettingsSave = (newSettings) => {
-    updateSettings(newSettings)
-    setShowSettings(false)
+  const formatTimeLeft = () => {
+    const minutes = Math.floor(timeLeft / 60)
+    const seconds = timeLeft % 60
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
   }
 
   const getModeIcon = () => {
@@ -55,55 +53,30 @@ const PomodoroTimer = () => {
   }
 
   return (
-    <Card className="w-full max-w-[400px] sm:w-[400px]">
+    <Card className="w-full max-w-sm relative">
+      <PomodoroSettings />
       <CardContent className="pt-6">
-        <div className="flex flex-col items-center gap-4 sm:gap-6">
-          {/* Settings Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowSettings(true)}
-            className="absolute right-2 top-2 sm:right-4 sm:top-4"
-          >
-            <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-          </Button>
-
+        <div className="flex flex-col items-center gap-6">
           {/* Timer Display */}
-          <div className="relative flex items-center justify-center w-36 h-36 sm:w-48 sm:h-48 rounded-full border-4 border-muted">
-            <div className={`absolute inset-2 rounded-full ${getModeColor()} opacity-10`} />
-            <div className="text-3xl sm:text-4xl font-bold">{formatTime(timeLeft)}</div>
+          <div className="text-4xl font-bold tabular-nums">
+            {formatTimeLeft()}
           </div>
 
           {/* Mode Indicator */}
-          <div className="flex items-center gap-2 text-base sm:text-lg font-medium">
-            {getModeIcon()}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Brain className="h-4 w-4" />
             <span>
-              {mode === 'focus' ? 'Tempo de Foco' : 
-              mode === 'shortBreak' ? 'Pausa Curta' : 'Pausa Longa'}
+              {mode === 'focus' ? 'Tempo de Foco' :
+               mode === 'shortBreak' ? 'Pausa Curta' : 'Pausa Longa'}
             </span>
           </div>
 
           {/* Controls */}
-          <div className="flex gap-2 w-full px-4 sm:px-0">
-            <Button
-              size="lg"
-              onClick={toggleTimer}
-              className="flex-1 sm:w-24"
-            >
-              {isRunning ? (
-                <Pause className="h-4 w-4 mr-2" />
-              ) : (
-                <Play className="h-4 w-4 mr-2" />
-              )}
+          <div className="flex gap-2">
+            <Button onClick={toggleTimer}>
               {isRunning ? 'Pausar' : 'Iniciar'}
             </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={resetTimer}
-              className="flex-1 sm:w-24"
-            >
-              <RotateCcw className="h-4 w-4 mr-2" />
+            <Button variant="outline" onClick={resetTimer}>
               Resetar
             </Button>
           </div>

@@ -22,6 +22,21 @@ export function GoogleCalendarProvider({ children }) {
   const [isInitialized, setIsInitialized] = useState(false)
   const [gapiInited, setGapiInited] = useState(false)
   const [error, setError] = useState(null)
+  const [accessToken, setAccessToken] = useState(() => 
+    localStorage.getItem('googleCalendarToken')
+  );
+
+  // Função para salvar o token após autenticação bem-sucedida
+  const saveAccessToken = (token) => {
+    localStorage.setItem('googleCalendarToken', token);
+    setAccessToken(token);
+  };
+
+  // Função para limpar o token ao desconectar
+  const clearAccessToken = () => {
+    localStorage.removeItem('googleCalendarToken');
+    setAccessToken(null);
+  };
 
   // Função para inicializar o cliente GAPI
   const initializeGapiClient = async () => {
@@ -262,25 +277,44 @@ export function GoogleCalendarProvider({ children }) {
     }
   }
 
-  const handleAuth = () => {
-    if (tokenClient) {
-      tokenClient.requestAccessToken()
-    }
-  }
+  // Função de autenticação atualizada
+  const handleAuth = async () => {
+    try {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/calendar',
+        callback: async (response) => {
+          if (response.access_token) {
+            saveAccessToken(response.access_token);
+            setIsAuthenticated(true);
+            await fetchCalendars();
+          }
+        },
+      });
 
-  const handleSignOut = () => {
-    if (!gapi?.client) return
-    
-    const token = gapi.client.getToken()
-    if (token) {
-      google.accounts.oauth2.revoke(token.access_token)
-      gapi.client.setToken('')
-      localStorage.removeItem('googleCalendarToken')
-      setIsAuthenticated(false)
-      setEvents([])
-      setCalendars([])
+      client.requestAccessToken();
+    } catch (error) {
+      console.error('Erro na autenticação:', error);
+      setError('Falha na autenticação com o Google Calendar');
     }
-  }
+  };
+
+  // Função de logout atualizada
+  const handleSignOut = async () => {
+    try {
+      const token = window.gapi.client.getToken();
+      if (token) {
+        await google.accounts.oauth2.revoke(token.access_token);
+        window.gapi.client.setToken('');
+      }
+      clearAccessToken();
+      setIsAuthenticated(false);
+      setCalendars([]);
+      setEvents([]);
+    } catch (error) {
+      console.error('Erro ao desconectar:', error);
+    }
+  };
 
   const createEvent = async (eventData) => {
     if (!window.gapi?.client?.calendar) return
@@ -394,9 +428,10 @@ export function GoogleCalendarProvider({ children }) {
     <GoogleCalendarContext.Provider
       value={{
         isAuthenticated,
+        loading,
+        error,
         events,
         calendars,
-        loading,
         handleAuth,
         handleSignOut,
         fetchEvents,

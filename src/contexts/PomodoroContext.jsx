@@ -1,13 +1,22 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { usePomodoro } from '../hooks/usePomodoro'
+import { useSound } from '../hooks/useSound'
 import { useFirestore } from './FirestoreContext'
 
 const PomodoroContext = createContext({})
 
 const STORAGE_KEY = 'pomodoro_state'
 
+const defaultSettings = {
+  focusTime: 25,
+  shortBreakTime: 5,
+  longBreakTime: 15,
+  sessionsUntilLongBreak: 4,
+  soundEnabled: true
+}
+
 // Função para carregar o estado inicial do localStorage
-const loadInitialState = (defaultSettings) => {
+const loadInitialState = () => {
   const savedState = localStorage.getItem(STORAGE_KEY)
   if (savedState) {
     const state = JSON.parse(savedState)
@@ -15,7 +24,10 @@ const loadInitialState = (defaultSettings) => {
     if (state.startTime) {
       state.startTime = new Date(state.startTime)
     }
-    return state
+    return {
+      ...state,
+      settings: state.settings || defaultSettings
+    }
   }
   return {
     timeLeft: defaultSettings.focusTime * 60,
@@ -27,17 +39,35 @@ const loadInitialState = (defaultSettings) => {
   }
 }
 
-export function PomodoroProvider({ children, defaultSettings }) {
+export function PomodoroProvider({ children }) {
   const { db } = useFirestore()
-  const initialState = loadInitialState(defaultSettings)
+  const initialState = loadInitialState()
   const [timeLeft, setTimeLeft] = useState(initialState.timeLeft)
   const [isRunning, setIsRunning] = useState(initialState.isRunning)
   const [mode, setMode] = useState(initialState.mode)
   const [sessionsCompleted, setSessionsCompleted] = useState(initialState.sessionsCompleted)
   const [startTime, setStartTime] = useState(initialState.startTime)
-  const [settings, setSettings] = useState(initialState.settings)
+  const [settings, setSettings] = useState(initialState.settings || defaultSettings)
   
   const { addSession } = usePomodoro()
+
+  // Inicializa os sons com o caminho correto e configurações de tempo
+  const { play: playAlarm } = useSound(
+    '/public/sounds/alarmclock-bell-ringing-clear-windingdown-000212_0029s3_d-095-099-031-042-35592.mp3', 
+    { 
+      volume: 0.7,
+      startTime: 3,
+      duration: 2
+    }
+  )
+  const { play: playBreak } = useSound(
+    '/public/sounds/alarmclock-bell-ringing-clear-windingdown-000212_0029s3_d-095-099-031-042-35592.mp3', 
+    { 
+      volume: 0.7,
+      startTime: 3,
+      duration: 2
+    }
+  )
 
   // Salva o estado no localStorage sempre que houver mudanças
   useEffect(() => {
@@ -61,13 +91,18 @@ export function PomodoroProvider({ children, defaultSettings }) {
         if (elapsedTime >= 1) {
           setTimeLeft((time) => time - 1)
         }
-      }, 100) // Atualiza mais frequentemente para maior precisão
+      }, 100)
     } else if (timeLeft === 0 && isRunning) {
-      // Play notification sound
-      const audio = new Audio('/notification.mp3')
-      audio.play()
+      // Toca o som apropriado apenas se estiver habilitado
+      if (settings.soundEnabled) {
+        if (mode === 'focus') {
+          playBreak()
+        } else {
+          playAlarm()
+        }
+      }
       
-      // Salva a sessão completada
+      // Salva a sessão completada no Firestore
       const sessionDuration = mode === 'focus' 
         ? settings.focusTime * 60 
         : mode === 'shortBreak' 
@@ -78,7 +113,8 @@ export function PomodoroProvider({ children, defaultSettings }) {
         type: mode,
         duration: sessionDuration,
         startedAt: startTime,
-        completedAt: new Date()
+        completedAt: new Date(),
+        settings: { ...settings }
       })
       
       // Switch modes
@@ -102,7 +138,7 @@ export function PomodoroProvider({ children, defaultSettings }) {
     }
 
     return () => clearInterval(interval)
-  }, [isRunning, timeLeft, mode, sessionsCompleted, settings, addSession, startTime])
+  }, [isRunning, timeLeft, mode, sessionsCompleted, settings, addSession, startTime, playAlarm, playBreak])
 
   const toggleTimer = () => {
     if (!isRunning && !startTime) {

@@ -9,6 +9,7 @@ import { ConnectGoogleCalendar } from '../components/calendar/ConnectGoogleCalen
 import { EditEventDialog } from '../components/calendar/EditEventDialog'
 import { CalendarSettings } from '../components/calendar/CalendarSettings'
 import { capitalizeMonth } from '../lib/date-utils'
+import { CalendarLoading } from '../components/calendar/CalendarLoading'
 
 const WEEKDAYS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
 
@@ -62,10 +63,11 @@ export default function Calendar() {
     setCurrentDate(new Date())
   }
 
+  // Mostra o loading enquanto está inicializando
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="h-full p-6">
+        <CalendarLoading />
       </div>
     )
   }
