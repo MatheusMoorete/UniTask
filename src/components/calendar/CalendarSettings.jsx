@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Dialog, 
   DialogContent, 
@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogTrigger 
 } from '../ui/dialog'
-import { Settings } from 'lucide-react'
+import { Settings, Check } from 'lucide-react'
 import { Checkbox } from '../ui/checkbox'
 import { Label } from '../ui/label'
 import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
@@ -26,6 +26,19 @@ export function CalendarSettings() {
     toggleDashboardVisibility
   } = useGoogleCalendar()
   const [isOpen, setIsOpen] = useState(false)
+  const [showSaved, setShowSaved] = useState(false)
+
+  // Função para mostrar indicador de salvamento
+  const handleToggleVisibility = (calendarId, type) => {
+    if (type === 'calendar') {
+      toggleCalendarVisibility(calendarId)
+    } else {
+      toggleDashboardVisibility(calendarId)
+    }
+    
+    setShowSaved(true)
+    setTimeout(() => setShowSaved(false), 2000)
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -36,7 +49,15 @@ export function CalendarSettings() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Configurações do Calendário</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            Configurações do Calendário
+            {showSaved && (
+              <span className="text-sm text-green-600 flex items-center gap-1">
+                <Check className="h-4 w-4" />
+                Salvo
+              </span>
+            )}
+          </DialogTitle>
         </DialogHeader>
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="calendars">
@@ -50,7 +71,7 @@ export function CalendarSettings() {
                     <Checkbox
                       id={`calendar-${calendar.id}`}
                       checked={visibleCalendars.includes(calendar.id)}
-                      onCheckedChange={() => toggleCalendarVisibility(calendar.id)}
+                      onCheckedChange={() => handleToggleVisibility(calendar.id, 'calendar')}
                     />
                     <div 
                       className="w-3 h-3 rounded-full flex-shrink-0" 
@@ -79,7 +100,7 @@ export function CalendarSettings() {
                     <Checkbox
                       id={`dashboard-${calendar.id}`}
                       checked={dashboardCalendars.includes(calendar.id)}
-                      onCheckedChange={() => toggleDashboardVisibility(calendar.id)}
+                      onCheckedChange={() => handleToggleVisibility(calendar.id, 'dashboard')}
                     />
                     <div 
                       className="w-3 h-3 rounded-full flex-shrink-0" 

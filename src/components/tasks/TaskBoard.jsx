@@ -6,6 +6,7 @@ import { useGesture } from "@use-gesture/react"
 import { SortableColumn } from "./SortableColumn"
 import { AddColumnButton } from "./AddColumnButton"
 import { DragPreview } from "./DragPreview"
+import { cn } from "../../lib/utils"
 
 export function TaskBoard({
   columns,
@@ -33,59 +34,85 @@ export function TaskBoard({
 }) {
   const containerRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [isGestureDragging, setIsGestureDragging] = useState(false)
+  const [isGestureEnabled, setIsGestureEnabled] = useState(true)
   
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const preventScroll = (e) => {
-      if (isDragging) {
-        e.preventDefault()
-      }
+  // Limpa todos os estados de drag
+  const cleanupDragStates = () => {
+    setIsDragging(false)
+    setIsGestureDragging(false)
+    document.body.style.userSelect = ''
+    if (containerRef.current) {
+      containerRef.current.style.cursor = 'grab'
     }
+  }
 
-    container.addEventListener('touchmove', preventScroll, { passive: false })
-    return () => {
-      container.removeEventListener('touchmove', preventScroll)
-    }
-  }, [isDragging])
+  // Modificar o handler do DndContext
+  const handleDragEnd = async (event) => {
+    cleanupDragStates()
+    setIsGestureEnabled(false)
+    await onDragEnd(event)
+    
+    setTimeout(() => {
+      setIsGestureEnabled(true)
+    }, 500)
+  }
+
+  // Adicionar um handler para o DragStart
+  const handleDragStart = (event) => {
+    cleanupDragStates()
+    onDragStart(event)
+  }
 
   const bind = useGesture({
-    onDragStart: () => {
-      if (document.body.style) {
-        document.body.style.userSelect = 'none'
-        setIsDragging(true)
-      }
+    onDragStart: ({ event, down }) => {
+      if (activeId || !down || !isGestureEnabled) return
+
+      document.body.style.userSelect = 'none'
+      setIsGestureDragging(true)
+      setIsDragging(true)
     },
     onDragEnd: () => {
-      if (document.body.style) {
-        document.body.style.userSelect = ''
-        setIsDragging(false)
-      }
+      cleanupDragStates()
     },
     onDrag: ({ delta: [dx], down, event }) => {
-      if (!containerRef.current || !down) return
+      if (!containerRef.current || !down || activeId || !isGestureEnabled) return
       containerRef.current.scrollLeft -= dx
     },
   }, {
     drag: {
       filterTaps: true,
       threshold: 1,
-      pointer: {
-        touch: true,
-      },
+      enabled: !activeId && isGestureEnabled
     },
   })
+
+  // Cleanup em caso de unmount
+  useEffect(() => {
+    return () => {
+      cleanupDragStates()
+    }
+  }, [])
+
+  // Cleanup quando activeId muda
+  useEffect(() => {
+    if (!activeId) {
+      cleanupDragStates()
+    }
+  }, [activeId])
 
   return (
     <div 
       ref={containerRef}
-      className={`absolute inset-0 overflow-x-auto ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
+      className={cn(
+        "absolute inset-0 overflow-x-auto",
+        isGestureDragging && !activeId && isGestureEnabled ? 'cursor-grabbing select-none' : 'cursor-grab'
+      )}
       {...bind()}
       style={{
-        touchAction: 'none',
-        scrollbarWidth: 'none',  // Firefox
-        msOverflowStyle: 'none'  // IE/Edge
+        touchAction: (activeId || !isGestureEnabled) ? 'auto' : 'none',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none'
       }}
       css={{
         '&::-webkit-scrollbar': {
@@ -97,8 +124,8 @@ export function TaskBoard({
         <DndContext
           sensors={sensors}
           collisionDetection={collisionDetection}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
         >
           <motion.div 
             className="flex gap-6"

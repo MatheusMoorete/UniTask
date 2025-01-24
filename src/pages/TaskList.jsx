@@ -16,6 +16,9 @@ import { useColumnHandlers } from '../components/tasks/ColumnHandlers'
 import { useTaskForm } from '../hooks/useTaskForm'
 import { useTasks } from '../hooks/useTasks'
 import { ErrorToast } from '../components/tasks/ErrorToast'
+import { DragOverlay } from '@dnd-kit/core'
+import { DraggableTask } from '../components/tasks/DraggableTask'
+import { BoardColumn } from '../components/tasks/BoardColumn'
 
 export default function TaskList() {
   const { user } = useAuth()
@@ -128,6 +131,10 @@ export default function TaskList() {
     return matchesSearch && matchesTags
   })
 
+  const activeTask = tasks.find(task => task.id === activeId)
+  const activeColumn = columns.find(column => column.id === activeColumnId)
+  const columnTasks = tasks.filter(task => task.columnId === activeColumnId)
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <TaskListState user={user} loading={loading} error={error} />
@@ -198,6 +205,20 @@ export default function TaskList() {
       />
 
       <ErrorToast error={error} />
+
+      <DragOverlay>
+        {activeId ? (
+          activeTask ? (
+            <DraggableTask task={activeTask} isDragging />
+          ) : (
+            <BoardColumn 
+              column={activeColumn} 
+              tasks={columnTasks} 
+              isOverlay 
+            />
+          )
+        ) : null}
+      </DragOverlay>
     </div>
   )
 } 

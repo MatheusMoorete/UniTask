@@ -17,8 +17,14 @@ export function GoogleCalendarProvider({ children }) {
   const [calendars, setCalendars] = useState([])
   const [loading, setLoading] = useState(true)
   const [calendarColors, setCalendarColors] = useState(null)
-  const [visibleCalendars, setVisibleCalendars] = useState([])
-  const [dashboardCalendars, setDashboardCalendars] = useState([])
+  const [visibleCalendars, setVisibleCalendars] = useState(() => {
+    const saved = localStorage.getItem('visibleCalendars')
+    return saved ? JSON.parse(saved) : []
+  })
+  const [dashboardCalendars, setDashboardCalendars] = useState(() => {
+    const saved = localStorage.getItem('dashboardCalendars')
+    return saved ? JSON.parse(saved) : []
+  })
   const [isInitialized, setIsInitialized] = useState(false)
   const [gapiInited, setGapiInited] = useState(false)
   const [error, setError] = useState(null)
@@ -210,10 +216,27 @@ export function GoogleCalendarProvider({ children }) {
     }
   }, [user])
 
-  // Inicializa os calendários visíveis quando os calendários são carregados
+  // Salva as preferências de visibilidade quando mudam
   useEffect(() => {
-    setVisibleCalendars(calendars.map(cal => cal.id))
-    setDashboardCalendars(calendars.map(cal => cal.id))
+    if (visibleCalendars.length > 0) {
+      localStorage.setItem('visibleCalendars', JSON.stringify(visibleCalendars))
+    }
+  }, [visibleCalendars])
+
+  useEffect(() => {
+    if (dashboardCalendars.length > 0) {
+      localStorage.setItem('dashboardCalendars', JSON.stringify(dashboardCalendars))
+    }
+  }, [dashboardCalendars])
+
+  // Atualiza os calendários visíveis apenas se não houver configuração salva
+  useEffect(() => {
+    if (calendars.length > 0 && visibleCalendars.length === 0) {
+      setVisibleCalendars(calendars.map(cal => cal.id))
+    }
+    if (calendars.length > 0 && dashboardCalendars.length === 0) {
+      setDashboardCalendars(calendars.map(cal => cal.id))
+    }
   }, [calendars])
 
   // Recarrega eventos quando os calendários visíveis mudam
@@ -308,6 +331,7 @@ export function GoogleCalendarProvider({ children }) {
         window.gapi.client.setToken('');
       }
       clearAccessToken();
+      // Não limpa as preferências de visibilidade
       setIsAuthenticated(false);
       setCalendars([]);
       setEvents([]);
@@ -408,19 +432,23 @@ export function GoogleCalendarProvider({ children }) {
 
   const toggleCalendarVisibility = (calendarId) => {
     setVisibleCalendars(prev => {
-      if (prev.includes(calendarId)) {
-        return prev.filter(id => id !== calendarId)
-      }
-      return [...prev, calendarId]
+      const newVisibleCalendars = prev.includes(calendarId)
+        ? prev.filter(id => id !== calendarId)
+        : [...prev, calendarId]
+      
+      localStorage.setItem('visibleCalendars', JSON.stringify(newVisibleCalendars))
+      return newVisibleCalendars
     })
   }
 
   const toggleDashboardVisibility = (calendarId) => {
     setDashboardCalendars(prev => {
-      if (prev.includes(calendarId)) {
-        return prev.filter(id => id !== calendarId)
-      }
-      return [...prev, calendarId]
+      const newDashboardCalendars = prev.includes(calendarId)
+        ? prev.filter(id => id !== calendarId)
+        : [...prev, calendarId]
+      
+      localStorage.setItem('dashboardCalendars', JSON.stringify(newDashboardCalendars))
+      return newDashboardCalendars
     })
   }
 

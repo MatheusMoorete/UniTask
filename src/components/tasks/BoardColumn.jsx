@@ -14,6 +14,8 @@ import { DraggableTask } from "./DraggableTask"
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { motion } from "framer-motion"
 import { cn } from "../../lib/utils"
+import { Badge } from "../ui/badge"
+import { useDroppable } from '@dnd-kit/core'
 
 export const BoardColumn = forwardRef(({ 
   column, 
@@ -44,9 +46,24 @@ export const BoardColumn = forwardRef(({
     },
     disabled: isOverlay,
     transition: {
-      duration: 500,
-      easing: 'cubic-bezier(0.25, 1, 0.5, 1)'
+      duration: 750,
+      easing: 'cubic-bezier(0.25, 1, 0.5, 1.2)'
     }
+  })
+
+  // Adiciona o hook useDroppable para a área vazia
+  const { setNodeRef: setDroppableRef } = useDroppable({
+    id: `${column.id}-droppable`,
+    data: {
+      type: 'column',
+      columnId: column.id
+    }
+  })
+
+  console.log('Configuração da coluna:', {
+    columnId: column.id,
+    droppableId: `${column.id}-droppable`,
+    tasksCount: tasks.length
   })
 
   // Combina as refs
@@ -84,128 +101,120 @@ export const BoardColumn = forwardRef(({
   }
 
   return (
-    <motion.div
-      ref={handleRefs}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition: transition || "transform 500ms cubic-bezier(0.25, 1, 0.5, 1)",
-      }}
-      initial={false}
-      animate={{
-        scale: isDragging ? 1.02 : 1,
-        boxShadow: isDragging ? "0 8px 24px rgba(0, 0, 0, 0.15)" : "none",
-        opacity: isDragging ? 0.6 : 1,
-      }}
-      className={cn(
-        "flex flex-col flex-shrink-0 w-80 bg-muted/50 rounded-lg group",
-        isOverlay && "pointer-events-none"
-      )}
-      layout
-      layoutId={column.id}
-    >
-      {/* Cabeçalho */}
-      <div className="p-4 border-b border-muted relative">
-        <div className="flex items-center justify-between">
-          {isEditing ? (
-            <form onSubmit={handleSubmit} className="flex-1 mr-2">
-              <Input
-                ref={inputRef}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onBlur={handleSubmit}
-                onKeyDown={handleKeyDown}
-                className="h-7 py-1"
-              />
-            </form>
-          ) : (
-            <div className="flex items-center justify-between w-full">
-              {/* Grip Handle para a coluna */}
-              <div 
-                {...attributes} 
-                {...listeners}
-                className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 
-                          cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded-md transition-all"
-              >
-                <GripVertical className="h-4 w-4 text-muted-foreground" />
-              </div>
+    <div className="relative">
+      {/* Áreas arrastáveis - bordas da coluna */}
+      <div 
+        className="absolute inset-y-0 -left-2 w-4 cursor-grab active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
+      />
+      <div 
+        className="absolute inset-y-0 -right-2 w-4 cursor-grab active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
+      />
 
-              <h3 
-                className="text-lg font-semibold cursor-pointer hover:text-muted-foreground transition-colors pl-8"
-                onClick={() => setIsEditing(true)}
+      {/* Conteúdo da coluna - não arrastável */}
+      <div
+        ref={handleRefs}
+        className={cn(
+          "w-[350px] shrink-0 bg-card rounded-lg flex flex-col",
+          isDragging && "opacity-50",
+          isOverlay && "shadow-2xl rotate-3"
+        )}
+        style={{
+          transform: CSS.Transform.toString(transform),
+          transition,
+          transitionProperty: "transform, opacity"
+        }}
+      >
+        {/* Cabeçalho */}
+        <div className="p-4 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">{column.title}</span>
+            <Badge variant="secondary">
+              {tasks.length}
+            </Badge>
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEdit(column)}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => onDelete(column.id)}
+                className="text-red-600"
               >
-                {column.title}
-              </h3>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 hover:bg-muted"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-red-600"
-                    onClick={() => onDelete(column.id)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Excluir
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Lista de tarefas */}
+        <div 
+          className="flex-1 p-4"
+          onClick={(e) => e.stopPropagation()}
+          data-column-id={column.id}
+        >
+          <SortableContext
+            items={tasks.map(task => task.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {tasks.length > 0 ? (
+              <div className="space-y-2">
+                {tasks.map((task) => (
+                  <DraggableTask
+                    key={task.id}
+                    task={task}
+                    onEdit={onTaskEdit}
+                    onDelete={onTaskDelete}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div
+                ref={setDroppableRef}
+                className={cn(
+                  "h-32 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-2 text-sm transition-colors",
+                  "border-muted-foreground/20 text-muted-foreground",
+                  "hover:border-primary/50 hover:bg-accent/50"
+                )}
+                data-column-id={column.id}
+                onClick={() => console.log('Área droppable clicada:', column.id)}
+              >
+                <p className="text-center px-4">
+                  Arraste uma tarefa ou crie uma nova
+                </p>
+              </div>
+            )}
+          </SortableContext>
+        </div>
+
+        {/* Botão de adicionar tarefa */}
+        <div 
+          className="p-4 pt-0 mt-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-200"
+            onClick={() => onTaskAdd(column.id)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar Tarefa
+          </Button>
         </div>
       </div>
-
-      {/* Área de tarefas */}
-      <div className="flex-1 p-4">
-        <SortableContext
-          items={tasks.length > 0 ? tasks.map(task => task.id) : [column.id + '-empty']}
-          strategy={verticalListSortingStrategy}
-        >
-          {tasks.length > 0 ? (
-            <div className="space-y-2">
-              {tasks.map((task) => (
-                <DraggableTask
-                  key={task.id}
-                  task={task}
-                  onEdit={onTaskEdit}
-                  onDelete={onTaskDelete}
-                />
-              ))}
-            </div>
-          ) : (
-            <div
-              id={column.id + '-empty'}
-              className="h-32 border-2 border-dashed border-muted-foreground/20 rounded-lg flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
-            >
-              <p className="text-center px-4">
-                Crie uma nova tarefa
-              </p>
-            </div>
-          )}
-        </SortableContext>
-      </div>
-
-      {/* Botão de adicionar tarefa */}
-      <div className="p-4 pt-0 mt-auto">
-        <Button
-          variant="ghost"
-          className="w-full justify-start text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-200"
-          onClick={() => onTaskAdd(column.id)}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar Tarefa
-        </Button>
-      </div>
-    </motion.div>
+    </div>
   )
 })
 
