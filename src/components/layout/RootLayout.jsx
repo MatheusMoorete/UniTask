@@ -13,10 +13,12 @@ import {
   User,
   Menu,
   X,
-  Book
+  Book,
+  BookOpen
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { NotificationProvider } from '../../contexts/NotificationContext'
+import { Toaster } from '../ui/toaster'
 
 const navigation = [
   { name: 'Dashboard', to: '/', icon: LayoutDashboard },
@@ -25,10 +27,13 @@ const navigation = [
   { name: 'Pomodoro', to: '/pomodoro', icon: Timer },
   { name: 'Faltômetro', to: '/attendance', icon: GraduationCap },
   { name: 'Caderno Virtual', to: '/caderno-virtual', icon: Book },
+  { name: 'Sala de Estudos', to: '/study-room', icon: BookOpen }
 ]
 
 export default function RootLayout() {
+  console.log("RootLayout - Renderizando")
   const { user } = useAuth()
+  console.log("RootLayout - User:", user?.uid)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const toggleMobileMenu = () => {
@@ -170,10 +175,12 @@ export default function RootLayout() {
             <NotificationButton />
           </div>
           <div className="p-2 sm:p-4 md:p-6">
+            {console.log("RootLayout - Antes do Outlet")}
             <Outlet />
           </div>
         </main>
       </div>
+      <Toaster />
     </NotificationProvider>
   )
 } 

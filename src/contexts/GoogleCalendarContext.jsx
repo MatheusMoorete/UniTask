@@ -320,30 +320,31 @@ export function GoogleCalendarProvider({ children }) {
     if (!window.gapi?.client?.calendar) return
 
     try {
-      console.log('Criando evento:', eventData) // Log para debug
+      console.log('Criando evento:', eventData)
 
       const event = {
-        summary: eventData.title,
-        location: eventData.location,
+        summary: eventData.summary,
         description: eventData.description,
         start: {
-          dateTime: new Date(eventData.start).toISOString(),
+          dateTime: eventData.start.dateTime,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
         },
         end: {
-          dateTime: new Date(eventData.end).toISOString(),
+          dateTime: eventData.end.dateTime,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-        }
+        },
+        colorId: eventData.colorId,
+        reminders: eventData.reminders
       }
 
-      console.log('Evento formatado:', event) // Log para debug
+      console.log('Evento formatado:', event)
 
       const response = await window.gapi.client.calendar.events.insert({
-        calendarId: eventData.calendarId,
+        calendarId: eventData.calendarId || 'primary',
         resource: event
       })
 
-      console.log('Resposta da API:', response) // Log para debug
+      console.log('Resposta da API:', response)
 
       if (response.status === 200) {
         await fetchEvents(calendars)

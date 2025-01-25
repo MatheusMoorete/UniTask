@@ -25,6 +25,7 @@ import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert'
 import UpcomingDeadlines from '../components/dashboard/UpcomingDeadlines'
 import { useAuth } from '../contexts/AuthContext'
 import { NextDeadlines } from '../components/dashboard/NextDeadlines'
+import { AttendanceWarning } from '@/components/dashboard/AttendanceWarning'
 
 const TaskProgress = () => {
   const { tasks } = useTasks()
@@ -64,102 +65,6 @@ const TaskProgress = () => {
   )
 }
 
-const AttendanceWarning = () => {
-  const { subjects } = useSubjects()
-  const navigate = useNavigate()
-  
-  // Processa todas as matérias com suas porcentagens de falta
-  const processedSubjects = subjects
-    .map(subject => ({
-      ...subject,
-      absencePercentage: subject.hasMultipleTypes 
-        ? (((subject.type1.absences || 0) * subject.type1.hoursPerClass + 
-            (subject.type2.absences || 0) * subject.type2.hoursPerClass) / 
-           subject.maxAbsences.totalHours) * 100
-        : ((subject.type1.absences || 0) * subject.type1.hoursPerClass / 
-           subject.maxAbsences.totalHours) * 100
-    }))
-    .sort((a, b) => b.absencePercentage - a.absencePercentage)
-
-  // Separa as matérias em risco (>50% de faltas)
-  const subjectsAtRisk = processedSubjects.filter(
-    subject => subject.absencePercentage > 50
-  )
-
-  // Pega as duas principais para exibição
-  const mainSubjects = processedSubjects.slice(0, 2)
-  
-  // Calcula quantas matérias em risco não estão sendo mostradas
-  const additionalRiskSubjects = Math.max(0, subjectsAtRisk.length - 2)
-
-  return (
-    <Card 
-      className="border-l-4 border-l-destructive shadow-md hover:bg-accent/10 cursor-pointer transition-colors"
-      onClick={() => navigate('/attendance')}
-    >
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between text-base">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-destructive" />
-            Cuidado com as Faltas
-          </div>
-          {additionalRiskSubjects > 0 && (
-            <span className="text-xs text-destructive bg-destructive/10 px-2 py-1 rounded-full">
-              +{additionalRiskSubjects} {additionalRiskSubjects === 1 ? 'matéria' : 'matérias'} em risco
-            </span>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {mainSubjects.map((subject) => (
-            <Alert
-              key={subject.id}
-              variant={
-                subject.absencePercentage > 75 ? "destructive" :
-                subject.absencePercentage > 50 ? "warning" :
-                "success"
-              }
-              className="py-2"
-            >
-              <AlertTitle className="flex justify-between items-center">
-                <span>{subject.name}</span>
-                <span className="text-xs">
-                  {subject.hasMultipleTypes ? (
-                    `${subject.type1.absences || 0}/${subject.maxAbsences.type1} T, ${subject.type2.absences || 0}/${subject.maxAbsences.type2} P`
-                  ) : (
-                    `${subject.type1.absences || 0}/${subject.maxAbsences.type1} faltas`
-                  )}
-                </span>
-              </AlertTitle>
-              <AlertDescription className="flex justify-between items-center">
-                {subject.absencePercentage > 75 
-                  ? "Risco de reprovação por faltas!" 
-                  : subject.absencePercentage > 50
-                  ? "Atenção ao número de faltas!"
-                  : ""}
-                <span className="text-xs font-medium">
-                  {Math.round(subject.absencePercentage)}% utilizado
-                </span>
-              </AlertDescription>
-            </Alert>
-          ))}
-          {subjects.length === 0 && (
-            <div className="text-sm text-muted-foreground">
-              Nenhuma matéria cadastrada
-            </div>
-          )}
-          {additionalRiskSubjects > 0 && (
-            <div className="text-sm text-muted-foreground text-center pt-2 border-t">
-              Clique para ver todas as matérias em risco
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
 const FocusTime = () => {
   const { loading, getTodayFocusTime, formatTime, getStreak } = usePomodoro()
   const todayTime = getTodayFocusTime()
@@ -168,7 +73,10 @@ const FocusTime = () => {
   return (
     <Card className="border-l-4 border-l-secondary shadow-md">
       <CardHeader>
-        <CardTitle>Tempo Focado</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Clock className="h-4 w-4 text-secondary" />
+          Tempo Focado
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between">

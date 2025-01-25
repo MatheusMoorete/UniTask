@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, ListTodo, Calendar, Timer, GraduationCap, Book } from 'lucide-react'
+import { LayoutDashboard, ListTodo, Calendar, Timer, GraduationCap, Book, BookOpen } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const navItems = [
@@ -8,11 +8,14 @@ const navItems = [
   { icon: Calendar, label: 'Calendário', href: '/calendar' },
   { icon: Timer, label: 'Timer Pomodoro', href: '/pomodoro' },
   { icon: GraduationCap, label: 'Faltômetro', href: '/attendance' },
-  { icon: Book, label: 'Caderno Virtual', href: '/notebook' },
+  { icon: Book, label: 'Caderno Virtual', href: '/caderno-virtual' },
+  { icon: BookOpen, label: 'Sala de Estudos', href: '/study-room' }
 ]
 
 const Sidebar = ({ className }) => {
   const location = useLocation()
+  console.log("Sidebar sendo renderizada, pathname:", location.pathname)
+  console.log("Items do menu:", navItems)
 
   return (
     <div className={cn("pb-12 min-h-screen bg-card border-r", className)}>
@@ -29,6 +32,7 @@ const Sidebar = ({ className }) => {
           <div className="space-y-1">
             {navItems.map((item) => {
               const isActive = location.pathname === item.href
+              console.log(`Item ${item.label}: href=${item.href}, isActive=${isActive}`)
               return (
                 <Link
                   key={item.href}

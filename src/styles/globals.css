@@ -7,7 +7,7 @@
     /* Cores principais - Tons de azul profundo e cinza */
     --background: 220 33% 98%;
     --foreground: 224 71% 4%;
-    
+
     --card: 0 0% 100%;
     --card-foreground: 224 71% 4%;
  
@@ -34,14 +34,17 @@
     --destructive-foreground: 210 40% 98%;
 
     /* Verde para sucesso */
-    --success: 142 72% 29%;
-    --success-foreground: 210 40% 98%;
- 
+    --success: 142 71% 45%;
+    --success-foreground: 144 70% 96%;
+
     --border: 215 25% 85%;
     --input: 215 25% 85%;
     --ring: 215 90% 30%;
  
     --radius: 0.5rem;
+ 
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
   }
  
   .dark {
@@ -54,6 +57,7 @@
     --popover: 224 71% 4%;
     --popover-foreground: 210 40% 98%;
  
+    /* Azul universitário */
     --primary: 215 90% 50%;
     --primary-foreground: 224 71% 4%;
  
@@ -68,13 +72,16 @@
  
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-
-    --success: 142 72% 29%;
-    --success-foreground: 210 40% 98%;
+ 
+    --success: 144 70% 96%;
+    --success-foreground: 142 71% 45%;
  
     --border: 215 25% 27%;
     --input: 215 25% 27%;
     --ring: 215 90% 50%;
+ 
+    --warning: 48 96% 89%;
+    --warning-foreground: 38 92% 50%;
   }
 }
  

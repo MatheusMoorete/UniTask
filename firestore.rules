@@ -7,8 +7,8 @@ service cloud.firestore {
     }
     
     // Helper function to check if user owns the resource
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    function isOwner() {
+      return request.auth.uid == resource.data.userId;
     }
     
     function isValidDate(date) {
@@ -63,7 +63,9 @@ service cloud.firestore {
           && isValidDate(incoming.createdAt);
       }
 
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
       allow create: if isAuthenticated() 
         && request.resource.data.userId == request.auth.uid
         && isValidSubject();
@@ -132,6 +134,38 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid
         && isValidTopic();
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    match /studyTopics/{topicId} {
+      function isValidStudyTopic() {
+        let incoming = request.resource.data;
+        return incoming.title is string
+          && incoming.userId == request.auth.uid
+          && incoming.progress is number
+          && (incoming.topics is list || incoming.topics == null)
+          && (incoming.examDate is string || incoming.examDate == null)
+          && (incoming.position is number)
+          && (incoming.createdAt is string || incoming.createdAt == null)
+          && (incoming.updatedAt is string || incoming.updatedAt == null);
+      }
+
+      allow read: if isAuthenticated() && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
+      
+      allow create: if isAuthenticated() 
+        && request.resource.data.userId == request.auth.uid
+        && isValidStudyTopic();
+      
+      allow update: if isAuthenticated() 
+        && isOwner()
+        && (
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['progress', 'topics', 'updatedAt', 'position'])
+          || isValidStudyTopic()
+        );
+      
+      allow delete: if isAuthenticated() && isOwner();
     }
     
     match /tags/{tagId} {

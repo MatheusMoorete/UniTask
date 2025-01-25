@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui
 import { Button } from '../ui/button'
 import { Progress } from '../ui/progress'
 import { Plus, Minus, AlertTriangle } from 'lucide-react'
+import { cn } from '../../lib/utils'
 
 const SubjectCard = ({ subject, onUpdate, onDelete }) => {
   const [absences, setAbsences] = useState(subject.absences || 0)
@@ -25,12 +26,14 @@ const SubjectCard = ({ subject, onUpdate, onDelete }) => {
     }
   }
 
-  const getStatusColor = () => {
-    if (absencePercentage >= 100) return 'text-destructive'
-    if (absencePercentage >= 75) return 'text-destructive/90'
-    if (absencePercentage >= 50) return 'text-destructive/75'
-    if (absencePercentage >= 25) return 'text-warning'
-    return 'text-success'
+  const getStatusColor = (percentage) => {
+    if (percentage >= 70) {
+      return 'text-destructive'
+    } else if (percentage > 50) {
+      return 'text-warning'
+    } else {
+      return 'text-success'
+    }
   }
 
   return (
@@ -44,7 +47,7 @@ const SubjectCard = ({ subject, onUpdate, onDelete }) => {
             </CardDescription>
           </div>
           {absencePercentage >= 75 && (
-            <AlertTriangle className={getStatusColor()} />
+            <AlertTriangle className={getStatusColor(absencePercentage)} />
           )}
         </div>
       </CardHeader>
@@ -52,14 +55,18 @@ const SubjectCard = ({ subject, onUpdate, onDelete }) => {
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span>Faltas: {absences} de {maxAbsences} permitidas</span>
-            <span className={getStatusColor()}>
+            <span className={getStatusColor(absencePercentage)}>
               {absencePercentage.toFixed(1)}%
             </span>
           </div>
           <Progress
             value={absencePercentage}
             max={100}
-            className="h-2"
+            className={cn("h-2", {
+              "bg-success/20": absencePercentage < 50,
+              "bg-warning/20": absencePercentage >= 50 && absencePercentage < 70,
+              "bg-destructive/20": absencePercentage >= 70
+            })}
           />
         </div>
 
@@ -86,7 +93,7 @@ const SubjectCard = ({ subject, onUpdate, onDelete }) => {
           </Button>
         </div>
 
-        <p className={`text-sm ${getStatusColor()}`}>
+        <p className={cn("text-sm", getStatusColor(absencePercentage))}>
           {remainingAbsences > 0
             ? `Você ainda pode ter ${remainingAbsences} falta${remainingAbsences !== 1 ? 's' : ''}`
             : 'Você atingiu o limite de faltas!'}

@@ -16,6 +16,7 @@ import Notebook from './pages/Notebook'
 import { CadernoVirtual } from './pages/CadernoVirtual'
 import { FirestoreProvider } from './contexts/FirestoreContext'
 import { BoardProvider } from './contexts/BoardContext'
+import StudyRoom from './pages/StudyRoom'
 
 const defaultSettings = {
   focusTime: 25,
@@ -25,12 +26,14 @@ const defaultSettings = {
 }
 
 function App() {
+  console.log("App sendo renderizado")
   return (
     <AuthProvider>
       <FirestoreProvider>
         <GoogleCalendarProvider>
           <BoardProvider>
             <PomodoroProvider defaultSettings={defaultSettings}>
+              {console.log("Providers carregados")}
               <Routes>
                 {/* Auth Routes */}
                 <Route path="/login" element={<Login />} />
@@ -49,6 +52,7 @@ function App() {
                   <Route path="/pomodoro" element={<Pomodoro />} />
                   <Route path="/attendance" element={<Attendance />} />
                   <Route path="/caderno-virtual" element={<CadernoVirtual />} />
+                  <Route path="/study-room" element={<StudyRoom />} />
                 </Route>
 
                 {/* Fallback Route */}
