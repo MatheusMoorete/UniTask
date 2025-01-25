@@ -250,10 +250,17 @@ export function GoogleCalendarProvider({ children }) {
     }
   }
 
-  const fetchEvents = async (calendars) => {
+  const fetchEvents = async (calendarsToFetch = null) => {
     try {
       const allEvents = []
-      for (const calendar of calendars) {
+      const calendarsToUse = calendarsToFetch || calendars
+
+      if (!Array.isArray(calendarsToUse)) {
+        console.warn('Nenhum calendário disponível para buscar eventos')
+        return
+      }
+
+      for (const calendar of calendarsToUse) {
         if (!visibleCalendars.includes(calendar.id)) continue
 
         const response = await window.gapi.client.calendar.events.list({
@@ -263,14 +270,27 @@ export function GoogleCalendarProvider({ children }) {
           singleEvents: true,
           orderBy: 'startTime',
         })
-        
-        const eventsWithColor = response.result.items.map(event => ({
-          ...event,
+
+        if (!response.result.items) continue
+
+        const eventsWithMetadata = response.result.items.map(event => ({
+          id: event.id,
+          title: event.summary,
+          summary: event.summary,
+          start: event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date),
+          end: event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date),
+          allDay: !event.start.dateTime,
           calendarId: calendar.id,
-          calendarColor: calendar.backgroundColor
+          calendarColor: calendar.backgroundColor,
+          color: calendar.backgroundColor,
+          description: event.description || '',
+          location: event.location || '',
+          originalEvent: event
         }))
-        allEvents.push(...eventsWithColor)
+
+        allEvents.push(...eventsWithMetadata)
       }
+
       setEvents(allEvents)
     } catch (error) {
       console.error('Erro ao buscar eventos:', error)
@@ -316,56 +336,44 @@ export function GoogleCalendarProvider({ children }) {
     }
   }
 
-  const createEvent = async (eventData) => {
-    if (!window.gapi?.client?.calendar) return
-
+  const createEvent = async (eventData, calendarId) => {
     try {
-      console.log('Criando evento:', eventData)
+      if (!window.gapi?.client?.calendar) {
+        throw new Error('Cliente do Google Calendar não inicializado')
+      }
 
       const event = {
         summary: eventData.summary,
+        location: eventData.location,
         description: eventData.description,
-        start: {
-          dateTime: eventData.start.dateTime,
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-        },
-        end: {
-          dateTime: eventData.end.dateTime,
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-        },
-        colorId: eventData.colorId,
-        reminders: eventData.reminders
+        start: eventData.start,
+        end: eventData.end,
+        colorId: eventData.colorId
       }
-
-      console.log('Evento formatado:', event)
 
       const response = await window.gapi.client.calendar.events.insert({
-        calendarId: eventData.calendarId || 'primary',
-        resource: event
+        calendarId: calendarId,
+        resource: event,
       })
 
-      console.log('Resposta da API:', response)
-
-      if (response.status === 200) {
-        await fetchEvents(calendars)
-      } else {
-        throw new Error('Falha ao criar evento')
-      }
+      // Atualiza a lista de eventos usando os calendários atuais
+      await fetchEvents(calendars)
+      return response.result
     } catch (error) {
-      console.error('Erro detalhado ao criar evento:', {
-        message: error.message,
-        details: error.details,
-        status: error.status,
-        result: error.result
-      })
+      console.error('Erro detalhado ao criar evento:', error)
       throw error
     }
   }
 
-  const updateEvent = async (eventId, eventData) => {
-    if (!window.gapi?.client?.calendar) return
+  const updateEvent = async (eventId, eventData, calendarId) => {
+    if (!window.gapi?.client?.calendar) {
+      throw new Error('Cliente do Google Calendar não inicializado')
+    }
 
     try {
+      // Verifica se temos o calendarId, se não usa 'primary'
+      const targetCalendarId = calendarId || 'primary'
+
       const event = {
         summary: eventData.title,
         location: eventData.location,
@@ -380,30 +388,43 @@ export function GoogleCalendarProvider({ children }) {
         }
       }
 
-      await window.gapi.client.calendar.events.update({
-        calendarId: 'primary',
+      const response = await window.gapi.client.calendar.events.update({
+        calendarId: targetCalendarId,
         eventId: eventId,
         resource: event
       })
 
-      fetchEvents(calendars)
+      // Atualiza a lista de eventos
+      await fetchEvents(calendars)
+      return response.result
     } catch (error) {
       console.error('Erro ao atualizar evento:', error)
+      throw new Error('Não foi possível atualizar o evento. Tente novamente.')
     }
   }
 
-  const deleteEvent = async (eventId) => {
-    if (!window.gapi?.client?.calendar) return
+  const deleteEvent = async (eventId, calendarId) => {
+    if (!window.gapi?.client?.calendar) {
+      throw new Error('Cliente do Google Calendar não inicializado')
+    }
 
     try {
-      await window.gapi.client.calendar.events.delete({
-        calendarId: 'primary',
+      if (!calendarId) {
+        throw new Error('ID do calendário não fornecido')
+      }
+
+      const response = await window.gapi.client.calendar.events.delete({
+        calendarId: calendarId,
         eventId: eventId
       })
 
-      fetchEvents(calendars)
+      await fetchEvents(calendars)
+      return response
     } catch (error) {
-      console.error('Erro ao excluir evento:', error)
+      throw new Error(
+        error.result?.error?.message || 
+        'Não foi possível excluir o evento. Tente novamente.'
+      )
     }
   }
 

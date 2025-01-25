@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useGoogleCalendar } from '../contexts/GoogleCalendarContext'
 import { Button } from '../components/ui/button'
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Info, LogOut } from 'lucide-react'
@@ -10,6 +10,9 @@ import { EditEventDialog } from '../components/calendar/EditEventDialog'
 import { CalendarSettings } from '../components/calendar/CalendarSettings'
 import { capitalizeMonth } from '../lib/date-utils'
 import { CalendarLoading } from '../components/calendar/CalendarLoading'
+import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { useAuth } from '../contexts/AuthContext'
+import { db } from '../lib/firebase'
 
 const WEEKDAYS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
 
@@ -21,6 +24,10 @@ export default function Calendar() {
     handleSignOut,
   } = useGoogleCalendar()
 
+  const { user } = useAuth()
+  const [isCalendarConnected, setIsCalendarConnected] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
   const [currentDate, setCurrentDate] = useState(new Date())
 
   // Estado para controlar qual dia está mostrando todos os eventos
@@ -31,17 +38,29 @@ export default function Calendar() {
   const formattedEvents = useMemo(() => {
     return events.map(event => ({
       id: event.id,
-      title: event.summary,
-      start: new Date(event.start.dateTime || event.start.date),
-      end: new Date(event.end.dateTime || event.end.date),
-      allDay: !event.start.dateTime,
-      color: event.calendarColor
+      title: event.title || event.summary,
+      start: new Date(event.start),
+      end: new Date(event.end),
+      allDay: event.allDay,
+      color: event.color || event.calendarColor,
+      calendarId: event.calendarId,
+      description: event.description,
+      location: event.location
     }))
   }, [events])
 
   // Função para filtrar eventos do dia
   const getEventsForDay = (date) => {
-    return formattedEvents.filter(event => isSameDay(event.start, date))
+    return formattedEvents.filter(event => {
+      // Normaliza as datas para comparação
+      const eventDate = new Date(event.start)
+      eventDate.setHours(0, 0, 0, 0)
+      
+      const compareDate = new Date(date)
+      compareDate.setHours(0, 0, 0, 0)
+      
+      return eventDate.getTime() === compareDate.getTime()
+    })
   }
 
   const nextMonth = () => {
@@ -61,6 +80,120 @@ export default function Calendar() {
 
   const goToToday = () => {
     setCurrentDate(new Date())
+  }
+
+  // Verifica o estado da conexão ao carregar
+  useEffect(() => {
+    const checkCalendarConnection = async () => {
+      if (!user) return
+
+      try {
+        const userDocRef = doc(db, 'users', user.uid)
+        const userDoc = await getDoc(userDocRef)
+        
+        if (!userDoc.exists()) {
+          // Cria o documento do usuário se não existir
+          await setDoc(userDocRef, {
+            googleCalendar: {
+              connected: false,
+              tokens: null,
+              expiryDate: null,
+              lastSync: null
+            }
+          })
+          setIsCalendarConnected(false)
+        } else {
+          const userData = userDoc.data()
+          if (userData?.googleCalendar?.connected) {
+            const tokenExpiryDate = new Date(userData.googleCalendar.expiryDate)
+            if (tokenExpiryDate > new Date()) {
+              setIsCalendarConnected(true)
+              await initializeGoogleCalendarWithToken(userData.googleCalendar.tokens)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao verificar conexão do calendário:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkCalendarConnection()
+  }, [user])
+
+  // Função para salvar os tokens no Firestore
+  const saveCalendarTokens = async (tokens) => {
+    if (!user) return
+
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        googleCalendar: {
+          connected: true,
+          tokens,
+          expiryDate: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+          lastSync: new Date().toISOString()
+        }
+      }, { merge: true })
+
+      setIsCalendarConnected(true)
+    } catch (error) {
+      console.error('Erro ao salvar tokens:', error)
+      throw error
+    }
+  }
+
+  // Função para desconectar o calendário
+  const handleDisconnectCalendar = async () => {
+    if (!user) return
+
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        googleCalendar: {
+          connected: false,
+          tokens: null,
+          expiryDate: null,
+          lastSync: null
+        }
+      }, { merge: true })
+
+      setIsCalendarConnected(false)
+      // Limpa os tokens locais do Google Calendar
+      await clearGoogleCalendarTokens()
+    } catch (error) {
+      console.error('Erro ao desconectar calendário:', error)
+    }
+  }
+
+  // Função para conectar o calendário
+  const handleConnectCalendar = async () => {
+    try {
+      setIsLoading(true)
+      const tokens = await authenticateWithGoogle()
+      await saveCalendarTokens(tokens)
+      // Inicializa o cliente do Google Calendar com os novos tokens
+      await initializeGoogleCalendarWithToken(tokens)
+    } catch (error) {
+      console.error('Erro ao conectar calendário:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Quando definir o eventToEdit, vamos garantir que tem todas as informações
+  const handleEventClick = (event) => {
+    if (!event.calendarId) return
+    
+    setEventToEdit({
+      id: event.id,
+      title: event.title || event.summary,
+      start: event.start,
+      end: event.end,
+      description: event.description || '',
+      location: event.location || '',
+      calendarId: event.calendarId,
+      color: event.color || event.calendarColor
+    })
   }
 
   // Mostra o loading enquanto está inicializando
@@ -171,7 +304,7 @@ export default function Calendar() {
                         borderLeftColor: event.color || '#1a73e8',
                         backgroundColor: `${event.color}15` || '#e8f0fe'
                       }}
-                      onClick={() => setEventToEdit(event)}
+                      onClick={() => handleEventClick(event)}
                     >
                       {!event.allDay && (
                         <span className="event-time">

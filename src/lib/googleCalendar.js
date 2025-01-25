@@ -344,4 +344,70 @@ export async function addEventToCalendar(event) {
     console.error(err)
     throw err
   }
+}
+
+// Função para inicializar o cliente do Google Calendar com tokens existentes
+export const initializeGoogleCalendarWithToken = async (tokens) => {
+  if (!window.gapi) {
+    console.error('Google API não carregada')
+    return
+  }
+
+  try {
+    await window.gapi.client.init({
+      apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
+      clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/calendar',
+    })
+
+    // Set the tokens
+    window.gapi.client.setToken(tokens)
+
+    // Initialize calendar API
+    await window.gapi.client.load('calendar', 'v3')
+    
+    return true
+  } catch (error) {
+    console.error('Erro ao inicializar cliente do Google Calendar:', error)
+    throw error
+  }
+}
+
+// Função para autenticar com o Google
+export const authenticateWithGoogle = async () => {
+  if (!window.gapi) {
+    throw new Error('Google API não carregada')
+  }
+
+  try {
+    const auth2 = window.gapi.auth2.getAuthInstance()
+    const googleUser = await auth2.signIn({
+      scope: 'https://www.googleapis.com/auth/calendar'
+    })
+    
+    const authResponse = googleUser.getAuthResponse(true)
+    return {
+      access_token: authResponse.access_token,
+      id_token: authResponse.id_token,
+      expires_in: authResponse.expires_in,
+      refresh_token: authResponse.refresh_token
+    }
+  } catch (error) {
+    console.error('Erro na autenticação do Google:', error)
+    throw error
+  }
+}
+
+// Função para limpar tokens
+export const clearGoogleCalendarTokens = async () => {
+  if (!window.gapi) return
+
+  try {
+    const auth2 = window.gapi.auth2.getAuthInstance()
+    await auth2.signOut()
+    window.gapi.client.setToken(null)
+  } catch (error) {
+    console.error('Erro ao limpar tokens:', error)
+    throw error
+  }
 } 

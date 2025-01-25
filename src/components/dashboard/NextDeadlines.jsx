@@ -12,20 +12,21 @@ export function NextDeadlines() {
   // Filtra e ordena os próximos eventos (próximos 7 dias)
   const upcomingEvents = events
     .filter(event => {
-      // Primeiro verifica se o calendário do evento está visível no dashboard
+      // Verifica se o calendário do evento está visível no dashboard
       if (!dashboardCalendars.includes(event.calendarId)) {
         return false
       }
 
-      const eventDate = new Date(event.start.dateTime || event.start.date)
+      // Ajuste na forma de acessar a data de início do evento
+      const eventDate = new Date(event.start instanceof Date ? event.start : event.start.dateTime || event.start.date)
       const today = startOfDay(new Date())
       const nextWeek = addDays(today, 7)
       
       return isAfter(eventDate, today) && isBefore(eventDate, nextWeek)
     })
     .sort((a, b) => {
-      const dateA = new Date(a.start.dateTime || a.start.date)
-      const dateB = new Date(b.start.dateTime || b.start.date)
+      const dateA = new Date(a.start instanceof Date ? a.start : a.start.dateTime || a.start.date)
+      const dateB = new Date(b.start instanceof Date ? b.start : b.start.dateTime || b.start.date)
       return dateA - dateB
     })
     .slice(0, 5)
@@ -67,9 +68,8 @@ export function NextDeadlines() {
                   </p>
                   <p className="text-xs text-gray-500">
                     {format(
-                      new Date(event.start.dateTime || event.start.date),
-                      event.start.dateTime ? "d 'de' MMMM 'às' HH:mm" : "d 'de' MMMM",
-                      { locale: ptBR }
+                      new Date(event.start instanceof Date ? event.start : event.start.dateTime || event.start.date),
+                      "dd/MM"
                     )}
                   </p>
                 </div>

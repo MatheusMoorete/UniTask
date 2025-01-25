@@ -24,37 +24,64 @@ import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
 import { capitalizeMonth } from '../../lib/date-utils'
 
 export function CreateEventDialog() {
+  const { calendars, createEvent } = useGoogleCalendar()
   const [isOpen, setIsOpen] = useState(false)
   const [error, setError] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [event, setEvent] = useState({
     title: '',
-    start: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-    end: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-    location: '',
+    start: '',
+    end: '',
     description: '',
-    calendarId: 'primary'
+    location: '',
+    calendarId: ''
   })
-
-  const { createEvent, calendars } = useGoogleCalendar()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
-    
+
+    if (!event.calendarId) {
+      setError('Por favor, selecione um calendário')
+      return
+    }
+
     try {
-      await createEvent(event)
+      setIsLoading(true)
+      
+      // Formata o evento para o padrão do Google Calendar
+      const formattedEvent = {
+        summary: event.title,
+        description: event.description,
+        location: event.location,
+        start: {
+          dateTime: new Date(event.start).toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        },
+        end: {
+          dateTime: new Date(event.end).toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        }
+      }
+
+      await createEvent(formattedEvent, event.calendarId)
       setIsOpen(false)
       setEvent({
         title: '',
-        start: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-        end: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-        location: '',
+        start: '',
+        end: '',
         description: '',
-        calendarId: 'primary'
+        location: '',
+        calendarId: ''
       })
     } catch (error) {
-      setError('Não foi possível criar o evento. Por favor, verifique as permissões da agenda selecionada.')
       console.error('Erro ao criar evento:', error)
+      setError(
+        error.result?.error?.message || 
+        'Erro ao criar evento. Verifique os dados e tente novamente.'
+      )
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -90,15 +117,16 @@ export function CreateEventDialog() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="calendar">Minhas Agendas Google</Label>
+            <Label htmlFor="calendar">Calendário</Label>
             <Select
               value={event.calendarId}
               onValueChange={(value) => setEvent({ ...event, calendarId: value })}
+              required
             >
               <SelectTrigger>
-                <SelectValue placeholder="Selecione uma agenda" />
+                <SelectValue placeholder="Selecione um calendário" />
               </SelectTrigger>
-              <SelectContent className="max-h-[200px] overflow-y-auto">
+              <SelectContent>
                 {calendars.map((calendar) => (
                   <SelectItem 
                     key={calendar.id} 
@@ -106,10 +134,10 @@ export function CreateEventDialog() {
                     className="flex items-center gap-2"
                   >
                     <div 
-                      className="w-3 h-3 rounded-full flex-shrink-0" 
+                      className="w-3 h-3 rounded-full" 
                       style={{ backgroundColor: calendar.backgroundColor }}
                     />
-                    <span className="truncate">{calendar.summary}</span>
+                    {calendar.summary}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -156,10 +184,27 @@ export function CreateEventDialog() {
             />
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+              disabled={isLoading}
+            >
               Cancelar
             </Button>
-            <Button type="submit">Salvar</Button>
+            <Button 
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <span className="animate-spin mr-2">⭮</span>
+                  Criando...
+                </>
+              ) : (
+                'Criar'
+              )}
+            </Button>
           </div>
         </form>
       </DialogContent>

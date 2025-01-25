@@ -23,17 +23,35 @@ export function EditEventDialog({ event, onClose }) {
   })
 
   const { updateEvent, deleteEvent } = useGoogleCalendar()
+  const [error, setError] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    await updateEvent(event.id, editedEvent)
-    onClose()
+    setIsLoading(true)
+    try {
+      await updateEvent(event.id, editedEvent, event.calendarId)
+      onClose()
+    } catch (error) {
+      setError('Erro ao atualizar evento. Tente novamente.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleDelete = async () => {
-    if (confirm('Tem certeza que deseja excluir este evento?')) {
-      await deleteEvent(event.id)
+    try {
+      if (!confirm('Tem certeza que deseja excluir este evento?')) {
+        return
+      }
+
+      setIsLoading(true)
+      await deleteEvent(event.id, event.calendarId)
       onClose()
+    } catch (error) {
+      setError(error.message || 'Erro ao excluir evento. Tente novamente.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -47,6 +65,11 @@ export function EditEventDialog({ event, onClose }) {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="text-sm text-red-500 bg-red-50 p-2 rounded">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="title">Título</Label>
             <Input
@@ -98,14 +121,43 @@ export function EditEventDialog({ event, onClose }) {
             />
           </div>
           <div className="flex justify-between">
-            <Button type="button" variant="destructive" onClick={handleDelete}>
-              Excluir
+            <Button 
+              type="button" 
+              variant="destructive" 
+              onClick={handleDelete}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <span className="animate-spin mr-2">⭮</span>
+                  Sincronizando...
+                </>
+              ) : (
+                'Excluir'
+              )}
             </Button>
             <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onClose}
+                disabled={isLoading}
+              >
                 Cancelar
               </Button>
-              <Button type="submit">Salvar</Button>
+              <Button 
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <span className="animate-spin mr-2">⭮</span>
+                    Salvando...
+                  </>
+                ) : (
+                  'Salvar'
+                )}
+              </Button>
             </div>
           </div>
         </form>

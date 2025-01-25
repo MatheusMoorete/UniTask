@@ -32,10 +32,23 @@ export function useBoard() {
   const [selectedTags, setSelectedTags] = useState([])
   const { user } = useAuth()
   const { db } = useFirestore()
+  const [board, setBoard] = useState(null)
+
+  useEffect(() => {
+    if (!user) return
+
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
+      if (doc.exists()) {
+        setBoard(doc.data().board || null)
+      }
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [user])
 
   // Carregar colunas e tarefas
   useEffect(() => {
-    console.log('User auth state:', user);
     if (!user) {
       setColumns([])
       setTasks([])

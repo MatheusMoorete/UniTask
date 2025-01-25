@@ -25,15 +25,13 @@ const defaultSettings = {
   sessionsUntilLongBreak: 4,
 }
 
-function App() {
-  console.log("App sendo renderizado")
+export default function App() {
   return (
     <AuthProvider>
       <FirestoreProvider>
         <GoogleCalendarProvider>
           <BoardProvider>
             <PomodoroProvider defaultSettings={defaultSettings}>
-              {console.log("Providers carregados")}
               <Routes>
                 {/* Auth Routes */}
                 <Route path="/login" element={<Login />} />
@@ -65,5 +63,3 @@ function App() {
     </AuthProvider>
   )
 }
-
-export default App
