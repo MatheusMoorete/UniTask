@@ -52,32 +52,21 @@ service cloud.firestore {
     }
     
     match /subjects/{subjectId} {
-      function isValidSubject() {
-        let incoming = request.resource.data;
-        return incoming.name is string
-          && incoming.totalHours is number
-          && incoming.type1.hours is number
-          && incoming.type1.hoursPerClass is number
-          && incoming.type1.absences is number
-          && incoming.type2.hours is number
-          && incoming.type2.hoursPerClass is number
-          && incoming.type2.absences is number
-          && incoming.hasMultipleTypes is bool
-          && incoming.maxAbsencePercentage is number
-          && incoming.userId is string
-          && isValidDate(incoming.createdAt);
-      }
-
-      allow read: if isAuthenticated() && (
+      allow read: if request.auth != null && (
         resource == null || resource.data.userId == request.auth.uid
       );
-      allow create: if isAuthenticated() 
-        && request.resource.data.userId == request.auth.uid
-        && isValidSubject();
-      allow update: if isAuthenticated() 
-        && resource.data.userId == request.auth.uid
-        && isValidSubject();
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.name is string &&
+        request.resource.data.totalHours is number &&
+        request.resource.data.hasMultipleTypes is bool;
+        
+      allow update: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+        
+      allow delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
     }
     
     match /pomodoro_sessions/{sessionId} {

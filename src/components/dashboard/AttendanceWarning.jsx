@@ -11,15 +11,34 @@ export function AttendanceWarning() {
 
   // Função para calcular a porcentagem de faltas utilizada
   const calculateAttendancePercentage = (subject) => {
-    if (!subject) return 0
+    if (!subject || !subject.type1) return 0
 
-    if (subject.hasMultipleTypes) {
-      const type1Percentage = (subject.type1.absences / subject.maxAbsences.type1) * 100
-      const type2Percentage = (subject.type2.absences / subject.maxAbsences.type2) * 100
+    if (subject.hasMultipleTypes && subject.type2) {
+      const type1Percentage = subject.type1?.absences && subject.maxAbsences?.type1 
+        ? (subject.type1.absences / subject.maxAbsences.type1) * 100 
+        : 0
+      const type2Percentage = subject.type2?.absences && subject.maxAbsences?.type2 
+        ? (subject.type2.absences / subject.maxAbsences.type2) * 100
+        : 0
       
       return Math.max(type1Percentage, type2Percentage)
     } else {
-      return (subject.type1.absences / subject.maxAbsences.type1) * 100
+      return subject.type1?.absences && subject.maxAbsences?.type1
+        ? (subject.type1.absences / subject.maxAbsences.type1) * 100
+        : 0
+    }
+  }
+
+  // Função para calcular o total de faltas
+  const calculateTotalAbsences = (subject) => {
+    if (!subject || !subject.type1) return '0/0'
+
+    if (subject.hasMultipleTypes && subject.type2) {
+      const totalAbsences = (subject.type1?.absences || 0) + (subject.type2?.absences || 0)
+      const maxAbsences = (subject.maxAbsences?.type1 || 0) + (subject.maxAbsences?.type2 || 0)
+      return `${totalAbsences}/${maxAbsences}`
+    } else {
+      return `${subject.type1?.absences || 0}/${subject.maxAbsences?.type1 || 0}`
     }
   }
 
@@ -89,10 +108,7 @@ export function AttendanceWarning() {
       <CardContent>
         <div className="space-y-3">
           {processedSubjects.slice(0, 2).map(subject => {
-            const totalAbsences = subject.hasMultipleTypes 
-              ? `${subject.type1.absences + subject.type2.absences}/${subject.maxAbsences.type1 + subject.maxAbsences.type2}`
-              : `${subject.type1.absences}/${subject.maxAbsences.type1}`
-
+            const totalAbsences = calculateTotalAbsences(subject)
             const status = getStatusConfig(subject.percentage)
 
             return (

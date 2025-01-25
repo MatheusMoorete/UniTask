@@ -35,6 +35,21 @@ export function FirestoreProvider({ children }) {
         }
     }, [])
 
+    useEffect(() => {
+        const clearIndexedDB = async () => {
+            try {
+                const databases = await window.indexedDB.databases()
+                databases.forEach(db => {
+                    window.indexedDB.deleteDatabase(db.name)
+                })
+            } catch (error) {
+                console.error('Erro ao limpar IndexedDB:', error)
+            }
+        }
+
+        clearIndexedDB()
+    }, [])
+
     if (loading) {
         return <Loading />
     }

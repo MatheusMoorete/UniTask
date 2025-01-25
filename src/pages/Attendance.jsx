@@ -22,7 +22,10 @@ import {
   DialogTrigger,
 } from '../components/ui/dialog'
 import { Progress } from '../components/ui/progress'
-import { Plus, Trash2, Pencil, Loader2, MinusCircle, PlusCircle } from 'lucide-react'
+import { Plus, Trash2, Pencil, Loader2, MinusCircle, PlusCircle, Clock } from 'lucide-react'
+import { cn } from '../lib/utils'
+import { motion } from 'framer-motion'
+import { toast } from 'sonner'
 
 export default function Attendance() {
   const { subjects, loading, addSubject, updateSubject, deleteSubject, addAbsence, removeAbsence } = useSubjects()
@@ -176,13 +179,113 @@ export default function Attendance() {
     setIsDialogOpen(true)
   }
 
-  const handleDelete = async (subjectId) => {
-    setError(null)
-    try {
-      await deleteSubject(subjectId)
-    } catch (error) {
-      console.error('Erro ao deletar matéria:', error)
-      setError('Houve um erro ao deletar a matéria. Tente novamente.')
+  const handleDelete = async (subjectId, subjectName) => {
+    toast.promise(
+      new Promise((resolve, reject) => {
+        toast.custom((t) => (
+          <div className="flex flex-col gap-3 bg-background border rounded-lg p-4 shadow-lg">
+            <div className="space-y-1">
+              <h3 className="font-medium">Confirmar exclusão</h3>
+              <p className="text-sm text-muted-foreground">
+                Deseja excluir a disciplina "{subjectName}"? Esta ação não pode ser desfeita.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  toast.dismiss(t)
+                  reject()
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  toast.dismiss(t)
+                  resolve()
+                }}
+              >
+                Excluir
+              </Button>
+            </div>
+          </div>
+        ), { duration: Infinity })
+      })
+        .then(async () => {
+          await deleteSubject(subjectId)
+          return 'Disciplina excluída com sucesso'
+        })
+        .catch(() => {
+          throw 'Exclusão cancelada'
+        }),
+      {
+        loading: 'Excluindo disciplina...',
+        success: (message) => message,
+        error: (message) => message,
+      }
+    )
+  }
+
+  // Função para calcular a porcentagem de faltas utilizada
+  const calculateAttendancePercentage = (subject) => {
+    if (!subject || !subject.type1 || !subject.maxAbsences) return 0
+
+    if (subject.hasMultipleTypes && subject.type2) {
+      // Para disciplinas com dois tipos de aula
+      const currentType1Absences = subject.type1.absences || 0
+      const currentType2Absences = subject.type2.absences || 0
+      const maxType1Absences = subject.maxAbsences.type1 || 0
+      const maxType2Absences = subject.maxAbsences.type2 || 0
+
+      // Total de faltas atuais e máximas
+      const totalCurrentAbsences = currentType1Absences + currentType2Absences
+      const totalMaxAbsences = maxType1Absences + maxType2Absences
+
+      // Calcula a porcentagem
+      return totalMaxAbsences > 0 
+        ? (totalCurrentAbsences / totalMaxAbsences) * 100 
+        : 0
+    } else {
+      // Para disciplinas com um tipo de aula
+      const currentAbsences = subject.type1.absences || 0
+      const maxAbsences = subject.maxAbsences.type1 || 0
+
+      // Calcula a porcentagem
+      return maxAbsences > 0 
+        ? (currentAbsences / maxAbsences) * 100 
+        : 0
+    }
+  }
+
+  // Função para calcular faltas restantes
+  const calculateRemainingAbsences = (subject) => {
+    if (!subject || !subject.type1 || !subject.maxAbsences) return 0
+
+    if (subject.hasMultipleTypes && subject.type2) {
+      // Para disciplinas com dois tipos de aula
+      const maxType1Absences = subject.maxAbsences.type1 || 0
+      const maxType2Absences = subject.maxAbsences.type2 || 0
+      const currentType1Absences = subject.type1.absences || 0
+      const currentType2Absences = subject.type2.absences || 0
+
+      // Total de faltas permitidas (soma dos dois tipos)
+      const totalAllowedAbsences = maxType1Absences + maxType2Absences
+      // Total de faltas já utilizadas
+      const totalUsedAbsences = currentType1Absences + currentType2Absences
+      
+      // Retorna a diferença entre permitidas e utilizadas
+      return Math.max(0, totalAllowedAbsences - totalUsedAbsences)
+    } else {
+      // Para disciplinas com um tipo de aula
+      const maxAbsences = subject.maxAbsences.type1 || 0
+      const currentAbsences = subject.type1.absences || 0
+      
+      // Retorna a diferença entre permitidas e utilizadas
+      return Math.max(0, maxAbsences - currentAbsences)
     }
   }
 
@@ -413,140 +516,224 @@ export default function Attendance() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {subjects.map((subject) => (
-          <Card key={subject.id}>
-            <CardHeader className="space-y-1">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="line-clamp-1">{subject.name}</CardTitle>
-                  <CardDescription>
-                    {subject.totalHours}h • 
-                    {subject.hasMultipleTypes ? (
-                      <>
-                        {subject.type1?.name || 'Teórica'}: {subject.type1?.hours || 0}h, 
-                        {subject.type2?.name || 'Prática'}: {subject.type2?.hours || 0}h
-                      </>
-                    ) : (
-                      `${subject.type1?.hours || 0}h por aula`
-                    )}
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleEdit(subject)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(subject.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {subject.hasMultipleTypes ? (
-                <>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Faltas Teóricas: {subject.type1.absences || 0} aulas ({(subject.type1.absences || 0) * subject.type1.hoursPerClass}h)</span>
-                      <span>Máximo: {subject.maxAbsences.type1} aulas ({subject.maxAbsences.type1 * subject.type1.hoursPerClass}h)</span>
-                    </div>
-                    <Progress
-                      value={(subject.type1.absences || 0) / subject.maxAbsences.type1 * 100}
-                      className="h-2"
-                    />
-                    <div className="flex justify-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => removeAbsence(subject.id, 'type1')}
-                        disabled={!subject.type1.absences}
-                      >
-                        <MinusCircle className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => addAbsence(subject.id, 'type1')}
-                        disabled={subject.type1.absences >= subject.maxAbsences.type1}
-                      >
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+        {subjects.map((subject) => {
+          if (!subject?.type1) return null
+          
+          const percentage = calculateAttendancePercentage(subject)
+          const remainingAbsences = calculateRemainingAbsences(subject)
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Faltas Práticas: {subject.type2.absences || 0} aulas ({(subject.type2.absences || 0) * subject.type2.hoursPerClass}h)</span>
-                      <span>Máximo: {subject.maxAbsences.type2} aulas ({subject.maxAbsences.type2 * subject.type2.hoursPerClass}h)</span>
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              key={subject.id}
+            >
+              <Card className={cn(
+                "overflow-hidden transition-all duration-200 hover:shadow-md",
+                percentage >= 75 ? "border-l-4 border-l-destructive" :
+                percentage >= 50 ? "border-l-4 border-l-warning" :
+                "border-l-4 border-l-success"
+              )}>
+                <CardHeader className="space-y-1 pb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="line-clamp-1 text-xl">{subject.name}</CardTitle>
+                      <CardDescription className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          {subject.totalHours}h
+                        </span>
+                        {subject.hasMultipleTypes && (
+                          <>
+                            <span>•</span>
+                            <span>{subject.type1?.name || 'Teórica'}: {subject.type1?.hours || 0}h</span>
+                            <span>•</span>
+                            <span>{subject.type2?.name || 'Prática'}: {subject.type2?.hours || 0}h</span>
+                          </>
+                        )}
+                      </CardDescription>
                     </div>
-                    <Progress
-                      value={(subject.type2.absences || 0) / subject.maxAbsences.type2 * 100}
-                      className="h-2"
-                    />
-                    <div className="flex justify-center gap-2">
+                    <div className="flex gap-1">
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
-                        onClick={() => removeAbsence(subject.id, 'type2')}
-                        disabled={!subject.type2.absences}
+                        className="h-8 w-8 hover:bg-muted"
+                        onClick={() => handleEdit(subject)}
                       >
-                        <MinusCircle className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
-                        onClick={() => addAbsence(subject.id, 'type2')}
-                        disabled={subject.type2.absences >= subject.maxAbsences.type2}
+                        className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => handleDelete(subject.id, subject.name)}
                       >
-                        <PlusCircle className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
+                </CardHeader>
 
-                  <div className="text-xs text-muted-foreground border-t pt-2">
-                    <p>Total de faltas: {((subject.type1.absences || 0) * subject.type1.hoursPerClass) + ((subject.type2.absences || 0) * subject.type2.hoursPerClass)}h de {subject.maxAbsences.totalHours}h permitidas</p>
+                <CardContent className="space-y-6">
+                  {subject.hasMultipleTypes ? (
+                    <>
+                      {/* Aulas Teóricas */}
+                      <div className="space-y-3">
+                        <span className="text-sm font-medium">{subject.type1.name || 'Teóricas'}</span>
+                        <div className="flex items-center">
+                          <div className="flex-grow">
+                            <Progress 
+                              value={(subject.type1.absences / subject.maxAbsences.type1) * 100} 
+                              className="h-2"
+                              indicatorClassName={cn(
+                                "transition-all duration-300",
+                                percentage >= 75 ? "bg-destructive" :
+                                percentage >= 50 ? "bg-warning" :
+                                "bg-success"
+                              )}
+                            />
+                            <div className="flex justify-end text-xs text-muted-foreground mt-1">
+                              <span>{subject.type1.absences || 0} de {subject.maxAbsences.type1} faltas</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 ml-3 -mt-2">
+                            <Button 
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-full hover:bg-destructive/10"
+                              onClick={() => removeAbsence(subject.id, 'type1')}
+                              disabled={subject.type1.absences <= 0}
+                            >
+                              <MinusCircle className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-full hover:bg-success/10"
+                              onClick={() => addAbsence(subject.id, 'type1')}
+                              disabled={remainingAbsences <= 0}
+                            >
+                              <PlusCircle className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Aulas Práticas */}
+                      <div className="space-y-3">
+                        <span className="text-sm font-medium">{subject.type2.name || 'Práticas'}</span>
+                        <div className="flex items-center">
+                          <div className="flex-grow">
+                            <Progress 
+                              value={(subject.type2.absences / subject.maxAbsences.type2) * 100} 
+                              className="h-2"
+                              indicatorClassName={cn(
+                                "transition-all duration-300",
+                                percentage >= 75 ? "bg-destructive" :
+                                percentage >= 50 ? "bg-warning" :
+                                "bg-success"
+                              )}
+                            />
+                            <div className="flex justify-end text-xs text-muted-foreground mt-1">
+                              <span>{subject.type2.absences || 0} de {subject.maxAbsences.type2} faltas</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 ml-3 -mt-2">
+                            <Button 
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-full hover:bg-destructive/10"
+                              onClick={() => removeAbsence(subject.id, 'type2')}
+                              disabled={subject.type2.absences <= 0}
+                            >
+                              <MinusCircle className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-full hover:bg-success/10"
+                              onClick={() => addAbsence(subject.id, 'type2')}
+                              disabled={remainingAbsences <= 0}
+                            >
+                              <PlusCircle className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center">
+                        <div className="flex-grow">
+                          <Progress 
+                            value={(subject.type1.absences / subject.maxAbsences.type1) * 100} 
+                            className="h-2"
+                            indicatorClassName={cn(
+                              "transition-all duration-300",
+                              percentage >= 75 ? "bg-destructive" :
+                              percentage >= 50 ? "bg-warning" :
+                              "bg-success"
+                            )}
+                          />
+                          <div className="flex justify-end text-xs text-muted-foreground mt-1">
+                            <span>{subject.type1.absences || 0} de {subject.maxAbsences.type1} faltas</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 ml-3 -mt-2">
+                          <Button 
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-full hover:bg-destructive/10"
+                            onClick={() => removeAbsence(subject.id, 'type1')}
+                            disabled={subject.type1.absences <= 0}
+                          >
+                            <MinusCircle className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-full hover:bg-success/10"
+                            onClick={() => addAbsence(subject.id, 'type1')}
+                            disabled={remainingAbsences <= 0}
+                          >
+                            <PlusCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <span className={cn(
+                          "text-sm font-medium",
+                          percentage >= 75 ? "text-destructive" :
+                          percentage >= 50 ? "text-warning" :
+                          "text-success"
+                        )}>
+                          Utilização
+                        </span>
+                        <p className="text-2xl font-bold tracking-tight">
+                          {percentage.toFixed(1)}%
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm font-medium text-muted-foreground">
+                          Faltas Restantes
+                        </span>
+                        <p className="text-2xl font-bold tracking-tight">
+                          {remainingAbsences}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Faltas: {subject.type1.absences || 0} aulas ({(subject.type1.absences || 0) * subject.type1.hoursPerClass}h)</span>
-                    <span>Máximo: {subject.maxAbsences.type1} aulas ({subject.maxAbsences.type1 * subject.type1.hoursPerClass}h)</span>
-                  </div>
-                  <Progress
-                    value={(subject.type1.absences || 0) / subject.maxAbsences.type1 * 100}
-                    className="h-2"
-                  />
-                  <div className="flex justify-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => removeAbsence(subject.id, 'type1')}
-                      disabled={!subject.type1.absences}
-                    >
-                      <MinusCircle className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => addAbsence(subject.id, 'type1')}
-                      disabled={subject.type1.absences >= subject.maxAbsences.type1}
-                    >
-                      <PlusCircle className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )
+        })}
       </div>
 
       {subjects.length === 0 && (

@@ -9,7 +9,8 @@ import {
   updateDoc,
   doc,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  orderBy
 } from 'firebase/firestore'
 import { useFirestore } from '../contexts/FirestoreContext'
 
@@ -22,34 +23,30 @@ export function useSubjects() {
   // Função auxiliar para calcular o máximo de faltas
   const calculateMaxAbsences = (totalHours, type1Hours, type2Hours, type1HoursPerClass, type2HoursPerClass, hasMultipleTypes, maxAbsencePercentage) => {
     try {
-      const maxAbsencePercentageNum = Number(maxAbsencePercentage)
-      
+      const maxAbsencePercentageNum = Number(maxAbsencePercentage) / 100 // Convertendo para decimal
+
       if (hasMultipleTypes) {
-        // Calcula separadamente para cada tipo
-        const type1TotalHours = Number(type1Hours)
-        const type2TotalHours = Number(type2Hours)
-        const type1HoursPerClassNum = Number(type1HoursPerClass)
-        const type2HoursPerClassNum = Number(type2HoursPerClass)
+        // Calcula o número de aulas para cada tipo
+        const type1Classes = Math.floor(type1Hours / type1HoursPerClass)
+        const type2Classes = Math.floor(type2Hours / type2HoursPerClass)
         
-        // Calcula o máximo de faltas para cada tipo
-        const maxType1Hours = (type1TotalHours * maxAbsencePercentageNum) / 100
-        const maxType2Hours = (type2TotalHours * maxAbsencePercentageNum) / 100
+        // Calcula o máximo de faltas em aulas para cada tipo
+        const maxType1Absences = Math.floor(type1Classes * maxAbsencePercentageNum)
+        const maxType2Absences = Math.floor(type2Classes * maxAbsencePercentageNum)
         
-        // Retorna objeto com máximo de faltas para cada tipo
         return {
-          type1: Math.floor(maxType1Hours / type1HoursPerClassNum), // Número de aulas teóricas que pode faltar
-          type2: Math.floor(maxType2Hours / type2HoursPerClassNum), // Número de aulas práticas que pode faltar
-          totalHours: (maxType1Hours + maxType2Hours) // Total de horas que pode faltar
+          type1: maxType1Absences,
+          type2: maxType2Absences,
+          totalHours: (maxType1Absences * type1HoursPerClass) + (maxType2Absences * type2HoursPerClass)
         }
       } else {
         // Para matérias com apenas um tipo de aula
-        const totalHoursNum = Number(totalHours)
-        const hoursPerClassNum = Number(type1HoursPerClass)
-        const maxHoursAbsence = (totalHoursNum * maxAbsencePercentageNum) / 100
+        const totalClasses = Math.floor(totalHours / type1HoursPerClass)
+        const maxAbsences = Math.floor(totalClasses * maxAbsencePercentageNum)
         
         return {
-          type1: Math.floor(maxHoursAbsence / hoursPerClassNum),
-          totalHours: maxHoursAbsence
+          type1: maxAbsences,
+          totalHours: maxAbsences * type1HoursPerClass
         }
       }
     } catch (error) {
@@ -64,34 +61,38 @@ export function useSubjects() {
       setLoading(false)
       return
     }
+    
+    const subjectsQuery = query(
+      collection(db, 'subjects'),
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'asc')
+    )
 
-    try {
-      const q = query(
-        collection(db, 'subjects'),
-        where('userId', '==', user.uid)
-      )
-
-      const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(subjectsQuery, 
+      (snapshot) => {
         const subjectsData = snapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
+          type1: doc.data().type1 || { absences: 0, hoursPerClass: 0, hours: 0 },
+          type2: doc.data().type2 || { absences: 0, hoursPerClass: 0, hours: 0 },
+          maxAbsences: doc.data().maxAbsences || { totalHours: 0, type1: 0, type2: 0 }
         }))
         setSubjects(subjectsData)
         setLoading(false)
-      }, (error) => {
-        console.error('Erro ao carregar matérias:', error)
+      },
+      (error) => {
+        console.error('Erro ao carregar disciplinas:', error)
         setLoading(false)
-      })
+      }
+    )
 
-      return () => unsubscribe()
-    } catch (error) {
-      console.error('Erro na configuração da query:', error)
-      setLoading(false)
-    }
-  }, [user])
+    return () => unsubscribe()
+  }, [user, db])
 
   const addSubject = async (subjectData) => {
     try {
+      if (!user) throw new Error('Usuário não autenticado')
+
       const totalHours = Number(subjectData.totalHours)
       const type1Hours = Number(subjectData.type1.hours)
       const type2Hours = subjectData.hasMultipleTypes ? Number(subjectData.type2.hours) : 0
@@ -108,27 +109,30 @@ export function useSubjects() {
         subjectData.hasMultipleTypes,
         maxAbsencePercentage
       )
-      
-      await addDoc(collection(db, 'subjects'), {
-        ...subjectData,
+
+      const subjectDoc = {
+        name: subjectData.name,
         totalHours,
+        hasMultipleTypes: subjectData.hasMultipleTypes,
         type1: {
-          ...subjectData.type1,
+          name: subjectData.type1.name,
           hours: type1Hours,
           hoursPerClass: type1HoursPerClass,
-          absences: 0,
+          absences: 0
         },
-        type2: {
-          ...subjectData.type2,
+        type2: subjectData.hasMultipleTypes ? {
+          name: subjectData.type2.name,
           hours: type2Hours,
           hoursPerClass: type2HoursPerClass,
-          absences: 0,
-        },
+          absences: 0
+        } : null,
         maxAbsencePercentage,
+        maxAbsences,
         userId: user.uid,
-        createdAt: serverTimestamp(),
-        maxAbsences
-      })
+        createdAt: serverTimestamp()
+      }
+
+      await addDoc(collection(db, 'subjects'), subjectDoc)
     } catch (error) {
       console.error('Erro ao adicionar matéria:', error)
       throw error

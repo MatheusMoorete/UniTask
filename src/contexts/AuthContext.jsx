@@ -7,9 +7,11 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth'
-import { auth } from '../config/firebase'
+import { auth } from '../lib/firebase'
 
 const AuthContext = createContext()
 
@@ -48,12 +50,21 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user)
-      setLoading(false)
-    })
+    // Configura a persistência
+    setPersistence(auth, browserLocalPersistence)
+      .then(() => {
+        // Listener de mudança de estado de autenticação
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+          setUser(user)
+          setLoading(false)
+        })
 
-    return unsubscribe
+        return unsubscribe
+      })
+      .catch((error) => {
+        console.error('Erro ao configurar persistência:', error)
+        setLoading(false)
+      })
   }, [])
 
   const value = {

@@ -17,6 +17,8 @@ import { CadernoVirtual } from './pages/CadernoVirtual'
 import { FirestoreProvider } from './contexts/FirestoreContext'
 import { BoardProvider } from './contexts/BoardContext'
 import StudyRoom from './pages/StudyRoom'
+import ErrorBoundary from './components/ErrorBoundary'
+import { Toaster } from 'sonner'
 
 const defaultSettings = {
   focusTime: 25,
@@ -27,39 +29,46 @@ const defaultSettings = {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <FirestoreProvider>
-        <GoogleCalendarProvider>
-          <BoardProvider>
-            <PomodoroProvider defaultSettings={defaultSettings}>
-              <Routes>
-                {/* Auth Routes */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
+    <ErrorBoundary>
+      <AuthProvider>
+        <FirestoreProvider>
+          <GoogleCalendarProvider>
+            <BoardProvider>
+              <PomodoroProvider defaultSettings={defaultSettings}>
+                <Toaster 
+                  position="top-center"
+                  expand={true}
+                  richColors
+                />
+                <Routes>
+                  {/* Auth Routes */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
 
-                {/* Protected Routes */}
-                <Route element={
-                  <PrivateRoute>
-                    <RootLayout />
-                  </PrivateRoute>
-                }>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/tasks" element={<TaskList />} />
-                  <Route path="/calendar" element={<Calendar />} />
-                  <Route path="/pomodoro" element={<Pomodoro />} />
-                  <Route path="/attendance" element={<Attendance />} />
-                  <Route path="/caderno-virtual" element={<CadernoVirtual />} />
-                  <Route path="/study-room" element={<StudyRoom />} />
-                </Route>
+                  {/* Protected Routes */}
+                  <Route element={
+                    <PrivateRoute>
+                      <RootLayout />
+                    </PrivateRoute>
+                  }>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/tasks" element={<TaskList />} />
+                    <Route path="/calendar" element={<Calendar />} />
+                    <Route path="/pomodoro" element={<Pomodoro />} />
+                    <Route path="/attendance" element={<Attendance />} />
+                    <Route path="/caderno-virtual" element={<CadernoVirtual />} />
+                    <Route path="/study-room" element={<StudyRoom />} />
+                  </Route>
 
-                {/* Fallback Route */}
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
-            </PomodoroProvider>
-          </BoardProvider>
-        </GoogleCalendarProvider>
-      </FirestoreProvider>
-    </AuthProvider>
+                  {/* Fallback Route */}
+                  <Route path="*" element={<Navigate to="/" />} />
+                </Routes>
+              </PomodoroProvider>
+            </BoardProvider>
+          </GoogleCalendarProvider>
+        </FirestoreProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }

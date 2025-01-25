@@ -1,12 +1,8 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useSubjects } from '../hooks/useSubjects'
 import { useTasks } from '../hooks/useTasks'
 
 const NotificationContext = createContext()
-
-export function useNotifications() {
-  return useContext(NotificationContext)
-}
 
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([])
@@ -18,12 +14,30 @@ export function NotificationProvider({ children }) {
 
     // Verifica matérias com risco de faltas
     subjects.forEach(subject => {
-      const absencePercentage = subject.hasMultipleTypes 
-        ? (((subject.type1.absences || 0) * subject.type1.hoursPerClass + 
-            (subject.type2.absences || 0) * subject.type2.hoursPerClass) / 
-           subject.maxAbsences.totalHours) * 100
-        : ((subject.type1.absences || 0) * subject.type1.hoursPerClass / 
-           subject.maxAbsences.totalHours) * 100
+      if (!subject || !subject.maxAbsences) return
+
+      const calculateAbsencePercentage = (subject) => {
+        if (!subject.type1 || !subject.maxAbsences) return 0
+
+        if (subject.hasMultipleTypes && subject.type2) {
+          const type1Hours = (subject.type1?.absences || 0) * (subject.type1?.hoursPerClass || 0)
+          const type2Hours = (subject.type2?.absences || 0) * (subject.type2?.hoursPerClass || 0)
+          const totalMaxHours = subject.maxAbsences?.totalHours || 0
+
+          return totalMaxHours > 0 
+            ? ((type1Hours + type2Hours) / totalMaxHours) * 100 
+            : 0
+        } else {
+          const type1Hours = (subject.type1?.absences || 0) * (subject.type1?.hoursPerClass || 0)
+          const totalMaxHours = subject.maxAbsences?.totalHours || 0
+
+          return totalMaxHours > 0 
+            ? (type1Hours / totalMaxHours) * 100 
+            : 0
+        }
+      }
+
+      const absencePercentage = calculateAbsencePercentage(subject)
 
       if (absencePercentage > 75) {
         newNotifications.push({
@@ -88,4 +102,12 @@ export function NotificationProvider({ children }) {
       {children}
     </NotificationContext.Provider>
   )
+}
+
+export function useNotifications() {
+  const context = useContext(NotificationContext)
+  if (!context) {
+    throw new Error('useNotifications deve ser usado dentro de um NotificationProvider')
+  }
+  return context
 } 

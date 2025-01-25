@@ -15,6 +15,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@fullcalendar/common": "^5.11.5",
+    "@google-cloud/local-auth": "^2.1.0",
     "@google-cloud/storage": "^7.15.0",
     "@googleapis/calendar": "^9.7.9",
     "@hello-pangea/dnd": "^17.0.0",
@@ -51,7 +52,8 @@
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "firebase": "^9.x.x",
-    "framer-motion": "^11.18.0",
+    "framer-motion": "^11.18.2",
+    "googleapis": "^105.0.0",
     "kalend": "^0.17.6",
     "katex": "^0.16.21",
     "lucide-react": "^0.471.2",
@@ -66,12 +68,11 @@
     "react-swipeable": "^7.0.2",
     "recharts": "^2.15.0",
     "shadcn-ui": "^0.9.4",
+    "sonner": "^1.7.2",
     "styled-components": "^6.1.14",
     "tailwind-merge": "^2.6.0",
     "tailwind-scrollbar": "^3.1.0",
-    "tailwindcss-animate": "^1.0.7",
-    "@google-cloud/local-auth": "^2.1.0",
-    "googleapis": "^105.0.0"
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
@@ -89,5 +90,4 @@
     "tailwindcss": "^3.4.17",
     "vite": "^6.0.5"
   }
-  
 }
