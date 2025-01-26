@@ -1,10 +1,19 @@
 import { createClient } from '@supabase/supabase-js'
 
+// Logs para debug
+console.log('Environment:', import.meta.env.MODE)
+console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL)
+console.log('Has Anon Key:', !!import.meta.env.VITE_SUPABASE_ANON_KEY)
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Supabase URL and Anon Key are required')
+if (!supabaseUrl) {
+  throw new Error(`Supabase URL is required. Current value: ${supabaseUrl}`)
+}
+
+if (!supabaseAnonKey) {
+  throw new Error('Supabase Anon Key is required')
 }
 
 console.log('SUPABASE URL:', import.meta.env.VITE_SUPABASE_URL)
