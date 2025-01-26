@@ -38,12 +38,12 @@ UniTask é uma plataforma web de produtividade acadêmica que combina gerenciame
 - TailwindCSS
 - Radix UI
 - DND Kit (Drag and Drop)
-- TipTap (Editor)
+
 
 ### Backend/Serviços
 - Firebase (Firestore)
 - Google Calendar API
-- Clerk (Autenticação)
+
 
 ## 🚀 Começando
 
