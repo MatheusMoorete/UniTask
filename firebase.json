@@ -2,5 +2,9 @@
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.json"
+  },
+  "functions": {
+    "predeploy": [],
+    "source": "functions"
   }
 }

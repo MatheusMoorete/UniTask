@@ -19,6 +19,7 @@ import { BoardProvider } from './contexts/BoardContext'
 import StudyRoom from './pages/StudyRoom'
 import ErrorBoundary from './components/ErrorBoundary'
 import { Toaster } from 'sonner'
+import Flashcards from './pages/Flashcards'
 
 const defaultSettings = {
   focusTime: 25,
@@ -59,6 +60,7 @@ export default function App() {
                     <Route path="/attendance" element={<Attendance />} />
                     <Route path="/caderno-virtual" element={<CadernoVirtual />} />
                     <Route path="/study-room" element={<StudyRoom />} />
+                    <Route path="/flashcards" element={<Flashcards />} />
                   </Route>
 
                   {/* Fallback Route */}

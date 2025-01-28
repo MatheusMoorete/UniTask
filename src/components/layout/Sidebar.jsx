@@ -1,21 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, ListTodo, Calendar, Timer, GraduationCap, Book, BookOpen } from 'lucide-react'
+import { User } from 'lucide-react'
 import { cn } from '../../lib/utils'
-
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
-  { icon: ListTodo, label: 'Lista de Tarefas', href: '/tasks' },
-  { icon: Calendar, label: 'Calendário', href: '/calendar' },
-  { icon: Timer, label: 'Timer Pomodoro', href: '/pomodoro' },
-  { icon: GraduationCap, label: 'Faltômetro', href: '/attendance' },
-  { icon: Book, label: 'Caderno Virtual', href: '/caderno-virtual' },
-  { icon: BookOpen, label: 'Sala de Estudos', href: '/study-room' }
-]
+import { navigationItems } from '../../config/navigation'
+import { useAuth } from '../../contexts/AuthContext'
+import LogoutButton from '../auth/LogoutButton'
 
 const Sidebar = ({ className }) => {
   const location = useLocation()
-  console.log("Sidebar sendo renderizada, pathname:", location.pathname)
-  console.log("Items do menu:", navItems)
+  const { user } = useAuth()
 
   return (
     <div className={cn("pb-12 min-h-screen bg-card border-r", className)}>
@@ -30,9 +22,8 @@ const Sidebar = ({ className }) => {
             </p>
           </div>
           <div className="space-y-1">
-            {navItems.map((item) => {
+            {navigationItems.map((item) => {
               const isActive = location.pathname === item.href
-              console.log(`Item ${item.label}: href=${item.href}, isActive=${isActive}`)
               return (
                 <Link
                   key={item.href}
@@ -60,6 +51,22 @@ const Sidebar = ({ className }) => {
               )
             })}
           </div>
+        </div>
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 border-t p-4">
+        <div className="flex items-center gap-3 rounded-lg bg-accent/10 px-3 py-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/20">
+            <User className="h-5 w-5 text-accent" />
+          </div>
+          <div className="flex-1 truncate">
+            <div className="text-sm font-medium">
+              {user?.displayName || 'Usuário'}
+            </div>
+            <div className="text-xs text-muted-foreground truncate">
+              {user?.email}
+            </div>
+          </div>
+          <LogoutButton />
         </div>
       </div>
     </div>
