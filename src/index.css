@@ -1,6 +1,3 @@
-@import './styles/globals.css';
-@import './styles/calendar.css';
-
 /* Estilos do FullCalendar */
 .fc {
   font-family: "Google Sans", Roboto, RobotoDraft, Helvetica, Arial, sans-serif;
@@ -376,8 +373,6 @@
   vertical-align: middle;
 }
 
-/* Remova todos os estilos do FullCalendar e adicione: */
-
 /* Estilos do react-big-calendar */
 .rbc-calendar {
   font-family: "Google Sans", Roboto, Arial, sans-serif;
@@ -502,10 +497,6 @@
   font-size: 12px;
   line-height: 1.3;
 }
-
-/* ... mais estilos conforme necessário */
-
-/* Remova os estilos anteriores do react-big-calendar e adicione: */
 
 /* Estilos do calendário personalizado */
 .calendar-cell {
