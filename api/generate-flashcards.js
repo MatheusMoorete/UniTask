@@ -1,5 +1,16 @@
 import fetch from 'node-fetch'
 
+export const config = {
+  runtime: 'edge'
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,OPTIONS,POST',
+  'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-KEY, X-PROVIDER'
+}
+
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const makeRequestWithRetry = async (url, options, retries = 3) => {
@@ -20,19 +31,39 @@ const makeRequestWithRetry = async (url, options, retries = 3) => {
   }
 }
 
-export default async function handler(req, res) {
+export default async function handler(req) {
+  // Handle CORS
   if (req.method === 'OPTIONS') {
-    res.status(200).end()
-    return
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
+    })
+  }
+
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    })
   }
 
   try {
-    const { content } = req.body
-    const apiKey = req.headers['x-api-key']
-    const provider = req.headers['x-provider'] || 'deepseek'
+    const body = await req.json()
+    const { content } = body
+    const apiKey = req.headers.get('x-api-key')
+    const provider = req.headers.get('x-provider') || 'deepseek'
 
     if (!apiKey) {
-      return res.status(401).json({ error: 'API key não fornecida' })
+      return new Response(JSON.stringify({ error: 'API key não fornecida' }), {
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      })
     }
 
     const endpoints = {
@@ -114,18 +145,30 @@ export default async function handler(req, res) {
       throw new Error('Alguns flashcards estão com formato inválido')
     }
 
-    res.json({
+    return new Response(JSON.stringify({
       choices: [{
         message: {
           content: JSON.stringify(flashcards)
         }
       }]
+    }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
     })
   } catch (error) {
     console.error('Erro detalhado:', error)
-    res.status(500).json({ 
+    return new Response(JSON.stringify({
       error: 'Erro ao gerar flashcards',
       details: error.message
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
     })
   }
 } 
