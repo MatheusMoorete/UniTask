@@ -1,11 +1,17 @@
 {
   "version": 2,
+  "functions": {
+    "api/generate-flashcards.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
   "builds": [
     {
       "src": "api/generate-flashcards.js",
       "use": "@vercel/node",
       "config": {
-        "maxDuration": 60
+        "maxDuration": 30
       }
     },
     {
@@ -19,7 +25,7 @@
   "rewrites": [
     {
       "source": "/api/generate-flashcards",
-      "destination": "api/generate-flashcards.js"
+      "destination": "/api/generate-flashcards.js"
     },
     {
       "source": "/((?!api).*)",

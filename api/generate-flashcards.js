@@ -1,211 +1,199 @@
-import express from 'express'
 import fetch from 'node-fetch'
-import cors from 'cors'
 
-const app = express()
+// Configuração do timeout
+const TIMEOUT = 25000 // 25 segundos (para dar margem ao limite de 30s da Vercel)
 
-// Log de todas as requisições
-app.use((req, res, next) => {
-  const sanitizedHeaders = { ...req.headers }
-  // Remove sensitive information
-  if (sanitizedHeaders['x-api-key']) {
-    sanitizedHeaders['x-api-key'] = '***********'
+// Função para sanitizar logs
+const sanitizeLogs = (obj) => {
+  const sanitized = { ...obj }
+  if (sanitized.headers && sanitized.headers['x-api-key']) {
+    sanitized.headers['x-api-key'] = '***********'
+  }
+  if (sanitized.headers && sanitized.headers['Authorization']) {
+    sanitized.headers['Authorization'] = '***********'
+  }
+  return sanitized
+}
+
+// Função para validar o body da requisição
+const validateRequest = (body) => {
+  if (!body || typeof body !== 'object') {
+    throw new Error('Body inválido')
   }
   
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
-  console.log('Headers:', sanitizedHeaders)
-  // Só loga o body se existir e não for vazio
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log('Body:', {
-      ...req.body,
-      content: req.body.content?.substring(0, 50) + '...' // Limita o tamanho do conteúdo no log
-    })
+  if (!body.content || typeof body.content !== 'string') {
+    throw new Error('Campo content é obrigatório')
   }
-  next()
-})
+  
+  return body.content.trim()
+}
 
-app.use(cors({
-  origin: '*',
-  methods: ['POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'X-API-KEY', 'X-PROVIDER']
-}))
+const cleanJsonString = (str) => {
+  // Remove blocos de código markdown e espaços extras
+  return str
+    .replace(/```json\s*/, '')  // Remove ```json do início
+    .replace(/```\s*$/, '')     // Remove ``` do final
+    .replace(/^\s+|\s+$/g, '') // Remove espaços extras no início e fim
+}
 
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-
-const makeRequestWithRetry = async (url, options) => {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 30000) // 30 segundos timeout
-
+const parseFlashcards = (content) => {
   try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    })
-    return response
+    // Limpa o conteúdo
+    const cleanContent = cleanJsonString(content)
+    
+    // Tenta fazer o parse do JSON
+    const parsed = JSON.parse(cleanContent)
+    
+    // Verifica se é um array direto ou está dentro de um objeto
+    const cards = Array.isArray(parsed) ? parsed : (parsed.flashcards || [])
+    
+    // Mapeia para o formato correto
+    return cards.map(card => ({
+      front: card.front || card.pergunta || '',
+      back: card.back || card.resposta || ''
+    })).filter(card => card.front && card.back)
   } catch (error) {
-    if (error.name === 'AbortError') {
-      throw new Error('Timeout ao chamar a API')
-    }
-    throw error
-  } finally {
-    clearTimeout(timeout)
+    console.error('Erro ao fazer parse dos flashcards:', error)
+    console.error('Conteúdo recebido:', content)
+    throw new Error('Falha ao processar resposta da API')
   }
 }
 
-const handler = async (req, res) => {
-  const startTime = Date.now()
-  
+// Função para fazer parse do body raw
+const parseBody = async (req) => {
+  if (req.body) return req.body // Se já foi parseado
+
+  return new Promise((resolve, reject) => {
+    let data = ''
+    
+    req.on('data', chunk => {
+      data += chunk
+    })
+    
+    req.on('end', () => {
+      try {
+        const parsed = data ? JSON.parse(data) : {}
+        resolve(parsed)
+      } catch (e) {
+        reject(new Error('Falha ao parsear body'))
+      }
+    })
+    
+    req.on('error', reject)
+  })
+}
+
+export default async function handler(req, res) {
+  // CORS headers primeiro
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST')
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-KEY, X-PROVIDER')
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Método não permitido' })
+  }
+
   try {
-    const { content } = req.body
+    // Parse manual do body
+    const body = await parseBody(req)
+    
+    // Log inicial sanitizado
+    console.log('Request recebida:', {
+      method: req.method,
+      url: req.url,
+      headers: sanitizeLogs(req.headers),
+      bodyContent: body.content ? body.content.substring(0, 50) + '...' : undefined
+    })
+
+    // Valida a requisição
+    const content = validateRequest(body)
     const apiKey = req.headers['x-api-key']
     const provider = req.headers['x-provider'] || 'deepseek'
-
-    if (!content) {
-      return res.status(400).json({ 
-        error: 'Conteúdo não fornecido',
-        details: 'O campo content é obrigatório'
-      })
-    }
 
     if (!apiKey) {
       return res.status(401).json({ 
         error: 'API key não fornecida',
-        details: 'O header X-API-KEY é obrigatório'
+        details: 'Header X-API-KEY é obrigatório'
       })
     }
 
-    const endpoints = {
-      openai: 'https://api.openai.com/v1/chat/completions',
-      deepseek: 'https://api.deepseek.com/v1/chat/completions'
-    }
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+      console.log('Requisição abortada por timeout')
+    }, TIMEOUT)
 
-    const models = {
-      openai: 'gpt-3.5-turbo',
-      deepseek: 'deepseek-chat'
-    }
-
-    const response = await makeRequestWithRetry(endpoints[provider], {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: models[provider],
-        messages: [
-          {
-            role: 'system',
-            content: `Você é um assistente que cria flashcards de estudo. 
-            Responda APENAS com um array JSON puro, sem formatação markdown.
-            Exemplo do formato esperado:
-            [
-              {
-                "front": "Pergunta 1?",
-                "back": "Resposta 1"
-              }
-            ]`
-          },
-          {
-            role: 'user',
-            content: `Crie 5 flashcards sobre: ${content}`
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 1000
-      })
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('[Handler] Erro na resposta da API:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
-      })
-      
-      return res.status(500).json({
-        error: 'Erro na API do provedor',
-        details: `${provider} retornou status ${response.status}`,
-        providerError: errorText
-      })
-    }
-
-    const data = await response.json()
-    
-    if (!data?.choices?.[0]?.message?.content) {
-      console.error('[Handler] Resposta inválida da API:', data)
-      return res.status(500).json({
-        error: 'Resposta inválida da API',
-        details: 'A resposta não contém o formato esperado'
-      })
-    }
-
-    let flashcards
     try {
-      const content = data.choices[0].message.content
-        .replace(/```json\n?/g, '')  // Remove ```json
-        .replace(/```/g, '')         // Remove ```
-        .trim()                      // Remove espaços
+      const apiUrl = provider === 'openai' 
+        ? 'https://api.openai.com/v1/chat/completions'
+        : 'https://api.deepseek.com/v1/chat/completions'
 
-      const parsedContent = JSON.parse(content)
-      
-      // Verifica se veio no formato { flashcards: [...] } ou diretamente como array
-      flashcards = Array.isArray(parsedContent) ? parsedContent : parsedContent.flashcards
-
-      // Mapeia para o formato correto caso venha com pergunta/resposta em vez de front/back
-      flashcards = flashcards.map(card => ({
-        front: card.front || card.pergunta || '',
-        back: card.back || card.resposta || ''
-      }))
-
-      if (!Array.isArray(flashcards) || flashcards.length !== 5) {
-        throw new Error('A resposta deve ser um array com 5 flashcards')
-      }
-
-      if (!flashcards.every(card => card.front && card.back)) {
-        throw new Error('Todos os flashcards devem ter front e back')
-      }
-    } catch (error) {
-      console.error('[Handler] Erro ao processar flashcards:', error)
-      console.error('[Handler] Conteúdo recebido:', data.choices[0].message.content)
-      return res.status(500).json({
-        error: 'Erro ao processar resposta',
-        details: error.message,
-        rawContent: data.choices[0].message.content
+      console.log('Fazendo requisição para API:', {
+        url: apiUrl,
+        provider,
+        contentLength: content.length
       })
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: provider === 'openai' ? 'gpt-3.5-turbo' : 'deepseek-chat',
+          messages: [
+            {
+              role: 'system',
+              content: '[Retorne um array JSON com 5 flashcards no formato: [{"front": "pergunta", "back": "resposta"}]. Sem markdown ou texto adicional.]'
+            },
+            {
+              role: 'user',
+              content: `Crie 5 flashcards sobre: ${content}`
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 500
+        }),
+        signal: controller.signal
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const flashcards = parseFlashcards(data.choices[0].message.content)
+
+      if (flashcards.length === 0) {
+        throw new Error('Nenhum flashcard válido foi gerado')
+      }
+
+      return res.json({ 
+        choices: [{ message: { content: JSON.stringify(flashcards) } }]
+      })
+
+    } catch (error) {
+      clearTimeout(timeoutId)
+      throw error
     }
 
-    const executionTime = Date.now() - startTime
-    console.log(`Tempo de execução: ${executionTime}ms`)
-
-    return res.json({
-      choices: [{
-        message: {
-          content: JSON.stringify(flashcards)
-        }
-      }]
-    })
   } catch (error) {
-    console.error('[Handler] Erro crítico:', error)
-    return res.status(500).json({ 
+    console.error('Erro na API:', {
+      message: error.message,
+      stack: error.stack
+    })
+    
+    return res.status(500).json({
       error: 'Erro ao gerar flashcards',
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      details: error.message
     })
   }
-}
-
-// Log de erros não tratados
-app.use((err, req, res, next) => {
-  console.error('[Error Handler] Erro não tratado:', err)
-  res.status(500).json({
-    error: 'Erro interno do servidor',
-    details: err.message,
-    stack: err.stack
-  })
-})
-
-app.post('/api/generate-flashcards', handler)
-
-export default app 
+} 
