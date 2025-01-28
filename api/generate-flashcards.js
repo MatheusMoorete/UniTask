@@ -1,5 +1,10 @@
 import fetch from 'node-fetch'
 
+export const config = {
+  runtime: 'edge',
+  regions: ['iad1']
+}
+
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const makeRequestWithRetry = async (url, options, retries = 3) => {

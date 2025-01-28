@@ -8,7 +8,7 @@
     "dev:server": "node server.js",
     "dev": "npm run dev:server & npm run dev:frontend",
     "server": "node --experimental-modules server/api.js",
-    "build": "vite build",
+    "build": "vite build && cp -r api dist/api",
     "lint": "eslint .",
     "preview": "vite preview"
   },

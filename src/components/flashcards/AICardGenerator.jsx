@@ -20,8 +20,8 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
   const [selectedProvider, setSelectedProvider] = useState('deepseek')
 
   const API_URL = import.meta.env.DEV 
-    ? 'http://localhost:3002/api/generate-flashcards'
-    : '/api/generate-flashcards'
+    ? 'http://localhost:3001/api/generate-flashcards'
+    : `${window.location.origin}/api/generate-flashcards`
 
   const handleSaveApiKey = async () => {
     try {
