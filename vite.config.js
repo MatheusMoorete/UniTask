@@ -17,7 +17,7 @@ export default defineConfig(({ command, mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      cssCodeSplit: false, // Força todos os CSS em um único arquivo
+      cssCodeSplit: false,
       rollupOptions: {
         output: {
           manualChunks: {
@@ -25,19 +25,12 @@ export default defineConfig(({ command, mode }) => {
           },
           entryFileNames: 'assets/[name]-[hash].js',
           chunkFileNames: 'assets/[name]-[hash].js',
-          assetFileNames: ({ name }) => {
-            if (/\.(css)$/.test(name ?? '')) {
-              return 'assets/styles-[hash][extname]'
-            }
-            return 'assets/[name]-[hash].[ext]'
-          }
+          assetFileNames: 'assets/[name]-[hash].[ext]'
         },
       },
     },
     css: {
-      modules: {
-        localsConvention: 'camelCase',
-      },
+      postcss: './postcss.config.cjs'
     },
     define: {
       // Expõe as variáveis VITE_ para o cliente
