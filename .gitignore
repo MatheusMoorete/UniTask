@@ -39,6 +39,10 @@ firebase-debug.*.log
 google-credentials.json
 client_secret*.json
 
+# API local development
+/api/node_modules
+/api/.env
+
 # Apenas permitir o exemplo
 !.env.example
 .vercel

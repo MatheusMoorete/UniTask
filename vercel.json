@@ -6,22 +6,6 @@
       "maxDuration": 60
     }
   },
-  "builds": [
-    {
-      "src": "api/generate-flashcards.js",
-      "use": "@vercel/node",
-      "config": {
-        "maxDuration": 30
-      }
-    },
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { 
-        "distDir": "dist"
-      }
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/generate-flashcards",
@@ -71,4 +55,4 @@
   "env": {
     "VERCEL_URL": "https://www.unitask.space"
   }
-} 
+}

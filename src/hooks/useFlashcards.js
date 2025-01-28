@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { collection, query, where, orderBy, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useAuth } from './useAuth'
-import { SuperMemo2 } from '../lib/supermemo2'
+import supermemo2 from 'supermemo2'
 
 export function useFlashcards(deckId) {
   const { user } = useAuth()
@@ -37,6 +37,11 @@ export function useFlashcards(deckId) {
         throw new Error('deckId é obrigatório')
       }
 
+      // Inicializa com intervalo de 1 dia
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      tomorrow.setHours(0, 0, 0, 0)
+
       const docRef = await addDoc(collection(db, 'flashcards'), {
         ...data,
         userId: user.uid,
@@ -44,10 +49,10 @@ export function useFlashcards(deckId) {
         createdAt: new Date(),
         updatedAt: new Date(),
         repetitionData: {
-          interval: 0,
+          interval: 1,
           repetitions: 0,
           easeFactor: 2.5,
-          nextReview: new Date(),
+          nextReview: tomorrow,
           ...data.repetitionData
         }
       })
@@ -72,18 +77,82 @@ export function useFlashcards(deckId) {
   }
 
   const processAnswer = async (card, quality) => {
-    const { interval, repetitions, easeFactor } = calculateNextReview(
-      card.repetitionData,
-      quality
-    )
+    // Se for erro (quality = 0) ou resposta difícil (quality = 1), 
+    // volta para modo de aprendizagem
+    if (quality <= 1) {
+      console.log('Voltando para modo de aprendizagem')
+      const nextReview = new Date()
+      nextReview.setMinutes(nextReview.getMinutes() + 10) // Revisa em 10 minutos
+      
+      const docRef = doc(db, 'flashcards', card.id)
+      await updateDoc(docRef, {
+        'repetitionData.interval': 0,
+        'repetitionData.repetitions': 0,
+        'repetitionData.easeFactor': 2.5, // Reset do fator de dificuldade
+        'repetitionData.lastReview': new Date(),
+        'repetitionData.nextReview': nextReview,
+        updatedAt: new Date()
+      })
+      return
+    }
+
+    // Ajusta a qualidade para o formato do SM-2 (3-5)
+    // quality 2 (Bom) -> 3
+    // quality 3 (Fácil) -> 4
+    // quality 4 (Muito Fácil) -> 5
+    const sm2Quality = quality + 1
+
+    // Garante que os valores iniciais são números
+    const lastInterval = Number(card.repetitionData.interval) || 0
+    const lastRepetition = Number(card.repetitionData.repetitions) || 0
+    const lastEFactor = Number(card.repetitionData.easeFactor) || 2.5
+
+    console.log('Valores de entrada:', {
+      quality: sm2Quality,
+      lastInterval,
+      lastRepetition,
+      lastEFactor
+    })
+
+    // Usa a biblioteca supermemo2 para calcular o próximo intervalo
+    const result = supermemo2({
+      quality: sm2Quality,
+      lastInterval,
+      lastRepetition,
+      lastEFactor
+    })
+
+    console.log('Resultado do supermemo2:', result)
+
+    // Calcula o próximo intervalo baseado no resultado
+    let nextInterval = result.schedule
+    if (lastRepetition === 0) {
+      // Primeira repetição bem sucedida
+      nextInterval = 1
+    } else if (lastRepetition === 1) {
+      // Segunda repetição bem sucedida
+      nextInterval = 6
+    }
+
+    // Calcula a próxima data de revisão
+    const nextReview = new Date()
+    nextReview.setDate(nextReview.getDate() + nextInterval)
+    nextReview.setHours(0, 0, 0, 0)
+
+    console.log('Valores a serem salvos:', {
+      interval: nextInterval,
+      repetitions: lastRepetition + 1,
+      easeFactor: result.factor,
+      nextReview
+    })
 
     const docRef = doc(db, 'flashcards', card.id)
     await updateDoc(docRef, {
-      'repetitionData.interval': interval,
-      'repetitionData.repetitions': repetitions,
-      'repetitionData.easeFactor': easeFactor,
+      'repetitionData.interval': nextInterval,
+      'repetitionData.repetitions': lastRepetition + 1,
+      'repetitionData.easeFactor': result.factor,
       'repetitionData.lastReview': new Date(),
-      'repetitionData.nextReview': new Date(Date.now() + interval * 24 * 60 * 60 * 1000),
+      'repetitionData.nextReview': nextReview,
       updatedAt: new Date()
     })
   }
@@ -106,27 +175,3 @@ export function useFlashcards(deckId) {
     processAnswer
   }
 }
-
-// Algoritmo SM-2 para cálculo do próximo intervalo
-function calculateNextReview(data, quality) {
-  let { interval, repetitions, easeFactor } = data
-
-  if (quality < 3) {
-    repetitions = 0
-    interval = 1
-  } else {
-    repetitions += 1
-    if (repetitions === 1) {
-      interval = 1
-    } else if (repetitions === 2) {
-      interval = 6
-    } else {
-      interval = Math.round(interval * easeFactor)
-    }
-  }
-
-  // Ajusta o fator de facilidade
-  easeFactor = Math.max(1.3, easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)))
-
-  return { interval, repetitions, easeFactor }
-} 

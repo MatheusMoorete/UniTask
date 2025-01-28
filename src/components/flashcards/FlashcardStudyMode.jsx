@@ -10,12 +10,13 @@ import { toast } from 'sonner'
 
 const KEYBOARD_SHORTCUTS = {
   SPACE: ' ',
-  NUMBERS: ['1', '2', '3', '4'],
+  NUMBERS: ['0', '1', '2', '3', '4'],
   ESC: 'Escape'
 }
 
 const RESPONSE_LABELS = {
-  1: { text: 'Difícil', color: 'text-red-500', bg: 'hover:bg-red-500/10' },
+  0: { text: 'Erro', color: 'text-red-600', bg: 'hover:bg-red-600/10' },
+  1: { text: 'Difícil', color: 'text-orange-500', bg: 'hover:bg-orange-500/10' },
   2: { text: 'Bom', color: 'text-yellow-500', bg: 'hover:bg-yellow-500/10' },
   3: { text: 'Fácil', color: 'text-green-500', bg: 'hover:bg-green-500/10' },
   4: { text: 'Muito Fácil', color: 'text-blue-500', bg: 'hover:bg-blue-500/10' }
@@ -30,6 +31,7 @@ export function FlashcardStudyMode({ deck, onExit }) {
     good: 0,
     medium: 0,
     hard: 0,
+    error: 0,
     total: 0,
     timeStarted: new Date()
   })
@@ -77,7 +79,7 @@ export function FlashcardStudyMode({ deck, onExit }) {
 
     // Atualiza estatísticas da sessão
     setSessionStats(prev => {
-      const qualityMap = { 1: 'hard', 2: 'medium', 3: 'good', 4: 'easy' }
+      const qualityMap = { 0: 'error', 1: 'hard', 2: 'medium', 3: 'good', 4: 'easy' }
       return {
         ...prev,
         [qualityMap[quality]]: prev[qualityMap[quality]] + 1,
@@ -103,7 +105,7 @@ export function FlashcardStudyMode({ deck, onExit }) {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
-  if (!currentCard) {
+  if (studySession.length === 0 || currentIndex >= studySession.length) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] space-y-6">
         <h3 className="text-xl font-medium">
@@ -130,7 +132,9 @@ export function FlashcardStudyMode({ deck, onExit }) {
               <h3 className="font-medium">Taxa de Acerto</h3>
             </div>
             <p className="text-2xl font-bold mt-2">
-              {Math.round(((sessionStats.easy + sessionStats.good) / sessionStats.total) * 100)}%
+              {sessionStats.total > 0
+                ? Math.round(((sessionStats.easy + sessionStats.good) / sessionStats.total) * 100)
+                : 0}%
             </p>
           </Card>
           <Card className="p-4">
@@ -155,10 +159,20 @@ export function FlashcardStudyMode({ deck, onExit }) {
                 <span>Difícil</span>
                 <span>{sessionStats.hard}</span>
               </div>
+              <div className="flex justify-between text-sm">
+                <span>Erro</span>
+                <span>{sessionStats.error}</span>
+              </div>
             </div>
           </Card>
         </div>
-        <Button onClick={onExit}>Voltar</Button>
+        <Button 
+          variant="default" 
+          onClick={onExit}
+          className="mt-4"
+        >
+          Voltar
+        </Button>
       </div>
     )
   }
@@ -202,19 +216,19 @@ export function FlashcardStudyMode({ deck, onExit }) {
           </div>
           
           <div className="space-y-4">
-            <div className="grid grid-cols-4 gap-2">
-              {Object.entries(RESPONSE_LABELS).map(([quality, { text, color, bg }]) => (
+            <div className="grid grid-cols-5 gap-2">
+              {[0, 1, 2, 3, 4].map((quality) => (
                 <Button 
                   key={quality}
                   variant="outline"
-                  onClick={() => handleAnswer(parseInt(quality))}
+                  onClick={() => handleAnswer(quality)}
                   className={cn(
                     "relative group",
-                    color,
-                    bg
+                    RESPONSE_LABELS[quality].color,
+                    RESPONSE_LABELS[quality].bg
                   )}
                 >
-                  <span>{text}</span>
+                  <span>{RESPONSE_LABELS[quality].text}</span>
                   <span className="absolute -top-2 -right-2 text-xs bg-background border rounded-full w-5 h-5 flex items-center justify-center group-hover:bg-primary/10">
                     {quality}
                   </span>
@@ -223,10 +237,10 @@ export function FlashcardStudyMode({ deck, onExit }) {
             </div>
             <Button 
               variant="ghost" 
-              onClick={() => setIsFlipped(false)}
               className="w-full"
+              onClick={() => setIsFlipped(!isFlipped)}
             >
-              <Undo2 className="h-4 w-4 mr-2" />
+              <Undo2 className="w-4 h-4 mr-2" />
               Virar card (Espaço)
             </Button>
           </div>
@@ -234,7 +248,7 @@ export function FlashcardStudyMode({ deck, onExit }) {
       </ReactCardFlip>
 
       <div className="text-sm text-muted-foreground text-center">
-        Dica: Use as teclas 1-4 para responder e Espaço para virar o card
+        Dica: Use as teclas 0-4 para responder e Espaço para virar o card
       </div>
     </div>
   )

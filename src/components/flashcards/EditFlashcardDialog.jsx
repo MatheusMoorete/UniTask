@@ -1,16 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'
-import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
 import { useFlashcards } from '../../hooks/useFlashcards'
 import { toast } from 'sonner'
 
-export function CreateFlashcardDialog({ open, onOpenChange, deckId }) {
+export function EditFlashcardDialog({ open, onOpenChange, flashcard }) {
   const [front, setFront] = useState('')
   const [back, setBack] = useState('')
-  const { createFlashcard } = useFlashcards(deckId)
+  const { updateFlashcard } = useFlashcards(flashcard?.deckId)
+
+  useEffect(() => {
+    if (flashcard) {
+      setFront(flashcard.front)
+      setBack(flashcard.back)
+    }
+  }, [flashcard])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -21,14 +27,12 @@ export function CreateFlashcardDialog({ open, onOpenChange, deckId }) {
     }
 
     try {
-      await createFlashcard({ front, back, deckId })
-      toast.success('Flashcard criado com sucesso!')
+      await updateFlashcard(flashcard.id, { front, back })
+      toast.success('Flashcard atualizado com sucesso!')
       onOpenChange(false)
-      setFront('')
-      setBack('')
     } catch (error) {
-      console.error('Erro ao criar flashcard:', error)
-      toast.error('Erro ao criar flashcard')
+      console.error('Erro ao atualizar flashcard:', error)
+      toast.error('Erro ao atualizar flashcard')
     }
   }
 
@@ -36,7 +40,7 @@ export function CreateFlashcardDialog({ open, onOpenChange, deckId }) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Novo Flashcard</DialogTitle>
+          <DialogTitle>Editar Flashcard</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -61,7 +65,7 @@ export function CreateFlashcardDialog({ open, onOpenChange, deckId }) {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit">Criar</Button>
+            <Button type="submit">Salvar</Button>
           </div>
         </form>
       </DialogContent>

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ArrowLeft, Plus, Brain, BarChart3, Clock, Calendar, Play, List, Sparkles } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
-import { FlashcardBrowser } from './FlashcardBrowser'
+import { FlashcardList } from './FlashcardList'
 import { CreateFlashcardDialog } from './CreateFlashcardDialog'
 import { FlashcardStudyMode } from './FlashcardStudyMode'
 import { useFlashcards } from '../../hooks/useFlashcards'
@@ -10,7 +10,7 @@ import { DeckOptionsMenu } from './DeckOptionsMenu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
 import { AICardGenerator } from './AICardGenerator'
 
-export function DeckView({ deck, onBack }) {
+export default function DeckView({ deck, onBack }) {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isStudyMode, setIsStudyMode] = useState(false)
   const [isAIGeneratorOpen, setIsAIGeneratorOpen] = useState(false)
@@ -85,84 +85,73 @@ export function DeckView({ deck, onBack }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col items-center justify-center gap-4">
-        <Card className="w-full max-w-xl p-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-medium">Estudar Agora</h3>
+      <div className="space-y-6">
+        <div className="flex flex-col items-center justify-center gap-4">
+          <Card className="w-full max-w-xl p-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium">Estudar Agora</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {dueTodayCount} cards para revisar hoje
+                  </p>
+                </div>
+                <Button 
+                  size="lg"
+                  onClick={() => setIsStudyMode(true)}
+                  disabled={flashcards.length === 0}
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Iniciar Estudo
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div className="max-w-3xl mx-auto">
+          <Tabs defaultValue="cards">
+            <TabsList className="w-full">
+              <TabsTrigger value="cards" className="flex-1">
+                <List className="h-4 w-4 mr-2" />
+                Todos os Cards
+              </TabsTrigger>
+              <TabsTrigger value="stats" className="flex-1">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Estatísticas
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="cards">
+              <div className="flex justify-end gap-2 mb-4">
+                <Button variant="outline" onClick={() => setIsAIGeneratorOpen(true)}>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Gerar com IA
+                </Button>
+                <Button onClick={() => setIsCreateOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Card
+                </Button>
+              </div>
+              <FlashcardList deckId={deck.id} />
+            </TabsContent>
+            <TabsContent value="stats">
+              <div className="text-center py-8">
+                <h3 className="text-lg font-medium">Em breve</h3>
                 <p className="text-sm text-muted-foreground">
-                  {dueTodayCount} cards para revisar hoje
+                  Estatísticas detalhadas sobre seu progresso
                 </p>
               </div>
-              <Button 
-                size="lg"
-                onClick={() => setIsStudyMode(true)}
-                disabled={flashcards.length === 0}
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Iniciar Estudo
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Próxima revisão em: {dueTodayCount > 0 ? 'Agora' : 'Nenhum card para revisar'}</span>
-            </div>
-          </div>
-        </Card>
-
-        <Tabs defaultValue="cards" className="w-full max-w-xl">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="cards">
-              <List className="h-4 w-4 mr-2" />
-              Todos os Cards
-            </TabsTrigger>
-            <TabsTrigger value="stats">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Estatísticas
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="cards" className="space-y-4">
-            <div className="flex justify-end gap-2">
-              <Button 
-                variant="outline"
-                onClick={() => setIsAIGeneratorOpen(true)}
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Gerar com IA
-              </Button>
-              <Button onClick={() => setIsCreateOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Card
-              </Button>
-            </div>
-            <FlashcardBrowser flashcards={flashcards} />
-          </TabsContent>
-
-          <TabsContent value="stats">
-            <Card className="p-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium">Distribuição de Intervalos</h4>
-                  {/* TODO: Adicionar gráfico de distribuição */}
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">Histórico de Estudos</h4>
-                  {/* TODO: Adicionar gráfico de histórico */}
-                </div>
-              </div>
-            </Card>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
 
-      <CreateFlashcardDialog 
+      <CreateFlashcardDialog
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
         deckId={deck.id}
       />
+
       <AICardGenerator
         open={isAIGeneratorOpen}
         onOpenChange={setIsAIGeneratorOpen}
@@ -170,4 +159,4 @@ export function DeckView({ deck, onBack }) {
       />
     </div>
   )
-} 
+}

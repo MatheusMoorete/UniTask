@@ -15,7 +15,7 @@ import {
 } from "../components/ui/select"
 import { useDecks } from '../hooks/useDecks'
 import { CreateDeckDialog } from '../components/flashcards/CreateDeckDialog'
-import { DeckView } from '../components/flashcards/DeckView'
+import DeckView from '../components/flashcards/DeckView'
 
 export default function Flashcards() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -91,4 +91,4 @@ export default function Flashcards() {
       />
     </div>
   )
-} 
+}
