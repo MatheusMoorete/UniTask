@@ -1,5 +1,17 @@
 import fetch from 'node-fetch'
 
+export const config = {
+  runtime: 'edge'
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,OPTIONS,POST',
+  'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-KEY, X-PROVIDER',
+  'Content-Type': 'application/json'
+}
+
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const makeRequestWithRetry = async (url, options, retries = 3) => {
@@ -7,32 +19,43 @@ const makeRequestWithRetry = async (url, options, retries = 3) => {
     try {
       const response = await fetch(url, options)
       if (response.status === 429 && i < retries - 1) {
-        console.log(`Rate limit atingido, tentando novamente em ${(i + 1) * 5} segundos...`)
         await delay((i + 1) * 5000)
         continue
       }
       return response
     } catch (error) {
       if (i === retries - 1) throw error
-      console.log(`Tentativa ${i + 1} falhou, tentando novamente...`)
       await delay(1000)
     }
   }
 }
 
-export default async function handler(req, res) {
+export default async function handler(req) {
   if (req.method === 'OPTIONS') {
-    res.status(200).end()
-    return
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
+    })
+  }
+
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: corsHeaders
+    })
   }
 
   try {
-    const { content } = req.body
-    const apiKey = req.headers['x-api-key']
-    const provider = req.headers['x-provider'] || 'deepseek'
+    const body = await req.json()
+    const { content } = body
+    const apiKey = req.headers.get('x-api-key')
+    const provider = req.headers.get('x-provider') || 'deepseek'
 
     if (!apiKey) {
-      return res.status(401).json({ error: 'API key não fornecida' })
+      return new Response(JSON.stringify({ error: 'API key não fornecida' }), {
+        status: 401,
+        headers: corsHeaders
+      })
     }
 
     const endpoints = {
@@ -86,7 +109,13 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const errorData = await response.text()
-      throw new Error(`Erro na API do ${provider}: ${response.status} ${response.statusText}`)
+      return new Response(JSON.stringify({
+        error: `Erro na API do ${provider}`,
+        details: `${response.status} ${response.statusText}`
+      }), {
+        status: response.status,
+        headers: corsHeaders
+      })
     }
 
     const data = await response.json()
@@ -103,29 +132,50 @@ export default async function handler(req, res) {
 
       flashcards = JSON.parse(cleanContent)
     } catch (error) {
-      throw new Error('Erro ao processar resposta da API: ' + error.message)
+      return new Response(JSON.stringify({
+        error: 'Erro ao processar resposta da API',
+        details: error.message
+      }), {
+        status: 500,
+        headers: corsHeaders
+      })
     }
 
     if (!Array.isArray(flashcards) || flashcards.length === 0) {
-      throw new Error('Nenhum flashcard foi gerado')
+      return new Response(JSON.stringify({
+        error: 'Nenhum flashcard foi gerado'
+      }), {
+        status: 500,
+        headers: corsHeaders
+      })
     }
 
     if (!flashcards.every(card => card.front && card.back)) {
-      throw new Error('Alguns flashcards estão com formato inválido')
+      return new Response(JSON.stringify({
+        error: 'Alguns flashcards estão com formato inválido'
+      }), {
+        status: 500,
+        headers: corsHeaders
+      })
     }
 
-    res.json({
+    return new Response(JSON.stringify({
       choices: [{
         message: {
           content: JSON.stringify(flashcards)
         }
       }]
+    }), {
+      status: 200,
+      headers: corsHeaders
     })
   } catch (error) {
-    console.error('Erro detalhado:', error)
-    res.status(500).json({ 
+    return new Response(JSON.stringify({
       error: 'Erro ao gerar flashcards',
       details: error.message
+    }), {
+      status: 500,
+      headers: corsHeaders
     })
   }
 } 

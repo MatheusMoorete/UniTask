@@ -1,15 +1,6 @@
 {
   "version": 2,
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "@vercel/node@latest"
-    }
-  },
   "builds": [
-    {
-      "src": "api/generate-flashcards.js",
-      "use": "@vercel/node"
-    },
     {
       "src": "package.json",
       "use": "@vercel/static-build",
@@ -21,21 +12,14 @@
   "routes": [
     {
       "src": "/api/generate-flashcards",
-      "dest": "/api/generate-flashcards.js",
-      "methods": ["GET", "POST", "OPTIONS"],
-      "headers": {
-        "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,OPTIONS,POST",
-        "Access-Control-Allow-Headers": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-KEY, X-PROVIDER"
-      }
+      "dest": "/api/generate-flashcards"
+    },
+    {
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "env": {
-    "VERCEL_URL": "https://www.unitask.space"
-  }
+  ]
 } 
