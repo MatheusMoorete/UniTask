@@ -55,15 +55,25 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
           'X-API-KEY': currentApiKey,
           'X-PROVIDER': selectedProvider
         },
-        body: JSON.stringify({ content })
+        body: JSON.stringify({ content: content.trim() })
       })
 
+      console.log('Response status:', response.status)
+      console.log('Response headers:', Object.fromEntries(response.headers))
+
       if (!response.ok) {
-        const errorData = await response.json()
-        if (response.status === 429) {
-          throw new Error('Limite de requisições atingido. Tente novamente em alguns minutos ou use outro provedor.')
+        const errorText = await response.text()
+        console.error('Erro response text:', errorText)
+        
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch (e) {
+          console.error('Erro ao parsear resposta:', e)
+          errorData = { error: errorText || 'Erro desconhecido' }
         }
-        throw new Error(errorData.details || 'Erro ao gerar flashcards')
+        
+        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()
