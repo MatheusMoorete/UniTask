@@ -4,36 +4,51 @@ import { db } from '../lib/firebase'
 import { useAuth } from './useAuth'
 
 export function useApiKey() {
-  const [apiKey, setApiKey] = useState(null)
+  const [apiKeys, setApiKeys] = useState({
+    deepseek: null,
+    openai: null
+  })
   const [isLoading, setIsLoading] = useState(true)
   const { user } = useAuth()
 
   useEffect(() => {
     if (!user) return
 
-    const loadApiKey = async () => {
+    const loadApiKeys = async () => {
       const docRef = doc(db, 'users', user.uid)
       const docSnap = await getDoc(docRef)
-      if (docSnap.exists() && docSnap.data().deepseekApiKey) {
-        setApiKey(docSnap.data().deepseekApiKey)
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        setApiKeys({
+          deepseek: data.deepseekApiKey || null,
+          openai: data.openaiApiKey || null
+        })
       }
       setIsLoading(false)
     }
 
-    loadApiKey()
+    loadApiKeys()
   }, [user])
 
-  const saveApiKey = async (key) => {
+  const saveApiKey = async (provider, key) => {
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        deepseekApiKey: key
-      }, { merge: true })
-      setApiKey(key)
+      const updates = {}
+      if (provider === 'deepseek') {
+        updates.deepseekApiKey = key
+      } else if (provider === 'openai') {
+        updates.openaiApiKey = key
+      }
+
+      await setDoc(doc(db, 'users', user.uid), updates, { merge: true })
+      setApiKeys(prev => ({
+        ...prev,
+        [provider]: key
+      }))
     } catch (error) {
       console.error('Erro ao salvar API key:', error)
       throw error
     }
   }
 
-  return { apiKey, isLoading, saveApiKey }
+  return { apiKeys, isLoading, saveApiKey }
 } 

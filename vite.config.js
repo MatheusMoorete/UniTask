@@ -19,6 +19,14 @@ export default defineConfig(({ command, mode }) => {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
       'import.meta.env.VITE_SUPABASE_PUBLIC_BUCKET_URL': JSON.stringify(env.VITE_SUPABASE_PUBLIC_BUCKET_URL),
+    },
+    server: {
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3001',
+          changeOrigin: true
+        }
+      }
     }
   }
 })

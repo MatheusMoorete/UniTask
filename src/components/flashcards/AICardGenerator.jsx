@@ -8,18 +8,24 @@ import { Loader2, Sparkles, Key } from 'lucide-react'
 import { toast } from 'sonner'
 import { useFlashcards } from '../../hooks/useFlashcards'
 import { useApiKey } from '../../hooks/useApiKey'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 
 export function AICardGenerator({ open, onOpenChange, deckId }) {
   const [content, setContent] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const { createFlashcard } = useFlashcards(deckId)
-  const { apiKey, isLoading: isLoadingKey, saveApiKey } = useApiKey()
+  const { apiKeys, isLoading: isLoadingKey, saveApiKey } = useApiKey()
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
   const [tempApiKey, setTempApiKey] = useState('')
+  const [selectedProvider, setSelectedProvider] = useState('deepseek')
+
+  const API_URL = import.meta.env.DEV 
+    ? 'http://localhost:3002/api/generate-flashcards'
+    : '/api/generate-flashcards'
 
   const handleSaveApiKey = async () => {
     try {
-      await saveApiKey(tempApiKey)
+      await saveApiKey(selectedProvider, tempApiKey)
       toast.success('Chave API salva com sucesso!')
       setShowApiKeyInput(false)
     } catch (error) {
@@ -28,8 +34,9 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
   }
 
   const generateCards = async () => {
-    if (!apiKey) {
-      toast.error('Configure sua chave API do Deepseek primeiro')
+    const currentApiKey = apiKeys[selectedProvider]
+    if (!currentApiKey) {
+      toast.error(`Configure sua chave API do ${selectedProvider === 'openai' ? 'OpenAI' : 'Deepseek'} primeiro`)
       setShowApiKeyInput(true)
       return
     }
@@ -41,28 +48,42 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
 
     setIsGenerating(true)
     try {
-      const response = await fetch('/api/generate-flashcards', {
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-KEY': apiKey
+          'X-API-KEY': currentApiKey,
+          'X-PROVIDER': selectedProvider
         },
         body: JSON.stringify({ content })
       })
 
       if (!response.ok) {
-        throw new Error('Falha na API do Deepseek')
+        const errorData = await response.json()
+        if (response.status === 429) {
+          throw new Error('Limite de requisições atingido. Tente novamente em alguns minutos ou use outro provedor.')
+        }
+        throw new Error(errorData.details || 'Erro ao gerar flashcards')
       }
 
       const data = await response.json()
+      if (!data?.choices?.[0]?.message?.content) {
+        throw new Error('Resposta inválida da API')
+      }
+
       const responseContent = data.choices[0].message.content
-        .replace(/```json\n/, '')
-        .replace(/```/, '')
-        .trim()
       const flashcards = JSON.parse(responseContent)
+
+      if (!Array.isArray(flashcards) || flashcards.length === 0) {
+        throw new Error('Nenhum flashcard foi gerado')
+      }
 
       // Cria os flashcards gerados
       for (const card of flashcards) {
+        if (!card.front || !card.back) {
+          console.warn('Flashcard inválido:', card)
+          continue
+        }
         await createFlashcard({
           front: card.front,
           back: card.back,
@@ -98,10 +119,22 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
           <DialogTitle>Gerar Flashcards com IA</DialogTitle>
         </DialogHeader>
         
-        {!apiKey || showApiKeyInput ? (
+        {(!apiKeys[selectedProvider] || showApiKeyInput) ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Chave API do Deepseek</Label>
+              <Label>Selecione o Provedor de IA</Label>
+              <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openai">OpenAI GPT-3.5</SelectItem>
+                  <SelectItem value="deepseek">Deepseek</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Chave API do {selectedProvider === 'openai' ? 'OpenAI' : 'Deepseek'}</Label>
               <Input
                 type="password"
                 placeholder="Insira sua chave API"
@@ -111,12 +144,12 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
               <p className="text-sm text-muted-foreground">
                 Obtenha sua chave em{' '}
                 <a 
-                  href="https://platform.deepseek.com/" 
+                  href={selectedProvider === 'openai' ? 'https://platform.openai.com/api-keys' : 'https://platform.deepseek.com/'}
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"
                 >
-                  platform.deepseek.com
+                  {selectedProvider === 'openai' ? 'platform.openai.com' : 'platform.deepseek.com'}
                 </a>
               </p>
             </div>
@@ -133,7 +166,18 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
         ) : (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <Label>Cole seu texto ou conteúdo</Label>
+              <div className="space-y-2">
+                <Label>Provedor de IA</Label>
+                <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai">OpenAI GPT-3.5</SelectItem>
+                    <SelectItem value="deepseek">Deepseek</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
