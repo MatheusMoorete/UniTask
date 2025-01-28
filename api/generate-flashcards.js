@@ -61,13 +61,18 @@ const handler = async (req, res) => {
     const apiKey = req.headers['x-api-key']
     const provider = req.headers['x-provider'] || 'deepseek'
 
-    console.log('[Handler] Provider:', provider)
-    console.log('[Handler] Content length:', content?.length)
-    console.log('[Handler] API Key present:', !!apiKey)
+    if (!content) {
+      return res.status(400).json({ 
+        error: 'Conteúdo não fornecido',
+        details: 'O campo content é obrigatório'
+      })
+    }
 
     if (!apiKey) {
-      console.log('[Handler] Erro: API key não fornecida')
-      return res.status(401).json({ error: 'API key não fornecida' })
+      return res.status(401).json({ 
+        error: 'API key não fornecida',
+        details: 'O header X-API-KEY é obrigatório'
+      })
     }
 
     const endpoints = {
@@ -80,8 +85,6 @@ const handler = async (req, res) => {
       deepseek: 'deepseek-chat'
     }
 
-    console.log('[Handler] Fazendo requisição para:', endpoints[provider])
-
     const response = await makeRequestWithRetry(endpoints[provider], {
       method: 'POST',
       headers: {
@@ -93,11 +96,19 @@ const handler = async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: 'Você é um assistente que cria flashcards de estudo. Responda apenas com JSON puro, sem formatação markdown ou texto adicional.'
+            content: `Você é um assistente que cria flashcards de estudo. 
+            Responda APENAS com um array JSON puro, sem formatação markdown.
+            Exemplo do formato esperado:
+            [
+              {
+                "front": "Pergunta 1?",
+                "back": "Resposta 1"
+              }
+            ]`
           },
           {
             role: 'user',
-            content: `Crie 5 flashcards de estudo baseados no seguinte conteúdo: ${content}`
+            content: `Crie 5 flashcards sobre: ${content}`
           }
         ],
         temperature: 0.7,
@@ -106,19 +117,64 @@ const handler = async (req, res) => {
     })
 
     if (!response.ok) {
-      const errorData = await response.text()
+      const errorText = await response.text()
       console.error('[Handler] Erro na resposta da API:', {
         status: response.status,
         statusText: response.statusText,
-        errorData
+        error: errorText
       })
-      throw new Error(`Erro na API do ${provider}: ${response.status}`)
+      
+      return res.status(500).json({
+        error: 'Erro na API do provedor',
+        details: `${provider} retornou status ${response.status}`,
+        providerError: errorText
+      })
     }
 
     const data = await response.json()
-    console.log('[Handler] Resposta da API recebida:', JSON.stringify(data, null, 2))
+    
+    if (!data?.choices?.[0]?.message?.content) {
+      console.error('[Handler] Resposta inválida da API:', data)
+      return res.status(500).json({
+        error: 'Resposta inválida da API',
+        details: 'A resposta não contém o formato esperado'
+      })
+    }
 
-    const flashcards = JSON.parse(data.choices[0].message.content)
+    let flashcards
+    try {
+      const content = data.choices[0].message.content
+        .replace(/```json\n?/g, '')  // Remove ```json
+        .replace(/```/g, '')         // Remove ```
+        .trim()                      // Remove espaços
+
+      const parsedContent = JSON.parse(content)
+      
+      // Verifica se veio no formato { flashcards: [...] } ou diretamente como array
+      flashcards = Array.isArray(parsedContent) ? parsedContent : parsedContent.flashcards
+
+      // Mapeia para o formato correto caso venha com pergunta/resposta em vez de front/back
+      flashcards = flashcards.map(card => ({
+        front: card.front || card.pergunta || '',
+        back: card.back || card.resposta || ''
+      }))
+
+      if (!Array.isArray(flashcards) || flashcards.length !== 5) {
+        throw new Error('A resposta deve ser um array com 5 flashcards')
+      }
+
+      if (!flashcards.every(card => card.front && card.back)) {
+        throw new Error('Todos os flashcards devem ter front e back')
+      }
+    } catch (error) {
+      console.error('[Handler] Erro ao processar flashcards:', error)
+      console.error('[Handler] Conteúdo recebido:', data.choices[0].message.content)
+      return res.status(500).json({
+        error: 'Erro ao processar resposta',
+        details: error.message,
+        rawContent: data.choices[0].message.content
+      })
+    }
 
     const executionTime = Date.now() - startTime
     console.log(`Tempo de execução: ${executionTime}ms`)
@@ -131,10 +187,11 @@ const handler = async (req, res) => {
       }]
     })
   } catch (error) {
-    console.error('Erro:', error)
+    console.error('[Handler] Erro crítico:', error)
     return res.status(500).json({ 
       error: 'Erro ao gerar flashcards',
-      details: error.message
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     })
   }
 }
