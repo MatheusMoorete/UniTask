@@ -1,10 +1,5 @@
 import fetch from 'node-fetch'
 
-export const config = {
-  runtime: 'edge',
-  regions: ['iad1']
-}
-
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const makeRequestWithRetry = async (url, options, retries = 3) => {
@@ -26,15 +21,6 @@ const makeRequestWithRetry = async (url, options, retries = 3) => {
 }
 
 export default async function handler(req, res) {
-  // Habilita CORS
-  res.setHeader('Access-Control-Allow-Credentials', true)
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT')
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-KEY, X-PROVIDER'
-  )
-
   if (req.method === 'OPTIONS') {
     res.status(200).end()
     return
@@ -136,6 +122,7 @@ export default async function handler(req, res) {
       }]
     })
   } catch (error) {
+    console.error('Erro detalhado:', error)
     res.status(500).json({ 
       error: 'Erro ao gerar flashcards',
       details: error.message
