@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "functions": {
     "api/generate-flashcards.js": {
       "memory": 1024,
@@ -23,7 +25,21 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
-        },
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.css",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/css"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.js",
+      "headers": [
         {
           "key": "Content-Type",
           "value": "application/javascript"
