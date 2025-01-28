@@ -1,7 +1,7 @@
 import fetch from 'node-fetch'
 
 // Configuração do timeout
-const TIMEOUT = 25000 // 25 segundos (para dar margem ao limite de 30s da Vercel)
+const TIMEOUT = 45000 // Aumentado para 45 segundos
 
 // Função para sanitizar logs
 const sanitizeLogs = (obj) => {
@@ -29,25 +29,18 @@ const validateRequest = (body) => {
 }
 
 const cleanJsonString = (str) => {
-  // Remove blocos de código markdown e espaços extras
   return str
-    .replace(/```json\s*/, '')  // Remove ```json do início
-    .replace(/```\s*$/, '')     // Remove ``` do final
-    .replace(/^\s+|\s+$/g, '') // Remove espaços extras no início e fim
+    .replace(/```json\s*/, '')
+    .replace(/```\s*$/, '')
+    .replace(/^\s+|\s+$/g, '')
 }
 
 const parseFlashcards = (content) => {
   try {
-    // Limpa o conteúdo
     const cleanContent = cleanJsonString(content)
-    
-    // Tenta fazer o parse do JSON
     const parsed = JSON.parse(cleanContent)
-    
-    // Verifica se é um array direto ou está dentro de um objeto
     const cards = Array.isArray(parsed) ? parsed : (parsed.flashcards || [])
     
-    // Mapeia para o formato correto
     return cards.map(card => ({
       front: card.front || card.pergunta || '',
       back: card.back || card.resposta || ''
@@ -59,9 +52,8 @@ const parseFlashcards = (content) => {
   }
 }
 
-// Função para fazer parse do body raw
 const parseBody = async (req) => {
-  if (req.body) return req.body // Se já foi parseado
+  if (req.body) return req.body
 
   return new Promise((resolve, reject) => {
     let data = ''
@@ -84,7 +76,6 @@ const parseBody = async (req) => {
 }
 
 export default async function handler(req, res) {
-  // CORS headers primeiro
   res.setHeader('Access-Control-Allow-Credentials', 'true')
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST')
@@ -99,10 +90,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Parse manual do body
     const body = await parseBody(req)
     
-    // Log inicial sanitizado
     console.log('Request recebida:', {
       method: req.method,
       url: req.url,
@@ -110,7 +99,6 @@ export default async function handler(req, res) {
       bodyContent: body.content ? body.content.substring(0, 50) + '...' : undefined
     })
 
-    // Valida a requisição
     const content = validateRequest(body)
     const apiKey = req.headers['x-api-key']
     const provider = req.headers['x-provider'] || 'deepseek'
@@ -196,4 +184,4 @@ export default async function handler(req, res) {
       details: error.message
     })
   }
-} 
+}
