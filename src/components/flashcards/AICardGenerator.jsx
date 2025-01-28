@@ -21,7 +21,7 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
 
   const API_URL = import.meta.env.DEV 
     ? 'http://localhost:3001/api/generate-flashcards'
-    : `${window.location.origin}/api/generate-flashcards`
+    : `${window.location.origin}/api`
 
   const handleSaveApiKey = async () => {
     try {
