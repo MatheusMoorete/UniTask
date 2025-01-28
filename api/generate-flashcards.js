@@ -6,9 +6,21 @@ const app = express()
 
 // Log de todas as requisições
 app.use((req, res, next) => {
+  const sanitizedHeaders = { ...req.headers }
+  // Remove sensitive information
+  if (sanitizedHeaders['x-api-key']) {
+    sanitizedHeaders['x-api-key'] = '***********'
+  }
+  
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
-  console.log('Headers:', req.headers)
-  console.log('Body:', req.body)
+  console.log('Headers:', sanitizedHeaders)
+  // Só loga o body se existir e não for vazio
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('Body:', {
+      ...req.body,
+      content: req.body.content?.substring(0, 50) + '...' // Limita o tamanho do conteúdo no log
+    })
+  }
   next()
 })
 
@@ -19,34 +31,31 @@ app.use(cors({
 }))
 
 app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+const makeRequestWithRetry = async (url, options) => {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000) // 30 segundos timeout
 
-const makeRequestWithRetry = async (url, options, retries = 3) => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      console.log(`[${new Date().toISOString()}] Tentativa ${i + 1} para ${url}`)
-      console.log('Options:', JSON.stringify(options, null, 2))
-      
-      const response = await fetch(url, options)
-      console.log(`[${new Date().toISOString()}] Resposta status:`, response.status)
-      
-      if (response.status === 429 && i < retries - 1) {
-        console.log(`Rate limit atingido, aguardando ${(i + 1) * 5} segundos...`)
-        await delay((i + 1) * 5000)
-        continue
-      }
-      return response
-    } catch (error) {
-      console.error(`[${new Date().toISOString()}] Erro na tentativa ${i + 1}:`, error)
-      if (i === retries - 1) throw error
-      await delay(1000)
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    })
+    return response
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('Timeout ao chamar a API')
     }
+    throw error
+  } finally {
+    clearTimeout(timeout)
   }
 }
 
 const handler = async (req, res) => {
-  console.log('[Handler] Iniciando processamento da requisição')
+  const startTime = Date.now()
+  
   try {
     const { content } = req.body
     const apiKey = req.headers['x-api-key']
@@ -88,25 +97,11 @@ const handler = async (req, res) => {
           },
           {
             role: 'user',
-            content: `
-              Crie exatamente 5 flashcards de estudo baseados no seguinte conteúdo.
-              Retorne apenas um array JSON com os flashcards, sem texto adicional.
-              Cada flashcard deve ter os campos "front" (pergunta) e "back" (resposta).
-              
-              Exemplo do formato esperado:
-              [
-                {
-                  "front": "Pergunta 1?",
-                  "back": "Resposta 1"
-                }
-              ]
-
-              Conteúdo: ${content}
-            `
+            content: `Crie 5 flashcards de estudo baseados no seguinte conteúdo: ${content}`
           }
         ],
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 1000
       })
     })
 
@@ -117,37 +112,16 @@ const handler = async (req, res) => {
         statusText: response.statusText,
         errorData
       })
-      throw new Error(`Erro na API do ${provider}: ${response.status} ${response.statusText}`)
+      throw new Error(`Erro na API do ${provider}: ${response.status}`)
     }
 
     const data = await response.json()
     console.log('[Handler] Resposta da API recebida:', JSON.stringify(data, null, 2))
 
-    let flashcards
-    try {
-      const content = data.choices[0].message.content
-      console.log('[Handler] Conteúdo bruto:', content)
+    const flashcards = JSON.parse(data.choices[0].message.content)
 
-      const cleanContent = content
-        .replace(/```json\n?/g, '')
-        .replace(/```/g, '')
-        .replace(/^\s*\[\s*/, '[')
-        .replace(/\s*\]\s*$/, ']')
-        .trim()
-      
-      console.log('[Handler] Conteúdo limpo:', cleanContent)
-      flashcards = JSON.parse(cleanContent)
-    } catch (error) {
-      console.error('[Handler] Erro ao processar resposta:', error)
-      throw new Error('Erro ao processar resposta da API: ' + error.message)
-    }
-
-    if (!Array.isArray(flashcards) || flashcards.length === 0) {
-      console.error('[Handler] Flashcards inválidos:', flashcards)
-      throw new Error('Nenhum flashcard foi gerado')
-    }
-
-    console.log('[Handler] Flashcards gerados:', flashcards)
+    const executionTime = Date.now() - startTime
+    console.log(`Tempo de execução: ${executionTime}ms`)
 
     return res.json({
       choices: [{
@@ -157,11 +131,10 @@ const handler = async (req, res) => {
       }]
     })
   } catch (error) {
-    console.error('[Handler] Erro crítico:', error)
+    console.error('Erro:', error)
     return res.status(500).json({ 
       error: 'Erro ao gerar flashcards',
-      details: error.message,
-      stack: error.stack
+      details: error.message
     })
   }
 }
