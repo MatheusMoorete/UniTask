@@ -1,13 +1,9 @@
 import fetch from 'node-fetch'
 
-export const config = {
-  runtime: 'edge'
-}
-
 const corsHeaders = {
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,OPTIONS,POST',
+  'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
   'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-KEY, X-PROVIDER'
 }
 
@@ -18,52 +14,42 @@ const makeRequestWithRetry = async (url, options, retries = 3) => {
     try {
       const response = await fetch(url, options)
       if (response.status === 429 && i < retries - 1) {
-        console.log(`Rate limit atingido, tentando novamente em ${(i + 1) * 5} segundos...`)
         await delay((i + 1) * 5000)
         continue
       }
       return response
     } catch (error) {
       if (i === retries - 1) throw error
-      console.log(`Tentativa ${i + 1} falhou, tentando novamente...`)
       await delay(1000)
     }
   }
 }
 
-export default async function handler(req) {
-  // Handle CORS
+export default async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT')
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-KEY, X-PROVIDER')
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders
-    })
+    res.status(200).end()
+    return
   }
 
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
-    })
+    res.status(405).json({ error: 'Method not allowed' })
+    return
   }
 
   try {
-    const body = await req.json()
-    const { content } = body
-    const apiKey = req.headers.get('x-api-key')
-    const provider = req.headers.get('x-provider') || 'deepseek'
+    const { content } = req.body
+    const apiKey = req.headers['x-api-key']
+    const provider = req.headers['x-provider'] || 'deepseek'
 
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'API key não fornecida' }), {
-        status: 401,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
-      })
+      res.status(401).json({ error: 'API key não fornecida' })
+      return
     }
 
     const endpoints = {
@@ -145,30 +131,18 @@ export default async function handler(req) {
       throw new Error('Alguns flashcards estão com formato inválido')
     }
 
-    return new Response(JSON.stringify({
+    res.json({
       choices: [{
         message: {
           content: JSON.stringify(flashcards)
         }
       }]
-    }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
     })
   } catch (error) {
     console.error('Erro detalhado:', error)
-    return new Response(JSON.stringify({
+    res.status(500).json({ 
       error: 'Erro ao gerar flashcards',
       details: error.message
-    }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
     })
   }
 } 
