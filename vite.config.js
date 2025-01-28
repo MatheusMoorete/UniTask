@@ -1,6 +1,8 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import tailwindcss from 'tailwindcss'
+import autoprefixer from 'autoprefixer'
 
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
@@ -17,6 +19,7 @@ export default defineConfig(({ command, mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
+      cssCodeSplit: true,
       rollupOptions: {
         output: {
           manualChunks: {
@@ -24,8 +27,21 @@ export default defineConfig(({ command, mode }) => {
           },
           entryFileNames: 'assets/[name]-[hash].js',
           chunkFileNames: 'assets/[name]-[hash].js',
-          assetFileNames: 'assets/[name]-[hash].[ext]'
+          assetFileNames: ({ name }) => {
+            if (/\.(css)$/.test(name ?? '')) {
+              return 'assets/[name]-[hash][extname]'
+            }
+            return 'assets/[name]-[hash].[ext]'
+          }
         },
+      },
+    },
+    css: {
+      postcss: {
+        plugins: [
+          tailwindcss,
+          autoprefixer,
+        ],
       },
     },
     define: {
