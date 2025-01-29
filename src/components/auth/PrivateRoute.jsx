@@ -7,16 +7,21 @@ const PrivateRoute = ({ children }) => {
 
   if (loading) {
     console.log("PrivateRoute - Carregando...")
-    return <div>Carregando...</div>
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <p className="mt-4 text-lg text-muted-foreground">Carregando...</p>
+      </div>
+    )
   }
 
   if (!user) {
     console.log("PrivateRoute - Usuário não autenticado, redirecionando...")
-    return <Navigate to="/login" />
+    return <Navigate to="/login" replace />
   }
 
   console.log("PrivateRoute - Renderizando conteúdo protegido")
   return children
 }
 
-export default PrivateRoute 
+export default PrivateRoute

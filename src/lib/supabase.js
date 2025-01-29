@@ -1,25 +1,22 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Logs para debug
+// Log seguro para ambiente
 console.log('Environment:', import.meta.env.MODE)
-console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL)
-console.log('Has Anon Key:', !!import.meta.env.VITE_SUPABASE_ANON_KEY)
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-if (!supabaseUrl) {
-  throw new Error(`Supabase URL is required. Current value: ${supabaseUrl}`)
+// Verifica se as variáveis necessárias estão definidas
+if (!import.meta.env.VITE_SUPABASE_URL) {
+  throw new Error('VITE_SUPABASE_URL is required')
 }
 
-if (!supabaseAnonKey) {
-  throw new Error('Supabase Anon Key is required')
+if (!import.meta.env.VITE_SUPABASE_ANON_KEY) {
+  throw new Error('VITE_SUPABASE_ANON_KEY is required')
 }
 
-console.log('SUPABASE URL:', import.meta.env.VITE_SUPABASE_URL)
-console.log('ENV:', import.meta.env)
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Cria o cliente Supabase
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+)
 
 export const signInToSupabase = async (firebaseUser) => {
   try {
@@ -44,4 +41,6 @@ export const signInToSupabase = async (firebaseUser) => {
     console.error('Erro ao autenticar no Supabase:', error)
     throw error
   }
-} 
+}
+
+export default supabase
