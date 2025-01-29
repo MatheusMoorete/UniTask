@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Círculo de fundo -->
+  <circle cx="256" cy="256" r="240" fill="#4F46E5" opacity="0.1"/>
+  
+  <!-- Livro -->
+  <path d="M156 186v180c0 11.046 8.954 20 20 20h160c11.046 0 20-8.954 20-20V186" 
+        stroke="#4F46E5" stroke-width="24" stroke-linecap="round"/>
+  <path d="M156 186c0-11.046 8.954-20 20-20h160c11.046 0 20 8.954 20 20" 
+        stroke="#4F46E5" stroke-width="24"/>
+  
+  <!-- Páginas do livro -->
+  <path d="M176 186v160M336 186v160" 
+        stroke="#4F46E5" stroke-width="4" stroke-linecap="round"/>
+  
+  <!-- Chapéu de formatura -->
+  <path d="M256 126l-80 40 80 40 80-40-80-40z" 
+        fill="#4F46E5"/>
+  <path d="M216 176v40l40 20 40-20v-40" 
+        stroke="#4F46E5" stroke-width="12" stroke-linecap="round"/>
+  <path d="M256 126v-20" 
+        stroke="#4F46E5" stroke-width="12" stroke-linecap="round"/>
+</svg>

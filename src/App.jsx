@@ -20,6 +20,7 @@ import StudyRoom from './pages/StudyRoom'
 import ErrorBoundary from './components/ErrorBoundary'
 import { Toaster } from 'sonner'
 import Flashcards from './pages/Flashcards'
+import Landing from './pages/Landing'
 import { useEffect } from 'react'
 
 const defaultSettings = {
@@ -57,7 +58,8 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Auth Routes */}
+      {/* Public Routes */}
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/reset-password" element={<ResetPassword />} />
@@ -68,7 +70,7 @@ function AppRoutes() {
           <RootLayout />
         </PrivateRoute>
       }>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/tasks" element={<TaskList />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/pomodoro" element={<Pomodoro />} />
