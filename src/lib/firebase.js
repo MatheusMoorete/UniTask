@@ -1,69 +1,61 @@
 import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
-import { getAnalytics } from 'firebase/analytics'
+import { getAnalytics, isSupported } from 'firebase/analytics'
 import { setPersistence, browserLocalPersistence } from 'firebase/auth'
 import { collection, getDocs } from 'firebase/firestore'
 
 // Função para logs seguros em produção
 const logFirebase = (message, data = {}) => {
-  const sensitiveKeys = ['token', 'key', 'password', 'secret', 'api']
-  const safeData = { ...data }
-  
-  // Remove dados sensíveis
-  Object.keys(safeData).forEach(key => {
-    if (sensitiveKeys.some(sensitive => key.toLowerCase().includes(sensitive))) {
-      safeData[key] = '[REDACTED]'
-    }
-  })
-  
-  console.log(`[UniTask Firebase] ${message}`, safeData)
+  if (import.meta.env.MODE === 'development') {
+    const sensitiveKeys = ['token', 'key', 'password', 'secret', 'api']
+    const safeData = { ...data }
+    
+    // Remove dados sensíveis
+    Object.keys(safeData).forEach(key => {
+      if (sensitiveKeys.some(sensitive => key.toLowerCase().includes(sensitive))) {
+        safeData[key] = '[REDACTED]'
+      }
+    })
+    
+    console.log(`[UniTask Firebase] ${message}`, safeData)
+  }
 }
 
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 }
 
-// Verifica se todas as variáveis de ambiente estão definidas
-const requiredEnvVars = [
+// Verifica se as variáveis essenciais estão definidas
+const essentialEnvVars = [
   'VITE_FIREBASE_API_KEY',
   'VITE_FIREBASE_AUTH_DOMAIN',
-  'VITE_FIREBASE_PROJECT_ID',
-  'VITE_FIREBASE_STORAGE_BUCKET',
-  'VITE_FIREBASE_MESSAGING_SENDER_ID',
-  'VITE_FIREBASE_APP_ID',
-  'VITE_FIREBASE_MEASUREMENT_ID'
+  'VITE_FIREBASE_PROJECT_ID'
 ]
 
-const missingEnvVars = requiredEnvVars.filter(varName => !import.meta.env[varName])
-if (missingEnvVars.length > 0) {
-  const error = `Missing environment variables: ${missingEnvVars.join(', ')}`
+const missingEssentialVars = essentialEnvVars.filter(varName => !import.meta.env[varName])
+if (missingEssentialVars.length > 0) {
+  const error = `Missing essential Firebase environment variables: ${missingEssentialVars.join(', ')}`
   logFirebase('Environment Error', { error })
   throw new Error(error)
 }
 
-// Log das variáveis de ambiente (de forma segura)
-logFirebase('Initializing Firebase', {
-  projectId: firebaseConfig.projectId,
-  authDomain: firebaseConfig.authDomain,
-  hasApiKey: Boolean(firebaseConfig.apiKey)
-})
-
 let app
 let auth
 let db
-let analytics
+let analytics = null
 
 try {
   // Inicializa o Firebase
   app = initializeApp(firebaseConfig)
   auth = getAuth(app)
+  db = getFirestore(app)
   
   // Configura persistência local
   setPersistence(auth, browserLocalPersistence)
@@ -72,12 +64,21 @@ try {
     })
     .catch((error) => {
       logFirebase('Error setting auth persistence', { error: error.message })
+      // Não lança o erro, apenas loga
     })
 
-  // Inicializa Analytics apenas no navegador
+  // Inicializa Analytics apenas se suportado
   if (typeof window !== 'undefined') {
-    analytics = getAnalytics(app)
-    logFirebase('Analytics initialized')
+    isSupported()
+      .then(isSupported => {
+        if (isSupported) {
+          analytics = getAnalytics(app)
+          logFirebase('Analytics initialized')
+        }
+      })
+      .catch(error => {
+        logFirebase('Analytics not supported', { error: error.message })
+      })
   }
 
   logFirebase('Firebase initialized successfully')
@@ -88,19 +89,9 @@ try {
 
 export async function setupFirestore() {
   try {
-    if (db) {
-      logFirebase('Using existing Firestore instance')
-      return db
+    if (!db) {
+      db = getFirestore(app)
     }
-
-    logFirebase('Setting up new Firestore instance')
-    db = getFirestore(app)
-    
-    // Tenta fazer uma operação simples para verificar a conexão
-    const testCollection = collection(db, '_test')
-    await getDocs(testCollection).catch(() => {}) // Ignora erro se a coleção não existir
-    
-    logFirebase('Firestore setup successful')
     return db
   } catch (error) {
     logFirebase('Error setting up Firestore', { error: error.message })
