@@ -3,6 +3,7 @@ import { getFirestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import { getAnalytics } from 'firebase/analytics'
 import { setPersistence, browserLocalPersistence } from 'firebase/auth'
+import { collection, getDocs } from 'firebase/firestore'
 
 // Função para logs seguros em produção
 const logFirebase = (message, data = {}) => {
@@ -42,69 +43,69 @@ const requiredEnvVars = [
 
 const missingEnvVars = requiredEnvVars.filter(varName => !import.meta.env[varName])
 if (missingEnvVars.length > 0) {
-  logFirebase('Missing environment variables', { missing: missingEnvVars })
+  const error = `Missing environment variables: ${missingEnvVars.join(', ')}`
+  logFirebase('Environment Error', { error })
+  throw new Error(error)
 }
+
+// Log das variáveis de ambiente (de forma segura)
+logFirebase('Initializing Firebase', {
+  projectId: firebaseConfig.projectId,
+  authDomain: firebaseConfig.authDomain,
+  hasApiKey: Boolean(firebaseConfig.apiKey)
+})
 
 let app
 let auth
 let db
 let analytics
 
-// Initialize Firebase
 try {
-  logFirebase('Initializing Firebase', { 
-    projectId: firebaseConfig.projectId,
-    authDomain: firebaseConfig.authDomain,
-    hasApiKey: Boolean(firebaseConfig.apiKey)
-  })
-  
+  // Inicializa o Firebase
   app = initializeApp(firebaseConfig)
   auth = getAuth(app)
-  db = getFirestore(app)
   
-  try {
-    analytics = getAnalytics(app)
-    logFirebase('Analytics initialized')
-  } catch (error) {
-    logFirebase('Failed to initialize analytics', { error: error.message })
-  }
-
-  // Configuração de persistência
+  // Configura persistência local
   setPersistence(auth, browserLocalPersistence)
     .then(() => {
       logFirebase('Auth persistence set to local')
     })
     .catch((error) => {
-      logFirebase('Failed to set auth persistence', { error: error.message })
+      logFirebase('Error setting auth persistence', { error: error.message })
     })
+
+  // Inicializa Analytics apenas no navegador
+  if (typeof window !== 'undefined') {
+    analytics = getAnalytics(app)
+    logFirebase('Analytics initialized')
+  }
 
   logFirebase('Firebase initialized successfully')
 } catch (error) {
-  logFirebase('Failed to initialize Firebase', { error: error.message })
+  logFirebase('Error initializing Firebase', { error: error.message })
   throw error
 }
 
-let firestoreInstance = null
-
 export async function setupFirestore() {
-    if (firestoreInstance) {
+  try {
+    if (db) {
       logFirebase('Using existing Firestore instance')
-      return firestoreInstance
+      return db
     }
 
-    try {
-        logFirebase('Setting up new Firestore instance')
-        firestoreInstance = getFirestore(app)
-        logFirebase('Firestore setup successful')
-        return firestoreInstance
-    } catch (err) {
-        logFirebase('Error setting up Firestore', { error: err.message })
-        if (!firestoreInstance) {
-            logFirebase('Attempting to get Firestore instance after error')
-            firestoreInstance = getFirestore(app)
-        }
-        return firestoreInstance
-    }
+    logFirebase('Setting up new Firestore instance')
+    db = getFirestore(app)
+    
+    // Tenta fazer uma operação simples para verificar a conexão
+    const testCollection = collection(db, '_test')
+    await getDocs(testCollection).catch(() => {}) // Ignora erro se a coleção não existir
+    
+    logFirebase('Firestore setup successful')
+    return db
+  } catch (error) {
+    logFirebase('Error setting up Firestore', { error: error.message })
+    throw error
+  }
 }
 
 export { app as default, auth, db, analytics }
