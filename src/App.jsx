@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { PomodoroProvider } from './contexts/PomodoroContext'
 import PrivateRoute from './components/auth/PrivateRoute'
@@ -20,6 +20,7 @@ import StudyRoom from './pages/StudyRoom'
 import ErrorBoundary from './components/ErrorBoundary'
 import { Toaster } from 'sonner'
 import Flashcards from './pages/Flashcards'
+import { useEffect } from 'react'
 
 const defaultSettings = {
   focusTime: 25,
@@ -28,7 +29,70 @@ const defaultSettings = {
   sessionsUntilLongBreak: 4,
 }
 
+// Função para logs seguros em produção
+const logInfo = (message, data = {}) => {
+  const sensitiveKeys = ['token', 'key', 'password', 'secret']
+  const safeData = { ...data }
+  
+  // Remove dados sensíveis
+  Object.keys(safeData).forEach(key => {
+    if (sensitiveKeys.some(sensitive => key.toLowerCase().includes(sensitive))) {
+      safeData[key] = '[REDACTED]'
+    }
+  })
+  
+  console.log(`[UniTask] ${message}`, safeData)
+}
+
+function AppRoutes() {
+  const location = useLocation()
+
+  useEffect(() => {
+    logInfo('Route changed', { 
+      path: location.pathname,
+      search: location.search,
+      hash: location.hash
+    })
+  }, [location])
+
+  return (
+    <Routes>
+      {/* Auth Routes */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+
+      {/* Protected Routes */}
+      <Route element={
+        <PrivateRoute>
+          <RootLayout />
+        </PrivateRoute>
+      }>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/tasks" element={<TaskList />} />
+        <Route path="/calendar" element={<Calendar />} />
+        <Route path="/pomodoro" element={<Pomodoro />} />
+        <Route path="/attendance" element={<Attendance />} />
+        <Route path="/caderno-virtual" element={<CadernoVirtual />} />
+        <Route path="/study-room" element={<StudyRoom />} />
+        <Route path="/flashcards" element={<Flashcards />} />
+      </Route>
+
+      {/* Fallback Route */}
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  )
+}
+
 export default function App() {
+  useEffect(() => {
+    logInfo('App initialized', {
+      env: process.env.NODE_ENV,
+      buildTime: process.env.BUILD_TIME || 'unknown',
+      version: process.env.VERSION || '1.0.0'
+    })
+  }, [])
+
   return (
     <ErrorBoundary>
       <AuthProvider>
@@ -41,31 +105,7 @@ export default function App() {
                   expand={true}
                   richColors
                 />
-                <Routes>
-                  {/* Auth Routes */}
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/signup" element={<Signup />} />
-                  <Route path="/reset-password" element={<ResetPassword />} />
-
-                  {/* Protected Routes */}
-                  <Route element={
-                    <PrivateRoute>
-                      <RootLayout />
-                    </PrivateRoute>
-                  }>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/tasks" element={<TaskList />} />
-                    <Route path="/calendar" element={<Calendar />} />
-                    <Route path="/pomodoro" element={<Pomodoro />} />
-                    <Route path="/attendance" element={<Attendance />} />
-                    <Route path="/caderno-virtual" element={<CadernoVirtual />} />
-                    <Route path="/study-room" element={<StudyRoom />} />
-                    <Route path="/flashcards" element={<Flashcards />} />
-                  </Route>
-
-                  {/* Fallback Route */}
-                  <Route path="*" element={<Navigate to="/" />} />
-                </Routes>
+                <AppRoutes />
               </PomodoroProvider>
             </BoardProvider>
           </GoogleCalendarProvider>
