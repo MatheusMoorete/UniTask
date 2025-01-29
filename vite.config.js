@@ -57,8 +57,6 @@ export default defineConfig(({ command, mode }) => {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
       'import.meta.env.VITE_SUPABASE_PUBLIC_BUCKET_URL': JSON.stringify(env.VITE_SUPABASE_PUBLIC_BUCKET_URL),
-      'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(env.VITE_GOOGLE_CLIENT_ID),
-      'import.meta.env.VITE_OPENAI_API_KEY': JSON.stringify(env.VITE_OPENAI_API_KEY),
       'import.meta.env.VITE_BUILD_TIME': JSON.stringify(new Date().toISOString()),
       'import.meta.env.VITE_VERSION': JSON.stringify(process.env.npm_package_version || '1.0.0')
     },
