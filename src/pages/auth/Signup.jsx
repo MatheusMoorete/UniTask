@@ -38,7 +38,7 @@ export default function Signup() {
       setError('')
       setLoading(true)
       await signup(formData.email, formData.password, formData.name)
-      navigate('/')
+      navigate('/dashboard')
     } catch (error) {
       setError('Falha ao criar conta. Tente novamente.')
     } finally {
@@ -51,7 +51,7 @@ export default function Signup() {
       setError('')
       setLoading(true)
       await signInWithGoogle()
-      navigate('/')
+      navigate('/dashboard')
     } catch (error) {
       setError('Falha ao fazer login com Google.')
     } finally {

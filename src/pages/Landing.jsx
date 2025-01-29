@@ -33,7 +33,7 @@ export default function Landing() {
         {/* Logo */}
         <div className="mb-12">
           <img 
-            src="/logo-edu.svg" 
+            src="public/logo-edu.svg" 
             alt="UniTask Logo" 
             className="w-32 h-32 mx-auto"
           />

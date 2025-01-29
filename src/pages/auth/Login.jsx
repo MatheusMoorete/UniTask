@@ -22,7 +22,7 @@ export default function Login() {
       setError('')
       setLoading(true)
       await login(email, password)
-      navigate('/')
+      navigate('/dashboard')
     } catch (error) {
       setError('Falha ao fazer login. Verifique suas credenciais.')
     } finally {
@@ -35,7 +35,7 @@ export default function Login() {
       setError('')
       setLoading(true)
       await signInWithGoogle()
-      navigate('/')
+      navigate('/dashboard')
     } catch (error) {
       setError('Falha ao fazer login com Google.')
     } finally {
