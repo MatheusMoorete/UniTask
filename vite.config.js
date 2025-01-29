@@ -46,7 +46,7 @@ export default defineConfig(({ command, mode }) => {
       devSourcemap: true
     },
     define: {
-      // Expõe as variáveis VITE_ para o cliente
+      // Firebase Configuration
       'import.meta.env.VITE_FIREBASE_API_KEY': JSON.stringify(env.VITE_FIREBASE_API_KEY),
       'import.meta.env.VITE_FIREBASE_AUTH_DOMAIN': JSON.stringify(env.VITE_FIREBASE_AUTH_DOMAIN),
       'import.meta.env.VITE_FIREBASE_PROJECT_ID': JSON.stringify(env.VITE_FIREBASE_PROJECT_ID),
@@ -54,9 +54,25 @@ export default defineConfig(({ command, mode }) => {
       'import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID': JSON.stringify(env.VITE_FIREBASE_MESSAGING_SENDER_ID),
       'import.meta.env.VITE_FIREBASE_APP_ID': JSON.stringify(env.VITE_FIREBASE_APP_ID),
       'import.meta.env.VITE_FIREBASE_MEASUREMENT_ID': JSON.stringify(env.VITE_FIREBASE_MEASUREMENT_ID),
+
+      // Telegram Configuration
+      'import.meta.env.VITE_TELEGRAM_BOT_TOKEN': JSON.stringify(env.VITE_TELEGRAM_BOT_TOKEN),
+      'import.meta.env.VITE_TELEGRAM_CHAT_ID': JSON.stringify(env.VITE_TELEGRAM_CHAT_ID),
+
+      // Google Calendar API
+      'import.meta.env.VITE_GOOGLE_API_KEY': JSON.stringify(env.VITE_GOOGLE_API_KEY),
+      'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(env.VITE_GOOGLE_CLIENT_ID),
+      'import.meta.env.VITE_GOOGLE_CALENDAR_SCOPES': JSON.stringify(env.VITE_GOOGLE_CALENDAR_SCOPES),
+
+      // Supabase Configuration
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
-      'import.meta.env.VITE_SUPABASE_PUBLIC_BUCKET_URL': JSON.stringify(env.VITE_SUPABASE_PUBLIC_BUCKET_URL),
+      'import.meta.env.VITE_SUPABASE_PUBLIC_BUCKET_URL': JSON.stringify(env.VITE_SUPABASE_URL + '/storage/v1/object/public/materiais'),
+
+      // API URL
+      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL),
+
+      // Build Info
       'import.meta.env.VITE_BUILD_TIME': JSON.stringify(new Date().toISOString()),
       'import.meta.env.VITE_VERSION': JSON.stringify(process.env.npm_package_version || '1.0.0')
     },
