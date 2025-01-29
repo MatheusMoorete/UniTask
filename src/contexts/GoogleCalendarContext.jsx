@@ -33,24 +33,81 @@ export function GoogleCalendarProvider({ children }) {
   );
 
   // Função para salvar o token após autenticação bem-sucedida
-  const saveAccessToken = (token) => {
-    localStorage.setItem('googleCalendarToken', token);
+  const saveAccessToken = (token, refreshToken) => {
+    const tokenData = {
+      accessToken: token,
+      refreshToken: refreshToken,
+      expiryDate: new Date(Date.now() + 3600 * 1000).toISOString(), // 1 hora
+    };
+    localStorage.setItem('googleCalendarToken', JSON.stringify(tokenData));
     setAccessToken(token);
   };
 
   // Função para limpar o token ao desconectar
   const clearAccessToken = () => {
     localStorage.removeItem('googleCalendarToken');
+    localStorage.removeItem('visibleCalendars');
+    localStorage.removeItem('dashboardCalendars');
     setAccessToken(null);
+    setIsAuthenticated(false);
+    setEvents([]);
+    setCalendars([]);
   };
 
-  // Função para inicializar o cliente GAPI
-  const initializeGapiClient = async () => {
-    await window.gapi.client.init({
-      apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
-      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']
-    })
-  }
+  // Função para verificar e restaurar a sessão
+  const restoreSession = async () => {
+    try {
+      const savedTokenData = localStorage.getItem('googleCalendarToken');
+      if (!savedTokenData) {
+        setLoading(false);
+        return false;
+      }
+
+      const { accessToken, refreshToken, expiryDate } = JSON.parse(savedTokenData);
+      const isExpired = new Date(expiryDate) <= new Date();
+
+      // Se o token expirou, tenta renovar usando o refresh token
+      if (isExpired && refreshToken) {
+        const newAccessToken = await refreshAccessToken(refreshToken);
+        if (newAccessToken) {
+          saveAccessToken(newAccessToken, refreshToken);
+          window.gapi.client.setToken({ access_token: newAccessToken });
+        } else {
+          clearAccessToken();
+          setLoading(false);
+          return false;
+        }
+      } else {
+        window.gapi.client.setToken({ access_token: accessToken });
+      }
+
+      // Inicializa o cliente GAPI se necessário
+      if (!window.gapi?.client) {
+        await initializeGapiClient();
+      }
+
+      // Verifica se o token é válido
+      try {
+        await window.gapi.client.calendar.calendarList.list({ maxResults: 1 });
+        setIsAuthenticated(true);
+        await fetchCalendars();
+        setLoading(false);
+        return true;
+      } catch (error) {
+        if (error.status === 401) {
+          clearAccessToken();
+          setLoading(false);
+          return false;
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error('Erro ao restaurar sessão:', error);
+      clearAccessToken();
+      setLoading(false);
+      return false;
+    }
+  };
 
   // Função para obter novo access token usando refresh token
   const refreshAccessToken = async (refreshToken) => {
@@ -76,48 +133,30 @@ export function GoogleCalendarProvider({ children }) {
     }
   }
 
-  // Função para verificar e restaurar a sessão
-  const restoreSession = async () => {
-    try {
-      const savedToken = localStorage.getItem('googleCalendarToken')
-      if (!savedToken) {
-        setLoading(false)
-        return false
-      }
-
-      // Inicializa o cliente GAPI se necessário
-      if (!window.gapi?.client) {
-        await initializeGapiClient()
-      }
-
-      // Define o token no cliente
-      window.gapi.client.setToken({ access_token: savedToken })
-
-      // Verifica se o token ainda é válido fazendo uma requisição teste
-      try {
-        await window.gapi.client.calendar.calendarList.list({ maxResults: 1 })
-        setIsAuthenticated(true)
-        await fetchCalendars()
-        setLoading(false)
-        return true
-      } catch (error) {
-        if (error.status === 401) {
-          // Token expirado ou inválido
-          clearAccessToken()
-          setIsAuthenticated(false)
-          setLoading(false)
-          return false
-        }
-        throw error
-      }
-    } catch (error) {
-      console.error('Erro ao restaurar sessão:', error)
-      clearAccessToken()
-      setIsAuthenticated(false)
-      setLoading(false)
-      return false
-    }
+  // Função para inicializar o cliente GAPI
+  const initializeGapiClient = async () => {
+    await window.gapi.client.init({
+      apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
+      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']
+    })
   }
+
+  // Configurar cliente OAuth2 com escopo para refresh token
+  const configureTokenClient = () => {
+    return window.google.accounts.oauth2.initTokenClient({
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      scope: SCOPES.join(' '),
+      prompt: 'consent',
+      access_type: 'offline',
+      callback: async (response) => {
+        if (response.access_token) {
+          saveAccessToken(response.access_token, response.refresh_token);
+          setIsAuthenticated(true);
+          await fetchCalendars();
+        }
+      },
+    });
+  };
 
   // Efeito para carregar as APIs do Google e restaurar a sessão
   useEffect(() => {
@@ -158,18 +197,7 @@ export function GoogleCalendarProvider({ children }) {
         }
 
         // Configurar cliente OAuth2
-        const client = window.google.accounts.oauth2.initTokenClient({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-          scope: SCOPES.join(' '),
-          callback: async (response) => {
-            if (response.access_token) {
-              saveAccessToken(response.access_token)
-              setIsAuthenticated(true)
-              await fetchCalendars()
-            }
-          },
-        })
-
+        const client = configureTokenClient()
         setTokenClient(client)
         setGapi(window.gapi)
 
@@ -306,7 +334,7 @@ export function GoogleCalendarProvider({ children }) {
 
       tokenClient.callback = async (response) => {
         if (response.access_token) {
-          saveAccessToken(response.access_token)
+          saveAccessToken(response.access_token, response.refresh_token);
           setIsAuthenticated(true)
           await fetchCalendars()
         }
