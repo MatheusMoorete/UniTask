@@ -87,9 +87,9 @@ function AppRoutes() {
 export default function App() {
   useEffect(() => {
     logInfo('App initialized', {
-      env: process.env.NODE_ENV,
-      buildTime: process.env.BUILD_TIME || 'unknown',
-      version: process.env.VERSION || '1.0.0'
+      env: import.meta.env.MODE,
+      buildTime: import.meta.env.VITE_BUILD_TIME || 'unknown',
+      version: import.meta.env.VITE_VERSION || '1.0.0'
     })
   }, [])
 

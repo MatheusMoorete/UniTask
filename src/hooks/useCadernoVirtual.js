@@ -13,7 +13,7 @@ import {
   setDoc,
   getDoc
 } from 'firebase/firestore'
-import { supabase } from '../lib/supabase'
+import supabase, { signInToSupabase } from '../lib/supabase'
 
 export function useCadernoVirtual() {
   const [materias, setMaterias] = useState([])
