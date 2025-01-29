@@ -45,6 +45,11 @@ if (missingEnvVars.length > 0) {
   logFirebase('Missing environment variables', { missing: missingEnvVars })
 }
 
+let app
+let auth
+let db
+let analytics
+
 // Initialize Firebase
 try {
   logFirebase('Initializing Firebase', { 
@@ -53,12 +58,12 @@ try {
     hasApiKey: Boolean(firebaseConfig.apiKey)
   })
   
-  const app = initializeApp(firebaseConfig)
-  export const auth = getAuth(app)
-  export const db = getFirestore(app)
+  app = initializeApp(firebaseConfig)
+  auth = getAuth(app)
+  db = getFirestore(app)
   
   try {
-    export const analytics = getAnalytics(app)
+    analytics = getAnalytics(app)
     logFirebase('Analytics initialized')
   } catch (error) {
     logFirebase('Failed to initialize analytics', { error: error.message })
@@ -102,4 +107,4 @@ export async function setupFirestore() {
     }
 }
 
-export default app
+export { app as default, auth, db, analytics }
