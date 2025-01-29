@@ -23,9 +23,9 @@ export default defineConfig(({ command, mode }) => {
           manualChunks: {
             vendor: ['react', 'react-dom'],
           },
-          entryFileNames: 'assets/[name]-[hash].js',
-          chunkFileNames: 'assets/[name]-[hash].js',
-          assetFileNames: 'assets/[name]-[hash].[ext]'
+          entryFileNames: 'assets/[name].[hash].js',
+          chunkFileNames: 'assets/[name].[hash].js',
+          assetFileNames: 'assets/[name].[hash].[ext]'
         },
       },
     },
@@ -45,6 +45,7 @@ export default defineConfig(({ command, mode }) => {
           changeOrigin: true
         }
       }
-    }
+    },
+    base: '/'
   }
 })
