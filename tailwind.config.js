@@ -72,4 +72,18 @@ module.exports = {
     },
   },
   plugins: [require("tailwindcss-animate")],
+  safelist: [
+    'bg-primary',
+    'text-primary-foreground',
+    'hover:bg-primary/90',
+    'bg-destructive',
+    'text-destructive-foreground',
+    'hover:bg-destructive/90',
+    'bg-secondary',
+    'text-secondary-foreground',
+    'hover:bg-secondary/80',
+    'bg-accent',
+    'text-accent-foreground',
+    'hover:bg-accent/80',
+  ]
 }
