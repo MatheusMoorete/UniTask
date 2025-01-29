@@ -24,8 +24,15 @@ const validateRequest = (body) => {
   if (!body.content || typeof body.content !== 'string') {
     throw new Error('Campo content é obrigatório')
   }
+
+  if (!body.quantity || !Number.isInteger(body.quantity) || body.quantity < 1 || body.quantity > 20) {
+    throw new Error('Quantidade deve ser um número inteiro entre 1 e 20')
+  }
   
-  return body.content.trim()
+  return {
+    content: body.content.trim(),
+    quantity: body.quantity
+  }
 }
 
 const cleanJsonString = (str) => {
@@ -124,7 +131,7 @@ export default async function handler(req, res) {
       console.log('Fazendo requisição para API:', {
         url: apiUrl,
         provider,
-        contentLength: content.length
+        contentLength: content.content.length
       })
 
       const response = await fetch(apiUrl, {
@@ -138,15 +145,15 @@ export default async function handler(req, res) {
           messages: [
             {
               role: 'system',
-              content: '[Retorne um array JSON com 5 flashcards no formato: [{"front": "pergunta", "back": "resposta"}]. Sem markdown ou texto adicional.]'
+              content: `[Retorne um array JSON com ${content.quantity} flashcards no formato: [{"front": "pergunta", "back": "resposta"}]. Sem markdown ou texto adicional.]`
             },
             {
               role: 'user',
-              content: `Crie 5 flashcards sobre: ${content}`
+              content: `Crie ${content.quantity} flashcards sobre: ${content.content}`
             }
           ],
           temperature: 0.7,
-          max_tokens: 500
+          max_tokens: content.quantity * 100 // Aumenta o limite de tokens baseado na quantidade
         }),
         signal: controller.signal
       })

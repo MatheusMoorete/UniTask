@@ -339,6 +339,9 @@ service cloud.firestore {
           // Permite atualização parcial para repetitionData
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['repetitionData', 'updatedAt'])
+          // Permite atualização do conteúdo do flashcard
+          || request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['front', 'back', 'updatedAt'])
           || isValidFlashcard() // Ou validação completa para outras atualizações
         );
       

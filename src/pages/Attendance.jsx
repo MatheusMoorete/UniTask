@@ -529,36 +529,21 @@ export default function Attendance() {
               transition={{ duration: 0.3 }}
               key={subject.id}
             >
-              <Card className={cn(
-                "overflow-hidden transition-all duration-200 hover:shadow-md",
-                percentage >= 75 ? "border-l-4 border-l-destructive" :
-                percentage >= 50 ? "border-l-4 border-l-warning" :
-                "border-l-4 border-l-success"
-              )}>
-                <CardHeader className="space-y-1 pb-4">
-                  <div className="flex items-start justify-between">
+              <Card className="overflow-hidden">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="space-y-1">
-                      <CardTitle className="line-clamp-1 text-xl">{subject.name}</CardTitle>
-                      <CardDescription className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          {subject.totalHours}h
-                        </span>
-                        {subject.hasMultipleTypes && (
-                          <>
-                            <span>•</span>
-                            <span>{subject.type1?.name || 'Teórica'}: {subject.type1?.hours || 0}h</span>
-                            <span>•</span>
-                            <span>{subject.type2?.name || 'Prática'}: {subject.type2?.hours || 0}h</span>
-                          </>
-                        )}
+                      <CardTitle className="text-xl">{subject.name}</CardTitle>
+                      <CardDescription className="flex items-center">
+                        <Clock className="h-4 w-4 mr-1" />
+                        {subject.totalHours}h
                       </CardDescription>
                     </div>
                     <div className="flex gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 hover:bg-muted"
+                        className="h-8 w-8"
                         onClick={() => handleEdit(subject)}
                       >
                         <Pencil className="h-4 w-4" />
@@ -566,166 +551,62 @@ export default function Attendance() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                        className="h-8 w-8"
                         onClick={() => handleDelete(subject.id, subject.name)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-                </CardHeader>
 
-                <CardContent className="space-y-6">
-                  {subject.hasMultipleTypes ? (
-                    <>
-                      {/* Aulas Teóricas */}
-                      <div className="space-y-3">
-                        <span className="text-sm font-medium">{subject.type1.name || 'Teóricas'}</span>
-                        <div className="flex items-center">
-                          <div className="flex-grow">
-                            <Progress 
-                              value={(subject.type1.absences / subject.maxAbsences.type1) * 100} 
-                              className="h-2"
-                              indicatorClassName={cn(
-                                "transition-all duration-300",
-                                percentage >= 75 ? "bg-destructive" :
-                                percentage >= 50 ? "bg-warning" :
-                                "bg-success"
-                              )}
-                            />
-                            <div className="flex justify-end text-xs text-muted-foreground mt-1">
-                              <span>{subject.type1.absences || 0} de {subject.maxAbsences.type1} faltas</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 ml-3 -mt-2">
-                            <Button 
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 rounded-full hover:bg-destructive/10"
-                              onClick={() => removeAbsence(subject.id, 'type1')}
-                              disabled={subject.type1.absences <= 0}
-                            >
-                              <MinusCircle className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 rounded-full hover:bg-success/10"
-                              onClick={() => addAbsence(subject.id, 'type1')}
-                              disabled={remainingAbsences <= 0}
-                            >
-                              <PlusCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Aulas Práticas */}
-                      <div className="space-y-3">
-                        <span className="text-sm font-medium">{subject.type2.name || 'Práticas'}</span>
-                        <div className="flex items-center">
-                          <div className="flex-grow">
-                            <Progress 
-                              value={(subject.type2.absences / subject.maxAbsences.type2) * 100} 
-                              className="h-2"
-                              indicatorClassName={cn(
-                                "transition-all duration-300",
-                                percentage >= 75 ? "bg-destructive" :
-                                percentage >= 50 ? "bg-warning" :
-                                "bg-success"
-                              )}
-                            />
-                            <div className="flex justify-end text-xs text-muted-foreground mt-1">
-                              <span>{subject.type2.absences || 0} de {subject.maxAbsences.type2} faltas</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 ml-3 -mt-2">
-                            <Button 
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 rounded-full hover:bg-destructive/10"
-                              onClick={() => removeAbsence(subject.id, 'type2')}
-                              disabled={subject.type2.absences <= 0}
-                            >
-                              <MinusCircle className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 rounded-full hover:bg-success/10"
-                              onClick={() => addAbsence(subject.id, 'type2')}
-                              disabled={remainingAbsences <= 0}
-                            >
-                              <PlusCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center">
-                        <div className="flex-grow">
-                          <Progress 
-                            value={(subject.type1.absences / subject.maxAbsences.type1) * 100} 
-                            className="h-2"
-                            indicatorClassName={cn(
-                              "transition-all duration-300",
-                              percentage >= 75 ? "bg-destructive" :
-                              percentage >= 50 ? "bg-warning" :
-                              "bg-success"
-                            )}
-                          />
-                          <div className="flex justify-end text-xs text-muted-foreground mt-1">
-                            <span>{subject.type1.absences || 0} de {subject.maxAbsences.type1} faltas</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 ml-3 -mt-2">
-                          <Button 
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 rounded-full hover:bg-destructive/10"
-                            onClick={() => removeAbsence(subject.id, 'type1')}
-                            disabled={subject.type1.absences <= 0}
-                          >
-                            <MinusCircle className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 rounded-full hover:bg-success/10"
-                            onClick={() => addAbsence(subject.id, 'type1')}
-                            disabled={remainingAbsences <= 0}
-                          >
-                            <PlusCircle className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-end text-sm text-muted-foreground">
+                      <span>{subject.type1.absences || 0} de {subject.maxAbsences.type1} faltas</span>
                     </div>
-                  )}
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => removeAbsence(subject.id, 'type1')}
+                        disabled={subject.type1.absences <= 0}
+                      >
+                        <MinusCircle className="h-4 w-4" />
+                      </Button>
+                      <Progress 
+                        value={(subject.type1.absences / subject.maxAbsences.type1) * 100} 
+                        className="flex-grow h-2"
+                        indicatorClassName={cn(
+                          "transition-all duration-300",
+                          percentage >= 75 ? "bg-red-500" :
+                          percentage >= 50 ? "bg-yellow-500" :
+                          "bg-green-500"
+                        )}
+                      />
+                      <Button 
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => addAbsence(subject.id, 'type1')}
+                        disabled={remainingAbsences <= 0}
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
 
-                  <div className="pt-4 border-t">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <span className={cn(
-                          "text-sm font-medium",
-                          percentage >= 75 ? "text-destructive" :
-                          percentage >= 50 ? "text-warning" :
-                          "text-success"
-                        )}>
-                          Utilização
-                        </span>
-                        <p className="text-2xl font-bold tracking-tight">
-                          {percentage.toFixed(1)}%
-                        </p>
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                      <div>
+                        <span className="text-sm text-muted-foreground">Utilização</span>
+                        <p className={cn(
+                          "text-2xl font-bold",
+                          percentage >= 75 ? "text-red-500" :
+                          percentage >= 50 ? "text-yellow-500" :
+                          "text-green-500"
+                        )}>{percentage.toFixed(1)}%</p>
                       </div>
-                      <div className="space-y-1">
-                        <span className="text-sm font-medium text-muted-foreground">
-                          Faltas Restantes
-                        </span>
-                        <p className="text-2xl font-bold tracking-tight">
-                          {remainingAbsences}
-                        </p>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Faltas Restantes</span>
+                        <p className="text-2xl font-bold">{remainingAbsences}</p>
                       </div>
                     </div>
                   </div>
@@ -748,4 +629,4 @@ export default function Attendance() {
       )}
     </div>
   )
-} 
+}

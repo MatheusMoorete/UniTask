@@ -44,25 +44,25 @@ export function AttendanceWarning() {
 
   // Função para determinar as cores e mensagens baseadas na porcentagem
   const getStatusConfig = (percentage) => {
-    if (percentage >= 70) {
+    if (percentage >= 75) {
       return {
-        bgColor: 'bg-destructive/10',
-        textColor: 'text-destructive',
-        borderColor: 'border-destructive',
+        bgColor: 'bg-red-500/10',
+        textColor: 'text-red-500',
+        borderColor: 'border-red-500',
         message: 'Risco de reprovação por faltas!'
       }
-    } else if (percentage > 50) {
+    } else if (percentage >= 50) {
       return {
-        bgColor: 'bg-warning/10',
-        textColor: 'text-warning',
-        borderColor: 'border-warning',
+        bgColor: 'bg-yellow-500/10',
+        textColor: 'text-yellow-500',
+        borderColor: 'border-yellow-500',
         message: 'Atenção ao número de faltas!'
       }
     } else {
       return {
-        bgColor: 'bg-success/10',
-        textColor: 'text-success',
-        borderColor: 'border-success',
+        bgColor: 'bg-green-500/10',
+        textColor: 'text-green-500',
+        borderColor: 'border-green-500',
         message: 'Faltas dentro do limite'
       }
     }
@@ -75,7 +75,7 @@ export function AttendanceWarning() {
     }))
     .sort((a, b) => b.percentage - a.percentage)
 
-  const subjectsAtRisk = processedSubjects.filter(subject => subject.percentage >= 70)
+  const subjectsAtRisk = processedSubjects.filter(subject => subject.percentage >= 75)
   const shouldShowRiskWarning = subjects.length > 3 && subjectsAtRisk.length > 0
   const additionalSubjects = subjects.length - 2
   const additionalRiskSubjects = subjectsAtRisk.length - 2 // Matérias em risco além das 2 mostradas
@@ -84,22 +84,33 @@ export function AttendanceWarning() {
     <Card 
       className={cn(
         "border-l-4 shadow-md hover:bg-accent/10 cursor-pointer transition-colors",
-        subjects.some(s => calculateAttendancePercentage(s) >= 70)
-          ? "border-l-destructive"
-          : subjects.some(s => calculateAttendancePercentage(s) > 50)
-          ? "border-l-warning"
-          : "border-l-success"
+        subjects.some(s => calculateAttendancePercentage(s) >= 75)
+          ? "border-l-red-500"
+          : subjects.some(s => calculateAttendancePercentage(s) >= 50)
+          ? "border-l-yellow-500"
+          : "border-l-green-500"
       )}
       onClick={() => navigate('/attendance')}
     >
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-base">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            Cuidado com as Faltas
+            <AlertTriangle className={cn(
+              "h-4 w-4",
+              subjects.some(s => calculateAttendancePercentage(s) >= 75)
+                ? "text-red-500"
+                : subjects.some(s => calculateAttendancePercentage(s) >= 50)
+                ? "text-yellow-500"
+                : "text-green-500"
+            )} />
+            {subjects.some(s => calculateAttendancePercentage(s) >= 75)
+              ? "Risco de Reprovação"
+              : subjects.some(s => calculateAttendancePercentage(s) >= 50)
+              ? "Atenção às Faltas"
+              : "Controle de Faltas"}
           </div>
           {additionalRiskSubjects > 0 && (
-            <span className="text-sm text-destructive">
+            <span className="text-sm text-red-500">
               +{additionalRiskSubjects} matéria{additionalRiskSubjects > 1 ? 's' : ''} em risco
             </span>
           )}

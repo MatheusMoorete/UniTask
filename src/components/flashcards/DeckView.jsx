@@ -8,7 +8,7 @@ import { FlashcardStudyMode } from './FlashcardStudyMode'
 import { useFlashcards } from '../../hooks/useFlashcards'
 import { DeckOptionsMenu } from './DeckOptionsMenu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
-import { AICardGenerator } from './AICardGenerator'
+import { GenerateAIFlashcardsDialog } from './GenerateAIFlashcardsDialog'
 
 export default function DeckView({ deck, onBack }) {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -152,7 +152,7 @@ export default function DeckView({ deck, onBack }) {
         deckId={deck.id}
       />
 
-      <AICardGenerator
+      <GenerateAIFlashcardsDialog
         open={isAIGeneratorOpen}
         onOpenChange={setIsAIGeneratorOpen}
         deckId={deck.id}
