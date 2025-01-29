@@ -35,13 +35,8 @@ export default defineConfig(({ command, mode }) => {
         },
       },
       sourcemap: true,
-      minify: 'terser',
-      terserOptions: {
-        compress: {
-          drop_console: false,
-          drop_debugger: true
-        }
-      }
+      minify: 'esbuild',
+      target: 'es2015'
     },
     css: {
       modules: {
@@ -64,6 +59,9 @@ export default defineConfig(({ command, mode }) => {
         }
       }
     },
-    base: '/'
+    base: '/',
+    optimizeDeps: {
+      exclude: ['pdfjs-dist']
+    }
   }
 })
