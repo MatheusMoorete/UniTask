@@ -64,44 +64,65 @@
 }
 
 /* Células do calendário */
-.fc .fc-daygrid-day {
-  padding: 0.25rem !important;
+.calendar-cell {
+  min-height: 120px;
+  padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: white;
 }
 
-.fc .fc-daygrid-day-frame {
-  min-height: auto !important;
+.calendar-cell.other-month {
+  background-color: #f9fafb;
 }
 
-.fc .fc-daygrid-day-number {
+.calendar-cell.today {
+  background-color: #f3f4f6;
+}
+
+/* Data do dia */
+.calendar-date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
   font-size: 0.875rem;
-  padding: 0.25rem !important;
-  color: hsl(var(--foreground));
+  font-weight: 500;
+  color: #374151;
+  border-radius: 9999px;
 }
 
-.fc .fc-day-today {
-  background: hsl(var(--accent) / 0.1) !important;
+.calendar-date.other-month {
+  color: #9ca3af;
+}
+
+.calendar-date.today {
+  background-color: #4f46e5;
+  color: white;
 }
 
 /* Eventos */
-.fc .fc-event {
-  border-radius: 0.25rem;
+.event-container {
   padding: 0.25rem 0.5rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  border: none !important;
-  margin: 1px 0;
-  cursor: pointer;
+  border-radius: 0.25rem;
+  border-left: 3px solid;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.fc .fc-daygrid-event-harness {
-  margin: 1px 0;
-}
-
-.fc .fc-daygrid-more-link {
-  font-size: 0.875rem;
-  color: hsl(var(--primary));
+.event-time {
   font-weight: 500;
-  padding: 0.25rem;
+  margin-right: 0.25rem;
+  color: #4b5563;
+}
+
+.event-title {
+  display: inline;
+  font-weight: 500;
+  color: #111827;
 }
 
 /* Cabeçalho dos dias da semana */
@@ -160,4 +181,4 @@
   --fc-page-bg-color: transparent;
   --fc-border-color: hsl(var(--border));
   --fc-neutral-text-color: hsl(var(--foreground));
-} 
+}

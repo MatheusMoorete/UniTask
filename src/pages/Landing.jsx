@@ -24,7 +24,7 @@ export default function Landing() {
   }, [wordIndex]);
 
   const handleLoginClick = () => {
-    navigate('/login');
+    navigate('/auth/login');
   };
 
   return (

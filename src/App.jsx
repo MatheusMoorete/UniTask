@@ -59,7 +59,7 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={<Landing />} />
+      <Route path="/landing" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/reset-password" element={<ResetPassword />} />
@@ -70,6 +70,7 @@ function AppRoutes() {
           <RootLayout />
         </PrivateRoute>
       }>
+        <Route path="/" element={<Navigate to="/dashboard" />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/tasks" element={<TaskList />} />
         <Route path="/calendar" element={<Calendar />} />
@@ -81,7 +82,7 @@ function AppRoutes() {
       </Route>
 
       {/* Fallback Route */}
-      <Route path="*" element={<Navigate to="/" />} />
+      <Route path="*" element={<Navigate to="/dashboard" />} />
     </Routes>
   )
 }

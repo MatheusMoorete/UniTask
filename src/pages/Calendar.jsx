@@ -51,16 +51,25 @@ export default function Calendar() {
 
   // Função para filtrar eventos do dia
   const getEventsForDay = (date) => {
-    return formattedEvents.filter(event => {
-      // Normaliza as datas para comparação
-      const eventDate = new Date(event.start)
-      eventDate.setHours(0, 0, 0, 0)
-      
-      const compareDate = new Date(date)
-      compareDate.setHours(0, 0, 0, 0)
-      
-      return eventDate.getTime() === compareDate.getTime()
-    })
+    return formattedEvents
+      .filter(event => {
+        // Normaliza as datas para comparação
+        const eventDate = new Date(event.start)
+        eventDate.setHours(0, 0, 0, 0)
+        
+        const compareDate = new Date(date)
+        compareDate.setHours(0, 0, 0, 0)
+        
+        return eventDate.getTime() === compareDate.getTime()
+      })
+      .sort((a, b) => {
+        // Coloca eventos de dia inteiro primeiro
+        if (a.allDay && !b.allDay) return -1
+        if (!a.allDay && b.allDay) return 1
+        
+        // Ordena por horário
+        return new Date(a.start).getTime() - new Date(b.start).getTime()
+      })
   }
 
   const nextMonth = () => {
@@ -278,14 +287,14 @@ export default function Calendar() {
             return (
               <div 
                 key={day.toISOString()}
-                className={`calendar-cell ${!isCurrentMonth ? 'other-month' : ''} ${
-                  isToday(day) ? 'today' : ''
-                }`}
+                className={`calendar-cell p-3 border-b border-gray-200 ${
+                  !isCurrentMonth ? 'other-month' : ''
+                } ${isToday(day) ? 'today' : ''}`}
               >
                 <div className="flex items-center justify-between">
-                  <span className={`calendar-date ${!isCurrentMonth ? 'other-month' : ''} ${
-                    isToday(day) ? 'today' : ''
-                  }`}>
+                  <span className={`calendar-date ${
+                    !isCurrentMonth ? 'other-month' : ''
+                  } ${isToday(day) ? 'today' : ''}`}>
                     {format(day, 'd')}
                   </span>
                   {dayEvents.length > 0 && (
@@ -299,9 +308,9 @@ export default function Calendar() {
                   {eventsToShow.map((event) => (
                     <div
                       key={event.id}
-                      className="event-container cursor-pointer hover:brightness-95"
+                      className="event-container"
                       style={{
-                        borderLeftColor: event.color || '#1a73e8',
+                        borderLeftColor: event.color || '#4f46e5',
                         backgroundColor: `${event.color}15` || '#e8f0fe'
                       }}
                       onClick={() => handleEventClick(event)}
@@ -311,7 +320,7 @@ export default function Calendar() {
                           {format(event.start, 'HH:mm')}
                         </span>
                       )}
-                      <div className="event-title">{event.title}</div>
+                      <span className="event-title">{event.title}</span>
                     </div>
                   ))}
                   {!isExpanded && dayEvents.length > 2 && (
