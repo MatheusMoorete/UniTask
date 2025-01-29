@@ -41,7 +41,11 @@ export function GenerateAIFlashcardsDialog({ open, onOpenChange, deckId }) {
 
     setIsGenerating(true)
     try {
-      const response = await fetch('http://localhost:3001/api/generate-flashcards', {
+      const apiUrl = process.env.NODE_ENV === 'development' 
+        ? 'http://localhost:3001/api/generate-flashcards'
+        : '/api/generate-flashcards'
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

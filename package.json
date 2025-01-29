@@ -69,7 +69,7 @@
     "kalend": "^0.17.6",
     "katex": "^0.16.21",
     "lucide-react": "^0.471.2",
-    "node-fetch": "^2.7.0",
+    "node-fetch": "^3.3.2",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^3.4.120",
     "react": "^18.3.1",
