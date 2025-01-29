@@ -6,22 +6,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="UniTask - Seu assistente acadêmico" />
-    <meta http-equiv="Content-Type" content="text/javascript; charset=utf-8">
+    <meta name="keywords" content="acadêmico, estudos, tarefas, flashcards, pomodoro" />
+    <meta name="author" content="UniTask" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:title" content="UniTask - Seu assistente acadêmico" />
+    <meta property="og:description" content="Organize seus estudos, crie flashcards, use pomodoro e muito mais!" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.unitask.space" />
+    <meta property="og:image" content="/og-image.png" />
+
+    <!-- Preload de recursos críticos -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" as="style" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" />
+
     <!-- FullCalendar Styles -->
-    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-    <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.10/main.min.css' rel='stylesheet' />
-    <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.10/main.min.css' rel='stylesheet' />
-    <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@6.1.10/main.min.css' rel='stylesheet' />
+    <link rel="preload" href='https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.10/main.min.css' as="style" />
+    <link rel="preload" href='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.10/main.min.css' as="style" />
+    <link rel="preload" href='https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@6.1.10/main.min.css' as="style" />
+    <link rel="stylesheet" href='https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.10/main.min.css' />
+    <link rel="stylesheet" href='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.10/main.min.css' />
+    <link rel="stylesheet" href='https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@6.1.10/main.min.css' />
+
     <!-- Favicon -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <meta name="theme-color" content="#ffffff">
-    <!--Google Drive-->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#ffffff" />
+
+    <!-- Google APIs -->
     <script src="https://apis.google.com/js/platform.js" async defer></script>
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <title>UniTask</title>
+
+    <!-- Fallback para JavaScript desativado -->
+    <noscript>
+      <div style="text-align: center; padding: 20px;">
+        Para usar o UniTask, você precisa habilitar o JavaScript no seu navegador.
+      </div>
+    </noscript>
+
+    <title>UniTask - Seu assistente acadêmico</title>
   </head>
   <body class="overflow-x-hidden">
     <div id="root"></div>
