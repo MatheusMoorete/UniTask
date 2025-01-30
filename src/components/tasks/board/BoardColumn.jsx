@@ -1,21 +1,22 @@
 import { useState, useRef, useEffect, forwardRef } from 'react'
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Button } from "../ui/button"
-import { Input } from "../ui/input"
+import { Button } from "../../ui/button"
+import { Input } from "../../ui/input"
 import { Plus, Trash2, Pencil, MoreHorizontal, GripVertical, MoreVertical } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu"
-import { DraggableTask } from "./DraggableTask"
+} from "../../ui/dropdown-menu"
+import { DraggableTask } from "../task/DraggableTask"
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { motion } from "framer-motion"
-import { cn } from "../../lib/utils"
-import { Badge } from "../ui/badge"
+import { cn } from "../../../lib/utils"
+import { Badge } from "../../ui/badge"
 import { useDroppable } from '@dnd-kit/core'
+import PropTypes from 'prop-types'
 
 export const BoardColumn = forwardRef(({ 
   column, 
@@ -219,4 +220,65 @@ export const BoardColumn = forwardRef(({
 })
 
 // Adiciona um displayName para melhorar o debugging
-BoardColumn.displayName = 'BoardColumn' 
+BoardColumn.displayName = 'BoardColumn'
+
+BoardColumn.propTypes = {
+  column: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    title: PropTypes.string.isRequired
+  }).isRequired,
+  tasks: PropTypes.array,
+  onEdit: function(props, propName, componentName) {
+    if (props.isOverlay === true) return null
+    if (props[propName] === undefined) {
+      return new Error(
+        `The prop \`${propName}\` is marked as required in \`${componentName}\`, but its value is \`undefined\`.`
+      )
+    }
+  },
+  onDelete: function(props, propName, componentName) {
+    if (props.isOverlay === true) return null
+    if (props[propName] === undefined) {
+      return new Error(
+        `The prop \`${propName}\` is marked as required in \`${componentName}\`, but its value is \`undefined\`.`
+      )
+    }
+  },
+  onTaskAdd: function(props, propName, componentName) {
+    if (props.isOverlay === true) return null
+    if (props[propName] === undefined) {
+      return new Error(
+        `The prop \`${propName}\` is marked as required in \`${componentName}\`, but its value is \`undefined\`.`
+      )
+    }
+  },
+  onTaskEdit: function(props, propName, componentName) {
+    if (props.isOverlay === true) return null
+    if (props[propName] === undefined) {
+      return new Error(
+        `The prop \`${propName}\` is marked as required in \`${componentName}\`, but its value is \`undefined\`.`
+      )
+    }
+  },
+  onTaskDelete: function(props, propName, componentName) {
+    if (props.isOverlay === true) return null
+    if (props[propName] === undefined) {
+      return new Error(
+        `The prop \`${propName}\` is marked as required in \`${componentName}\`, but its value is \`undefined\`.`
+      )
+    }
+  },
+  isDragging: PropTypes.bool,
+  isOverlay: PropTypes.bool
+}
+
+BoardColumn.defaultProps = {
+  tasks: [],
+  isDragging: false,
+  isOverlay: false,
+  onEdit: () => {},
+  onDelete: () => {},
+  onTaskAdd: () => {},
+  onTaskEdit: () => {},
+  onTaskDelete: () => {}
+} 

@@ -1,6 +1,14 @@
 import { useState } from 'react'
 
-export function useTagHandlers({ newTask, setNewTask, updateTask, deleteTag, setError }) {
+export function useTagHandlers({ 
+  newTask, 
+  setNewTask, 
+  updateTask, 
+  deleteTag, 
+  setError,
+  tasks,
+  setTagToDelete
+}) {
   const handleTagSelect = (tag) => {
     setNewTask(prev => {
       // Se a tag já existe, remove ela
@@ -27,8 +35,7 @@ export function useTagHandlers({ newTask, setNewTask, updateTask, deleteTag, set
 
   const handleDeleteTag = async (tag) => {
     try {
-      // Remove tag from all tasks
-      const updatedTasks = filteredTasks.map(task => ({
+      const updatedTasks = tasks.map(task => ({
         ...task,
         tags: task.tags.filter(t => t.id !== tag.id)
       }))

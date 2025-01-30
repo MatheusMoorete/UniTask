@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Button } from "../ui/button"
-import { Input } from "../ui/input"
-import { Badge } from "../ui/badge"
+import { Button } from "../../ui/button"
+import { Input } from "../../ui/input"
+import { Badge } from "../../ui/badge"
 import { Settings, Plus, X } from "lucide-react"
 import {
   Dialog,
@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "../ui/dialog"
+} from "../../ui/dialog"
 
 export function TagManager({ 
   isOpen, 

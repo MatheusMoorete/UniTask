@@ -2,19 +2,19 @@ import { forwardRef, useState, useEffect } from 'react'
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
-import { DraggableTask } from "./DraggableTask"
+import { DraggableTask } from "../task/DraggableTask"
 import { motion } from "framer-motion"
-import { Button } from "../ui/button"
-import { Input } from "../ui/input"
+import { Button } from "../../ui/button"
+import { Input } from "../../ui/input"
 import { Plus, Trash2, Pencil, MoreVertical, GripVertical, Check, X } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu"
-import { DropIndicator } from "./DropIndicator"
-import { Card } from "../ui/card"
+} from "../../ui/dropdown-menu"
+import { DropIndicator } from "../dnd/DropIndicator"
+import { Card } from "../../ui/card"
 
 export const SortableColumn = forwardRef(({ 
   column, 

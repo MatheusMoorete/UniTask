@@ -1,17 +1,17 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog"
-import { Button } from "../ui/button"
-import { Input } from "../ui/input"
-import { Label } from "../ui/label"
-import { Badge } from "../ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../../ui/dialog"
+import { Button } from "../../ui/button"
+import { Input } from "../../ui/input"
+import { Label } from "../../ui/label"
+import { Badge } from "../../ui/badge"
 import { useEffect, useState } from "react"
-import { cn } from "../../lib/utils"
+import { cn } from "../../../lib/utils"
 import { Plus, Settings, X } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu"
+} from "../../ui/dropdown-menu"
 
 const tagColors = [
   // Vermelhos

@@ -1,17 +1,17 @@
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Card, CardHeader, CardTitle, CardDescription } from "../ui/card"
-import { Badge } from "../ui/badge"
+import { Card, CardHeader, CardTitle, CardDescription } from "../../ui/card"
+import { Badge } from "../../ui/badge"
 import { GripVertical, MoreVertical } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu"
-import { Button } from "../ui/button"
+} from "../../ui/dropdown-menu"
+import { Button } from "../../ui/button"
 import { motion } from "framer-motion"
-import { cn } from "../../lib/utils"
+import { cn } from "../../../lib/utils"
 
 export function DraggableTask({ task, onEdit, onDelete, onClick }) {
   const {

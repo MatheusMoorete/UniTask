@@ -1,8 +1,8 @@
-import { Button } from "../ui/button"
+import { Button } from "../../ui/button"
 import { Plus } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "../ui/dialog"
-import { Label } from "../ui/label"
-import { Input } from "../ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "../../ui/dialog"
+import { Label } from "../../ui/label"
+import { Input } from "../../ui/input"
 
 export function AddColumnButton({ isOpen, onOpenChange, title, onTitleChange, onAdd }) {
   const handleAdd = async () => {

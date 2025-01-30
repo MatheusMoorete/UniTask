@@ -7,7 +7,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../ui/alert-dialog"
+} from "../../ui/alert-dialog"
 
 export function DeleteTagDialog({ tag, isOpen, onClose, onConfirm }) {
   return (

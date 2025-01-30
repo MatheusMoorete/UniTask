@@ -5,21 +5,20 @@ import { useTaskBoard } from '../contexts/BoardContext'
 import { useTags } from '../hooks/useTags'
 import { KeyboardSensor, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { BoardHeader } from '../components/tasks/BoardHeader'
-import { TaskBoard } from '../components/tasks/TaskBoard'
-import { TaskDialog } from '../components/tasks/TaskDialog'
-import { DeleteTagDialog } from '../components/tasks/DeleteTagDialog'
-import { TaskListState } from '../components/tasks/TaskListState'
+import { TaskBoard, BoardHeader } from '../components/tasks/board'
+import { TaskDialog } from '../components/tasks/task'
+import { DeleteTagDialog, TagManager } from '../components/tasks/tag'
+import { TaskListState } from '../components/tasks/common'
 import { useTaskListDragAndDrop } from '../hooks/useTaskListDragAndDrop'
-import { useTagHandlers } from '../components/tasks/TagHandlers'
-import { useColumnHandlers } from '../components/tasks/ColumnHandlers'
+import { useTagHandlers } from '../components/tasks/hooks/TagHandlers'
+import { useColumnHandlers } from '../components/tasks/hooks/ColumnHandlers'
 import { useTaskForm } from '../hooks/useTaskForm'
 import { useTasks } from '../hooks/useTasks'
-import { ErrorToast } from '../components/tasks/ErrorToast'
+import { ErrorToast } from '../components/tasks/common'
 import { DragOverlay } from '@dnd-kit/core'
-import { DraggableTask } from '../components/tasks/DraggableTask'
-import { BoardColumn } from '../components/tasks/BoardColumn'
-import { TagManager } from '../components/tasks/TagManager'
+import { DraggableTask } from '../components/tasks/task'
+import { BoardColumn } from '../components/tasks/board'
+import { SortableColumn } from '../components/tasks/board/SortableColumn'
 
 export default function TaskList() {
   const { user } = useAuth()
@@ -86,7 +85,9 @@ export default function TaskList() {
     setNewTask,
     updateTask,
     deleteTag,
-    setError
+    setError,
+    tasks,
+    setTagToDelete
   })
 
   const {

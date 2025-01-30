@@ -5,8 +5,8 @@ import { useRef, useState, useEffect } from "react"
 import { useGesture } from "@use-gesture/react"
 import { SortableColumn } from "./SortableColumn"
 import { AddColumnButton } from "./AddColumnButton"
-import { DragPreview } from "./DragPreview"
-import { cn } from "../../lib/utils"
+import { DragPreview } from "../dnd/DragPreview"
+import { cn } from "../../../lib/utils"
 
 export function TaskBoard({
   columns,

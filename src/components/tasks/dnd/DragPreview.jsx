@@ -1,5 +1,5 @@
-import { Card, CardHeader, CardTitle, CardDescription } from "../ui/card"
-import { Badge } from "../ui/badge"
+import { Card, CardHeader, CardTitle, CardDescription } from "../../ui/card"
+import { Badge } from "../../ui/badge"
 import { motion } from "framer-motion"
 
 export function DragPreview({ item, type }) {

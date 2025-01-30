@@ -1,10 +1,10 @@
 import { Search, X, Plus, Pencil, Trash2, Info, Settings } from "lucide-react"
-import { Input } from "../ui/input"
-import { Badge } from "../ui/badge"
-import { useTaskBoard } from "../../contexts/BoardContext"
-import { cn } from "../../lib/utils"
+import { Input } from "../../ui/input"
+import { Badge } from "../../ui/badge"
+import { useTaskBoard } from "../../../contexts/BoardContext"
+import { cn } from "../../../lib/utils"
 import { useState } from "react"
-import { Button } from "../ui/button"
+import { Button } from "../../ui/button"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   Dialog,
@@ -12,13 +12,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "../ui/dialog"
+} from "../../ui/dialog"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "../ui/popover"
-import { Label } from "../ui/label"
+} from "../../ui/popover"
+import { Label } from "../../ui/label"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -28,8 +28,8 @@ import {
   AlertDialogTitle,
   AlertDialogCancel,
   AlertDialogAction,
-} from "../ui/alert-dialog"
-import { TagManager } from "./TagManager"
+} from "../../ui/alert-dialog"
+import { TagManager } from "../tag/TagManager"
 import {
   Tooltip,
   TooltipContent,
