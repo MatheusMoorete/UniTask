@@ -1,3 +1,5 @@
+//Estrutura da lista de flashcards de um deck
+
 import { useState } from 'react'
 import { useFlashcards } from '../../hooks/useFlashcards'
 import { Card, CardContent } from '../ui/card'
@@ -24,6 +26,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "../ui/dropdown-menu"
+import { Checkbox } from '../ui/checkbox'
+import { toast } from "sonner"
 
 export function FlashcardList({ deckId }) {
   const { flashcards, deleteFlashcard } = useFlashcards(deckId)
@@ -32,6 +36,8 @@ export function FlashcardList({ deckId }) {
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('created') // created, due, difficulty
   const [filter, setFilter] = useState('all') // all, due, new, learned
+  const [selectedCards, setSelectedCards] = useState([])
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const handleDelete = async (id) => {
     try {
@@ -90,6 +96,37 @@ export function FlashcardList({ deckId }) {
       }
     })
 
+  // Função para selecionar/deselecionar todos os cards
+  const toggleSelectAll = () => {
+    if (selectedCards.length === filteredCards.length) {
+      setSelectedCards([])
+    } else {
+      setSelectedCards(filteredCards.map(card => card.id))
+    }
+  }
+
+  // Função para selecionar/deselecionar um card
+  const toggleSelectCard = (cardId) => {
+    setSelectedCards(prev => 
+      prev.includes(cardId) 
+        ? prev.filter(id => id !== cardId)
+        : [...prev, cardId]
+    )
+  }
+
+  // Função para excluir cards selecionados
+  const handleDeleteSelected = async () => {
+    try {
+      await deleteFlashcard(selectedCards)
+      toast.success(`${selectedCards.length} cards excluídos com sucesso!`)
+      setSelectedCards([])
+      setShowDeleteDialog(false)
+    } catch (error) {
+      console.error('Erro ao excluir cards:', error)
+      toast.error('Erro ao excluir cards')
+    }
+  }
+
   if (flashcards.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center">
@@ -102,19 +139,29 @@ export function FlashcardList({ deckId }) {
   }
 
   return (
-    <>
-      <div className="max-w-3xl mx-auto space-y-4">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar cards..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        
         <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar cards..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          
+          {selectedCards.length > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={() => setShowDeleteDialog(true)}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Excluir ({selectedCards.length})
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
@@ -160,78 +207,76 @@ export function FlashcardList({ deckId }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-
-        <div className="space-y-3">
-          {filteredCards.map((flashcard) => (
-            <Card key={flashcard.id} className="relative group">
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium">Frente</h4>
-                          <div className="flex items-center gap-2">
-                            {getStatusBadge(flashcard)}
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => setFlashcardToEdit(flashcard)}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => setFlashcardToDelete(flashcard)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {flashcard.front}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="font-medium">Verso</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {flashcard.back}
-                    </p>
-                  </div>
-                  <div className="text-xs text-muted-foreground pt-2 border-t">
-                    <div className="flex items-center gap-4">
-                      <span>Repetições: {flashcard.repetitionData.repetitions}</span>
-                      <span>Intervalo: {flashcard.repetitionData.interval} dias</span>
-                      <span>Fator de Facilidade: {flashcard.repetitionData.easeFactor.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </div>
 
-      <EditFlashcardDialog
-        open={!!flashcardToEdit}
-        onOpenChange={(open) => !open && setFlashcardToEdit(null)}
-        flashcard={flashcardToEdit}
-      />
+      {/* Lista de cards */}
+      <div className="grid gap-4">
+        {filteredCards.map((card) => (
+          <Card key={card.id} className="p-4">
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="space-y-1">
+                    <h4 className="font-medium">Frente</h4>
+                    <p className="text-sm text-muted-foreground">{card.front}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(card)}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setFlashcardToEdit(card)}
+                      className="h-8 w-8"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Checkbox
+                      checked={selectedCards.includes(card.id)}
+                      onCheckedChange={() => toggleSelectCard(card.id)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-medium">Verso</h4>
+                  <p className="text-sm text-muted-foreground">{card.back}</p>
+                </div>
+                <div className="text-xs text-muted-foreground pt-2 border-t">
+                  <div className="flex items-center gap-4">
+                    <span>Repetições: {card.repetitionData.repetitions}</span>
+                    <span>Intervalo: {card.repetitionData.interval} dias</span>
+                    <span>Fator de Facilidade: {card.repetitionData.easeFactor.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
 
-      <AlertDialog open={!!flashcardToDelete} onOpenChange={() => setFlashcardToDelete(null)}>
+      {/* Opção "Selecionar todos" movida para baixo */}
+      {filteredCards.length > 0 && (
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={selectedCards.length === filteredCards.length}
+              onCheckedChange={toggleSelectAll}
+            />
+            <span className="text-sm text-muted-foreground">
+              {selectedCards.length > 0 
+                ? `${selectedCards.length} cards selecionados`
+                : 'Selecionar todos os cards'}
+            </span>
+          </div>
+        </Card>
+      )}
+
+      {/* Dialogs */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir flashcard?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir cards selecionados?</AlertDialogTitle>
             <AlertDialogDescription>
+              Você está prestes a excluir {selectedCards.length} cards.
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -239,13 +284,19 @@ export function FlashcardList({ deckId }) {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              onClick={() => flashcardToDelete && handleDelete(flashcardToDelete.id)}
+              onClick={handleDeleteSelected}
             >
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+
+      <EditFlashcardDialog
+        open={!!flashcardToEdit}
+        onOpenChange={(open) => !open && setFlashcardToEdit(null)}
+        flashcard={flashcardToEdit}
+      />
+    </div>
   )
 }

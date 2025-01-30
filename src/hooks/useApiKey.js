@@ -1,3 +1,5 @@
+//Hook para gerenciamento de API keys
+
 import { useState, useEffect } from 'react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'

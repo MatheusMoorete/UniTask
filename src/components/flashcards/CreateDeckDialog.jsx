@@ -1,3 +1,5 @@
+//Estrutura da interface de criação de um novo deck (Gestão de decks)
+
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'

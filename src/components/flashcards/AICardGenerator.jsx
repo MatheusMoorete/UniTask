@@ -1,3 +1,5 @@
+//Estrutura da interface de geração de flashcards com IA
+
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'

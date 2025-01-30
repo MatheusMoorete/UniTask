@@ -1,3 +1,5 @@
+//Estrutura da interface de criação de um novo flashcard (Gestão de flashcards)
+
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'

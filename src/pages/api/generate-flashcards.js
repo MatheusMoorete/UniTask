@@ -1,3 +1,5 @@
+//API para geração de flashcards com IA - OpenAI e DeepSeek (Endpoint)
+
 import fetch from 'node-fetch'
 
 // Configuração do timeout

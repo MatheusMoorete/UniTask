@@ -1,3 +1,5 @@
+//Estrutura da visualização detelhada de um deck
+
 import { useState } from 'react'
 import { ArrowLeft, Plus, Brain, BarChart3, Clock, Calendar, Play, List, Sparkles } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -14,20 +16,18 @@ export default function DeckView({ deck, onBack }) {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isStudyMode, setIsStudyMode] = useState(false)
   const [isAIGeneratorOpen, setIsAIGeneratorOpen] = useState(false)
-  const { flashcards } = useFlashcards(deck.id)
-
-  const dueTodayCount = flashcards.filter(card => {
-    const nextReview = new Date(card.repetitionData.nextReview)
-    const today = new Date()
-    return nextReview.setHours(0,0,0,0) <= today.setHours(0,0,0,0)
-  }).length
+  const { flashcards, getDueCards } = useFlashcards(deck.id)
 
   const stats = {
     total: flashcards.length,
-    dueToday: dueTodayCount,
-    learned: flashcards.filter(card => card.repetitionData.repetitions > 0).length,
+    dueToday: getDueCards().length,
+    learned: flashcards.filter(card => 
+      card.repetitionData && card.repetitionData.repetitions > 0
+    ).length,
     averageInterval: Math.round(
-      flashcards.reduce((acc, card) => acc + card.repetitionData.interval, 0) / flashcards.length
+      flashcards.reduce((acc, card) => 
+        acc + (card.repetitionData?.interval || 0), 0
+      ) / flashcards.length
     ) || 0
   }
 
@@ -93,7 +93,7 @@ export default function DeckView({ deck, onBack }) {
                 <div>
                   <h3 className="text-lg font-medium">Estudar Agora</h3>
                   <p className="text-sm text-muted-foreground">
-                    {dueTodayCount} cards para revisar hoje
+                    {getDueCards().length} cards para revisar hoje
                   </p>
                 </div>
                 <Button 

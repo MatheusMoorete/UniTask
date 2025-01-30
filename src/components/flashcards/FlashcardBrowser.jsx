@@ -1,22 +1,32 @@
+//Sistema de visualização e filtragem de flashcards
+
 import { useState } from 'react'
-import { Search, Filter, SortAsc, Clock, Brain } from 'lucide-react'
+import { Search, Filter, SortAsc, Clock, Brain, Trash2 } from 'lucide-react'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
+import { Checkbox } from '../ui/checkbox'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from "../ui/dropdown-menu"
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog"
 import { Badge } from '../ui/badge'
+import { useFlashcards } from '../../contexts/FlashcardsContext'
+import { toast } from 'react-hot-toast'
 
-export function FlashcardBrowser({ flashcards }) {
+export function FlashcardBrowser({ flashcards, deckId }) {
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('created') // created, due, difficulty
   const [filter, setFilter] = useState('all') // all, due, new, learned
+  const [selectedCards, setSelectedCards] = useState([])
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const { deleteFlashcard } = useFlashcards(deckId)
 
   const filteredCards = flashcards
     .filter(card => {
@@ -30,7 +40,11 @@ export function FlashcardBrowser({ flashcards }) {
       // Filtros de status
       switch (filter) {
         case 'due':
-          return new Date(card.repetitionData.nextReview) <= new Date()
+          const nextReview = new Date(card.repetitionData.nextReview?.toDate?.() || card.repetitionData.nextReview)
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          nextReview.setHours(0, 0, 0, 0)
+          return nextReview <= today
         case 'new':
           return card.repetitionData.repetitions === 0
         case 'learned':
@@ -62,9 +76,40 @@ export function FlashcardBrowser({ flashcards }) {
     </Badge>
   }
 
+  // Função para selecionar/deselecionar todos os cards
+  const toggleSelectAll = () => {
+    if (selectedCards.length === filteredCards.length) {
+      setSelectedCards([])
+    } else {
+      setSelectedCards(filteredCards.map(card => card.id))
+    }
+  }
+
+  // Função para selecionar/deselecionar um card
+  const toggleSelectCard = (cardId) => {
+    setSelectedCards(prev => 
+      prev.includes(cardId) 
+        ? prev.filter(id => id !== cardId)
+        : [...prev, cardId]
+    )
+  }
+
+  // Função para excluir cards selecionados
+  const handleDeleteSelected = async () => {
+    try {
+      await deleteFlashcard(selectedCards)
+      toast.success(`${selectedCards.length} cards excluídos com sucesso!`)
+      setSelectedCards([])
+      setShowDeleteDialog(false)
+    } catch (error) {
+      console.error('Erro ao excluir cards:', error)
+      toast.error('Erro ao excluir cards')
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex items-center justify-between gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -75,76 +120,127 @@ export function FlashcardBrowser({ flashcards }) {
           />
         </div>
         
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon">
-              <Filter className="h-4 w-4" />
+        {/* Botões de ação */}
+        <div className="flex gap-2">
+          {selectedCards.length > 0 && (
+            <Button 
+              variant="destructive" 
+              size="icon"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Filtrar por</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => setFilter('all')}>
-              <Brain className="h-4 w-4 mr-2" />
-              Todos os cards
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('due')}>
-              <Clock className="h-4 w-4 mr-2" />
-              Para revisar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('new')}>
-              Novos
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('learned')}>
-              Aprendidos
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Filtrar por</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setFilter('all')}>
+                <Brain className="h-4 w-4 mr-2" />
+                Todos os cards
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilter('due')}>
+                <Clock className="h-4 w-4 mr-2" />
+                Para revisar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilter('new')}>
+                Novos
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilter('learned')}>
+                Aprendidos
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon">
-              <SortAsc className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => setSortBy('created')}>
-              Data de criação
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setSortBy('due')}>
-              Data de revisão
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setSortBy('difficulty')}>
-              Dificuldade
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <SortAsc className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setSortBy('created')}>
+                Data de criação
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy('due')}>
+                Data de revisão
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy('difficulty')}>
+                Dificuldade
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
+      {/* Cabeçalho da lista com checkbox "Selecionar todos" */}
+      {filteredCards.length > 0 && (
+        <div className="flex items-center gap-2 py-2">
+          <Checkbox
+            checked={selectedCards.length === filteredCards.length}
+            onCheckedChange={toggleSelectAll}
+          />
+          <span className="text-sm text-muted-foreground">
+            {selectedCards.length > 0 
+              ? `${selectedCards.length} cards selecionados`
+              : 'Selecionar todos'}
+          </span>
+        </div>
+      )}
+
+      {/* Lista de cards */}
       <div className="grid gap-4">
         {filteredCards.map((card) => (
           <Card key={card.id} className="p-4">
-            <div className="flex justify-between items-start mb-4">
-              <div className="space-y-1">
-                <h4 className="font-medium">Frente</h4>
-                <p className="text-sm text-muted-foreground">{card.front}</p>
-              </div>
-              {getStatusBadge(card)}
-            </div>
-            <div className="space-y-1">
-              <h4 className="font-medium">Verso</h4>
-              <p className="text-sm text-muted-foreground">{card.back}</p>
-            </div>
-            <div className="mt-4 text-xs text-muted-foreground">
-              <div className="flex items-center gap-4">
-                <span>Repetições: {card.repetitionData.repetitions}</span>
-                <span>Intervalo: {card.repetitionData.interval} dias</span>
-                <span>Fator de Facilidade: {card.repetitionData.easeFactor.toFixed(2)}</span>
+            <div className="flex gap-4">
+              <Checkbox
+                checked={selectedCards.includes(card.id)}
+                onCheckedChange={() => toggleSelectCard(card.id)}
+              />
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="space-y-1">
+                    <h4 className="font-medium">Frente</h4>
+                    <p className="text-sm text-muted-foreground">{card.front}</p>
+                  </div>
+                  {getStatusBadge(card)}
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-medium">Verso</h4>
+                  <p className="text-sm text-muted-foreground">{card.back}</p>
+                </div>
               </div>
             </div>
           </Card>
         ))}
       </div>
+
+      {/* Dialog de confirmação de exclusão */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir cards selecionados?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir {selectedCards.length} cards.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDeleteSelected}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 } 

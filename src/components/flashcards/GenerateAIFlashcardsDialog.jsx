@@ -89,7 +89,7 @@ export function GenerateAIFlashcardsDialog({ open, onOpenChange, deckId }) {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Gerar Flashcards com IA</DialogTitle>
           </DialogHeader>
@@ -104,9 +104,9 @@ export function GenerateAIFlashcardsDialog({ open, onOpenChange, deckId }) {
           )}
 
           <form onSubmit={handleGenerate} className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <Label htmlFor="provider">Provedor de IA</Label>
+            <div className="grid grid-cols-[1fr,1fr,40px] gap-4 items-end">
+              <div className="space-y-2">
+                <Label>Provedor de IA</Label>
                 <Select value={provider} onValueChange={setProvider}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o provedor" />
@@ -117,32 +117,30 @@ export function GenerateAIFlashcardsDialog({ open, onOpenChange, deckId }) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex-1">
-                <Label htmlFor="quantity">Quantidade</Label>
-                <Select value={quantity} onValueChange={value => setQuantity(Number(value))}>
+
+              <div className="space-y-2">
+                <Label>Quantidade</Label>
+                <Select value={quantity} onValueChange={setQuantity}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Quantidade" />
+                    <SelectValue placeholder="Quantidade de cards" />
                   </SelectTrigger>
                   <SelectContent>
-                    {FLASHCARD_QUANTITIES.map(qty => (
-                      <SelectItem key={qty} value={qty}>
-                        {qty} flashcards
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="5">5 flashcards</SelectItem>
+                    <SelectItem value="10">10 flashcards</SelectItem>
+                    <SelectItem value="15">15 flashcards</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-end">
-                <Button 
-                  type="button" 
-                  variant={hasApiKey ? "outline" : "destructive"}
-                  size="icon"
-                  onClick={() => setIsAPIKeyDialogOpen(true)}
-                  className="mb-0.5"
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </div>
+
+              <Button 
+                type="button" 
+                variant={hasApiKey ? "outline" : "destructive"}
+                size="icon"
+                onClick={() => setIsAPIKeyDialogOpen(true)}
+                className="h-10"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
             </div>
             
             <div className="space-y-2">

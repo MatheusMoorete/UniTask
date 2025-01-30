@@ -1,3 +1,5 @@
+//Estrutura da tela de estudo de flashcards
+
 import { useState, useEffect } from 'react'
 import ReactCardFlip from 'react-card-flip'
 import { Button } from '../ui/button'
@@ -25,6 +27,7 @@ const RESPONSE_LABELS = {
 export function FlashcardStudyMode({ deck, onExit }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const [studySession, setStudySession] = useState([])
   const [sessionStats, setSessionStats] = useState({
     easy: 0,
@@ -75,26 +78,39 @@ export function FlashcardStudyMode({ deck, onExit }) {
   const progress = (currentIndex / studySession.length) * 100
 
   const handleAnswer = async (quality) => {
-    if (!currentCard) return
+    if (isTransitioning) return
 
-    // Atualiza estatísticas da sessão
-    setSessionStats(prev => {
-      const qualityMap = { 0: 'error', 1: 'hard', 2: 'medium', 3: 'good', 4: 'easy' }
-      return {
-        ...prev,
-        [qualityMap[quality]]: prev[qualityMap[quality]] + 1,
-        total: prev.total + 1
-      }
-    })
-
-    await processAnswer(currentCard, quality)
+    setIsTransitioning(true)
     
-    if (currentIndex < studySession.length - 1) {
-      setCurrentIndex(prev => prev + 1)
+    const currentCard = studySession[currentIndex]
+    
+    try {
+      await processAnswer(currentCard, quality)
+      
+      // Atualiza estatísticas
+      setSessionStats(prev => ({
+        ...prev,
+        [getQualityKey(quality)]: prev[getQualityKey(quality)] + 1,
+        total: prev.total + 1
+      }))
+
+      // Espera a carta virar de volta antes de mudar
       setIsFlipped(false)
-    } else {
-      toast.success('Parabéns! Você completou todos os cards para hoje.')
-      onExit()
+      
+      // Aguarda a animação de flip terminar
+      setTimeout(() => {
+        if (currentIndex < studySession.length - 1) {
+          setCurrentIndex(prev => prev + 1)
+        } else {
+          onExit()
+        }
+        setIsTransitioning(false)
+      }, 300)
+
+    } catch (error) {
+      console.error('Erro ao processar resposta:', error)
+      toast.error('Erro ao processar resposta')
+      setIsTransitioning(false)
     }
   }
 
@@ -104,6 +120,14 @@ export function FlashcardStudyMode({ deck, onExit }) {
     const seconds = duration % 60
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
+
+  const answerButtons = [
+    { quality: 0, label: 'Erro', color: 'text-red-500' },
+    { quality: 1, label: 'Difícil', color: 'text-orange-500' },
+    { quality: 2, label: 'Bom', color: 'text-yellow-500' },
+    { quality: 3, label: 'Fácil', color: 'text-green-500' },
+    { quality: 4, label: 'Muito Fácil', color: 'text-blue-500' }
+  ]
 
   if (studySession.length === 0 || currentIndex >= studySession.length) {
     return (
@@ -178,7 +202,7 @@ export function FlashcardStudyMode({ deck, onExit }) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="container mx-auto max-w-3xl py-6 px-4">
       <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={onExit}>
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -198,58 +222,64 @@ export function FlashcardStudyMode({ deck, onExit }) {
         </div>
       </div>
 
-      <ReactCardFlip isFlipped={isFlipped}>
+      <ReactCardFlip isFlipped={isFlipped} flipDirection="horizontal">
         {/* Frente do Card */}
-        <div 
-          onClick={() => setIsFlipped(true)}
-          className="min-h-[300px] p-6 rounded-lg border bg-card text-card-foreground shadow-sm cursor-pointer flex items-center justify-center text-center hover:border-primary/50 transition-colors"
-        >
-          <div className="prose prose-sm dark:prose-invert">
-            {currentCard?.front}
-          </div>
-        </div>
-
-        {/* Verso do Card */}
-        <div className="min-h-[300px] p-6 rounded-lg border bg-card text-card-foreground shadow-sm">
-          <div className="prose prose-sm dark:prose-invert mb-6">
-            {currentCard?.back}
-          </div>
-          
-          <div className="space-y-4">
-            <div className="grid grid-cols-5 gap-2">
-              {[0, 1, 2, 3, 4].map((quality) => (
-                <Button 
-                  key={quality}
-                  variant="outline"
-                  onClick={() => handleAnswer(quality)}
-                  className={cn(
-                    "relative group",
-                    RESPONSE_LABELS[quality].color,
-                    RESPONSE_LABELS[quality].bg
-                  )}
-                >
-                  <span>{RESPONSE_LABELS[quality].text}</span>
-                  <span className="absolute -top-2 -right-2 text-xs bg-background border rounded-full w-5 h-5 flex items-center justify-center group-hover:bg-primary/10">
-                    {quality}
-                  </span>
-                </Button>
-              ))}
+        <div className="w-full">
+          <Card className="w-full p-6">
+            <div className="min-h-[200px] flex items-center justify-center text-center">
+              {!isTransitioning && studySession[currentIndex]?.front}
             </div>
             <Button 
               variant="ghost" 
               className="w-full"
-              onClick={() => setIsFlipped(!isFlipped)}
+              onClick={() => !isTransitioning && setIsFlipped(true)}
+              disabled={isTransitioning}
             >
               <Undo2 className="w-4 h-4 mr-2" />
               Virar card (Espaço)
             </Button>
-          </div>
+          </Card>
+        </div>
+
+        {/* Verso do Card */}
+        <div className="w-full">
+          <Card className="w-full p-6">
+            <div className="min-h-[200px] flex items-center justify-center text-center">
+              {!isTransitioning && studySession[currentIndex]?.back}
+            </div>
+            <div className="grid grid-cols-5 gap-2 mt-4">
+              {answerButtons.map(({ quality, label, color }) => (
+                <Button
+                  key={quality}
+                  onClick={() => handleAnswer(quality)}
+                  disabled={isTransitioning}
+                  variant="outline"
+                  className={`flex flex-col items-center justify-center p-4 h-auto gap-1 hover:bg-slate-100 ${color}`}
+                >
+                  <span className="text-lg font-medium">{quality}</span>
+                  <span className="text-sm">{label}</span>
+                </Button>
+              ))}
+            </div>
+          </Card>
         </div>
       </ReactCardFlip>
 
-      <div className="text-sm text-muted-foreground text-center">
+      <div className="text-sm text-muted-foreground text-center mt-4">
         Dica: Use as teclas 0-4 para responder e Espaço para virar o card
       </div>
     </div>
   )
+}
+
+// Função auxiliar para mapear qualidade para chave de estatística
+function getQualityKey(quality) {
+  switch (quality) {
+    case 0: return 'error'
+    case 1: return 'hard'
+    case 2: return 'medium'
+    case 3: return 'good'
+    case 4: return 'easy'
+    default: return 'medium'
+  }
 } 

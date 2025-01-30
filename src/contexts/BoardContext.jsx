@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useContext, useMemo, useState, useEffect } from 'react'
 import { useBoard } from '../hooks/useBoard'
 import { useTags } from '../hooks/useTags'
 
@@ -30,6 +30,18 @@ export function BoardProvider({ children }) {
 
   const [filterTags, setFilterTags] = useState([])
 
+  // Atualiza selectedTags quando uma tag é excluída
+  useEffect(() => {
+    if (selectedTags.length > 0) {
+      const validSelectedTags = selectedTags.filter(selectedTag =>
+        tags.some(tag => tag.id === selectedTag.id)
+      )
+      if (validSelectedTags.length !== selectedTags.length) {
+        setSelectedTags(validSelectedTags)
+      }
+    }
+  }, [tags, selectedTags])
+
   // Filtragem de tasks
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
@@ -39,15 +51,18 @@ export function BoardProvider({ children }) {
         task.title?.toLowerCase().includes(searchTerms) ||
         task.description?.toLowerCase().includes(searchTerms)
 
-      // Filtro por tags
+      // Filtro por tags - verifica se as tags ainda existem
       const matchesTags = selectedTags.length === 0 || 
         selectedTags.every(selectedTag => 
-          task.tags?.some(taskTag => taskTag.id === selectedTag.id)
+          task.tags?.some(taskTag => 
+            taskTag.id === selectedTag.id && 
+            tags.some(tag => tag.id === selectedTag.id)
+          )
         )
 
       return matchesSearch && matchesTags
     })
-  }, [tasks, searchQuery, selectedTags])
+  }, [tasks, searchQuery, selectedTags, tags])
 
   const contextValue = {
     columns,
