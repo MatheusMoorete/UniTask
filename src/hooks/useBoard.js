@@ -222,12 +222,19 @@ export function useBoard() {
   // Reordenar colunas
   const reorderColumns = async (reorderedColumns) => {
     try {
+      // Garantir que reorderedColumns é um array
+      if (!Array.isArray(reorderedColumns)) {
+        console.error('reorderedColumns não é um array:', reorderedColumns)
+        return
+      }
+
+      // Criar um batch para atualizar todas as colunas de uma vez
       const batch = writeBatch(db)
-      
+
       reorderedColumns.forEach((column, index) => {
         const columnRef = doc(db, 'columns', column.id)
         batch.update(columnRef, {
-          position: (index + 1) * 1000,
+          position: index * 1000,
           updatedAt: serverTimestamp()
         })
       })

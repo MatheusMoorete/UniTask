@@ -53,6 +53,15 @@ export function TaskBoard({
     setIsGestureEnabled(false)
     await onDragEnd(event)
     
+    // Simular um mouseup event para garantir que todos os estados de drag sejam limpos
+    const mouseUpEvent = new MouseEvent('mouseup', {
+      bubbles: true,
+      cancelable: true,
+      button: 0 // Botão esquerdo do mouse
+    })
+    document.dispatchEvent(mouseUpEvent)
+    
+    // Reabilitar o gesto após um delay maior
     setTimeout(() => {
       setIsGestureEnabled(true)
     }, 500)
@@ -66,8 +75,9 @@ export function TaskBoard({
 
   const bind = useGesture({
     onDragStart: ({ event, down }) => {
-      if (activeId || !down || !isGestureEnabled) return
-
+      if (activeId || !down || !isGestureEnabled || 
+          (event instanceof MouseEvent && event.button !== 0)) return
+      
       document.body.style.userSelect = 'none'
       setIsGestureDragging(true)
       setIsDragging(true)
@@ -75,15 +85,22 @@ export function TaskBoard({
     onDragEnd: () => {
       cleanupDragStates()
     },
-    onDrag: ({ delta: [dx], down, event }) => {
-      if (!containerRef.current || !down || activeId || !isGestureEnabled) return
+    onDrag: ({ delta: [dx], down, event, initial }) => {
+      if (!containerRef.current || !down || activeId || !isGestureEnabled || 
+          (event instanceof MouseEvent && event.button !== 0)) return
+      
       containerRef.current.scrollLeft -= dx
     },
   }, {
     drag: {
       filterTaps: true,
-      threshold: 1,
-      enabled: !activeId && isGestureEnabled
+      threshold: 5,
+      enabled: !activeId && isGestureEnabled,
+      axis: 'x',
+      pointer: {
+        touch: false
+      },
+      preventDefault: false
     },
   })
 
@@ -94,10 +111,16 @@ export function TaskBoard({
     }
   }, [])
 
-  // Cleanup quando activeId muda
+  // Modificar o useEffect do activeId
   useEffect(() => {
-    if (!activeId) {
+    if (activeId) {
+      setIsGestureEnabled(false)
       cleanupDragStates()
+    } else {
+      const timer = setTimeout(() => {
+        setIsGestureEnabled(true)
+      }, 100)
+      return () => clearTimeout(timer)
     }
   }, [activeId])
 
@@ -110,7 +133,7 @@ export function TaskBoard({
       )}
       {...bind()}
       style={{
-        touchAction: (activeId || !isGestureEnabled) ? 'auto' : 'none',
+        touchAction: activeId ? 'none' : 'pan-x',
         scrollbarWidth: 'none',
         msOverflowStyle: 'none'
       }}

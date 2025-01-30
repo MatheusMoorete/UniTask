@@ -47,14 +47,26 @@ export function useTags() {
     }
   }, [user])
 
-  const addTag = async (name, color = '#e2e8f0') => {
+  const addTag = async (name, color) => {
     try {
-      await addDoc(collection(db, 'tags'), {
-        name,
-        color,
+      if (!user?.uid) {
+        throw new Error('Usuário não autenticado')
+      }
+
+      const newTag = {
+        name: name.trim(),
+        color: color,
         userId: user.uid,
         createdAt: serverTimestamp()
-      })
+      }
+
+      const docRef = await addDoc(collection(db, 'tags'), newTag)
+      
+      return {
+        id: docRef.id,
+        ...newTag,
+        createdAt: new Date()
+      }
     } catch (error) {
       console.error('Erro ao adicionar tag:', error)
       throw error

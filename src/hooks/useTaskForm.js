@@ -4,6 +4,7 @@ export function useTaskForm({
   addTask, 
   updateTask, 
   deleteTask, 
+  addTag,
   setError,
   columnId
 }) {
@@ -79,6 +80,22 @@ export function useTaskForm({
     }
   }
 
+  const handleCreateTag = async (tagName, color) => {
+    try {
+      const newTag = await addTag(tagName, color)
+      if (newTag) {
+        setNewTask(prev => ({
+          ...prev,
+          tags: [...prev.tags, newTag]
+        }))
+        return newTag
+      }
+    } catch (error) {
+      console.error('Erro ao criar tag:', error)
+      throw error
+    }
+  }
+
   const resetForm = () => {
     setNewTask({ 
       title: '', 
@@ -100,6 +117,7 @@ export function useTaskForm({
     handleSubmit,
     handleEdit,
     handleDelete,
+    handleCreateTag,
     resetForm
   }
 } 

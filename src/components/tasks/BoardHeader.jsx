@@ -1,4 +1,4 @@
-import { Search, X, Plus, Pencil, Trash2, Info } from "lucide-react"
+import { Search, X, Plus, Pencil, Trash2, Info, Settings } from "lucide-react"
 import { Input } from "../ui/input"
 import { Badge } from "../ui/badge"
 import { useTaskBoard } from "../../contexts/BoardContext"
@@ -6,6 +6,13 @@ import { cn } from "../../lib/utils"
 import { useState } from "react"
 import { Button } from "../ui/button"
 import { AnimatePresence, motion } from "framer-motion"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog"
 import {
   Popover,
   PopoverContent,
@@ -32,34 +39,141 @@ import {
 
 // Cores predefinidas para tags
 const tagColors = [
+  // Vermelhos
   '#ef4444', // Vermelho
+  '#dc2626', // Vermelho escuro
+  '#b91c1c', // Vermelho mais escuro
+  '#f87171', // Vermelho claro
+
+  // Laranjas/Âmbar
   '#f97316', // Laranja
+  '#fb923c', // Laranja claro
   '#f59e0b', // Âmbar
-  '#84cc16', // Verde Lima
+  '#fbbf24', // Âmbar claro
+
+  // Verdes
   '#22c55e', // Verde
-  '#14b8a6', // Teal
-  '#0ea5e9', // Azul Claro
-  '#6366f1', // Índigo
+  '#16a34a', // Verde escuro
+  '#84cc16', // Verde Lima
+  '#4ade80', // Verde claro
+
+  // Azuis
+  '#0ea5e9', // Azul claro
+  '#2563eb', // Azul
+  '#1d4ed8', // Azul escuro
+  '#60a5fa', // Azul mais claro
+
+  // Roxos/Rosas
   '#a855f7', // Roxo
+  '#9333ea', // Roxo escuro
   '#ec4899', // Rosa
+  '#f472b6', // Rosa claro
+
+  // Neutros
   '#64748b', // Cinza Azulado
+  '#475569', // Cinza escuro
+  '#6b7280', // Cinza
+  '#94a3b8', // Cinza claro
 ]
 
-export function BoardHeader({ onSearch }) {
+// Primeiro, vamos criar um novo componente para o Dialog de criação de tag
+function CreateTagDialog({ isOpen, onOpenChange, onCreateTag }) {
+  const [newTagName, setNewTagName] = useState('')
+  const [selectedColor, setSelectedColor] = useState(tagColors[0])
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      await onCreateTag(newTagName.trim(), selectedColor)
+      setNewTagName('')
+      setSelectedColor(tagColors[0])
+      onOpenChange(false)
+    } catch (error) {
+      // O erro será tratado pelo componente pai
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Nova Tag</DialogTitle>
+          <DialogDescription>
+            Crie uma nova tag para organizar suas tarefas
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Nome da Tag</Label>
+            <Input
+              placeholder="Digite o nome da tag"
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              maxLength={20}
+            />
+            <p className="text-xs text-muted-foreground">
+              {newTagName.length}/20 caracteres
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Cor da Tag</Label>
+            <div className="grid grid-cols-8 gap-2">
+              {tagColors.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setSelectedColor(color)}
+                  className={cn(
+                    "w-6 h-6 rounded-full transition-all hover:scale-110",
+                    selectedColor === color ? "ring-2 ring-offset-2 ring-ring" : ""
+                  )}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={!newTagName.trim()}
+            >
+              Criar Tag
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function BoardHeader({ onSearch, onManageTags }) {
   const { 
     tags = [], 
     addTag,
     deleteTag,
     filterTags = [],
     setFilterTags,
+    setError
   } = useTaskBoard()
   
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isTagManagerOpen, setIsTagManagerOpen] = useState(false)
   const [showTagInput, setShowTagInput] = useState(false)
   const [newTagName, setNewTagName] = useState('')
   const [selectedColor, setSelectedColor] = useState(tagColors[0])
   const [tagToDelete, setTagToDelete] = useState(null)
   const [searchText, setSearchText] = useState("")
+  const [isCreateTagOpen, setIsCreateTagOpen] = useState(false)
 
   const handleTagClick = (tag) => {
     setFilterTags(prev => {
@@ -77,17 +191,17 @@ export function BoardHeader({ onSearch }) {
     onSearch(value)
   }
 
-  const handleAddTag = async () => {
-    if (!newTagName.trim()) return
-    
-    if (newTagName.length > 20) {
+  const handleCreateTag = async (name, color) => {
+    if (!name.trim()) {
+      setError?.('Digite um nome para a tag')
       return
     }
-
-    await addTag(newTagName.trim(), selectedColor)
-    setNewTagName('')
-    setSelectedColor(tagColors[0])
-    setShowTagInput(false)
+    try {
+      await addTag(name.trim(), color)
+    } catch (error) {
+      setError?.('Erro ao criar tag')
+      throw error
+    }
   }
 
   return (
@@ -157,64 +271,15 @@ export function BoardHeader({ onSearch }) {
             </div>
 
             <motion.div layout>
-              <Popover open={showTagInput} onOpenChange={setShowTagInput}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Gerenciar Tags
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Nova Tag</Label>
-                      <Input
-                        placeholder="Nome da tag"
-                        value={newTagName}
-                        onChange={(e) => setNewTagName(e.target.value)}
-                        maxLength={20}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {newTagName.length}/20 caracteres
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Cor</Label>
-                      <div className="flex flex-wrap gap-1">
-                        {tagColors.map((color) => (
-                          <button
-                            key={color}
-                            onClick={() => setSelectedColor(color)}
-                            className={cn(
-                              "w-6 h-6 rounded-full transition-all",
-                              selectedColor === color ? "ring-2 ring-offset-2 ring-ring" : ""
-                            )}
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowTagInput(false)}
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        onClick={handleAddTag}
-                        disabled={!newTagName.trim()}
-                      >
-                        Adicionar
-                      </Button>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+                onClick={() => setIsTagManagerOpen(true)}
+              >
+                <Settings className="h-4 w-4" />
+                Gerenciar Tags
+              </Button>
             </motion.div>
           </motion.div>
 
@@ -249,6 +314,70 @@ export function BoardHeader({ onSearch }) {
 </motion.div>
         </div>
       </div>
+
+      {/* Dialog de Gerenciamento de Tags */}
+      <Dialog open={isTagManagerOpen} onOpenChange={setIsTagManagerOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Gerenciar Tags</DialogTitle>
+            <DialogDescription>
+              Crie, visualize e exclua tags para organizar suas tarefas
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 flex-1 overflow-hidden">
+            <div className="flex justify-between items-center sticky top-0 bg-background z-10 pb-2">
+              <h4 className="text-sm font-medium">Tags Disponíveis</h4>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateTagOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Nova Tag
+              </Button>
+            </div>
+
+            <div 
+              className="space-y-2 overflow-y-auto pr-2" 
+              style={{ 
+                maxHeight: 'calc(min(60vh, 400px))',
+                paddingRight: '8px',
+                marginRight: '-8px'
+              }}
+            >
+              {tags.map((tag) => (
+                <div
+                  key={tag.id}
+                  className="flex items-center justify-between p-2 rounded-md border bg-card"
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: tag.color }}
+                    />
+                    <span>{tag.name}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setTagToDelete(tag)}
+                  >
+                    <X className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Criação de Tag */}
+      <CreateTagDialog
+        isOpen={isCreateTagOpen}
+        onOpenChange={setIsCreateTagOpen}
+        onCreateTag={handleCreateTag}
+      />
 
       {/* Dialog de confirmação para excluir tag */}
       <AlertDialog open={!!tagToDelete} onOpenChange={() => setTagToDelete(null)}>

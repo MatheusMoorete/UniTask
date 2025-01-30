@@ -19,6 +19,7 @@ import { ErrorToast } from '../components/tasks/ErrorToast'
 import { DragOverlay } from '@dnd-kit/core'
 import { DraggableTask } from '../components/tasks/DraggableTask'
 import { BoardColumn } from '../components/tasks/BoardColumn'
+import { TagManager } from '../components/tasks/TagManager'
 
 export default function TaskList() {
   const { user } = useAuth()
@@ -47,6 +48,7 @@ export default function TaskList() {
   const boardRef = useRef(null)
   const [activeColumnId, setActiveColumnId] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [isTagManagerOpen, setIsTagManagerOpen] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -64,11 +66,13 @@ export default function TaskList() {
     setIsDialogOpen,
     handleSubmit,
     handleEdit,
-    handleDelete
+    handleDelete,
+    handleCreateTag
   } = useTaskForm({
     addTask,
     updateTask,
     deleteTask,
+    addTag,
     setError,
     columnId: activeColumnId
   })
@@ -140,7 +144,10 @@ export default function TaskList() {
       <TaskListState user={user} loading={loading} error={error} />
       
       <div className="p-6 flex-shrink-0 bg-background w-full">
-        <BoardHeader onSearch={setSearchQuery} />
+        <BoardHeader 
+          onSearch={setSearchQuery} 
+          onManageTags={() => setIsTagManagerOpen(true)} 
+        />
       </div>
 
       <div className="flex-1 min-h-0 relative">
@@ -194,6 +201,8 @@ export default function TaskList() {
         onChange={setNewTask}
         tags={tags}
         onTagSelect={handleTagSelect}
+        onTagCreate={handleCreateTag}
+        setTagToDelete={setTagToDelete}
         error={error}
       />
 
@@ -219,6 +228,16 @@ export default function TaskList() {
           )
         ) : null}
       </DragOverlay>
+
+      <TagManager
+        isOpen={isTagManagerOpen}
+        onOpenChange={setIsTagManagerOpen}
+        tags={tags}
+        onTagCreate={handleCreateTag}
+        onTagDelete={setTagToDelete}
+        error={error}
+        setError={setError}
+      />
     </div>
   )
 } 

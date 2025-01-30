@@ -5,6 +5,107 @@ import { Label } from "../ui/label"
 import { Badge } from "../ui/badge"
 import { useEffect, useState } from "react"
 import { cn } from "../../lib/utils"
+import { Plus, Settings, X } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu"
+
+const tagColors = [
+  // Vermelhos
+  '#ef4444', '#dc2626', '#b91c1c', '#f87171',
+  // Laranjas/Âmbar
+  '#f97316', '#fb923c', '#f59e0b', '#fbbf24',
+  // Verdes
+  '#22c55e', '#16a34a', '#84cc16', '#4ade80',
+  // Azuis
+  '#0ea5e9', '#2563eb', '#1d4ed8', '#60a5fa',
+  // Roxos/Rosas
+  '#a855f7', '#9333ea', '#ec4899', '#f472b6',
+  // Neutros
+  '#64748b', '#475569', '#6b7280', '#94a3b8',
+]
+
+function CreateTagDialog({ isOpen, onOpenChange, onCreateTag }) {
+  const [newTagName, setNewTagName] = useState('')
+  const [selectedColor, setSelectedColor] = useState(tagColors[0])
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      await onCreateTag(newTagName.trim(), selectedColor)
+      setNewTagName('')
+      setSelectedColor(tagColors[0])
+      onOpenChange(false)
+    } catch (error) {
+      // O erro será tratado pelo componente pai
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Nova Tag</DialogTitle>
+          <DialogDescription>
+            Crie uma nova tag para organizar suas tarefas
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Nome da Tag</Label>
+            <Input
+              placeholder="Digite o nome da tag"
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              maxLength={20}
+            />
+            <p className="text-xs text-muted-foreground">
+              {newTagName.length}/20 caracteres
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Cor da Tag</Label>
+            <div className="grid grid-cols-8 gap-2">
+              {tagColors.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setSelectedColor(color)}
+                  className={cn(
+                    "w-6 h-6 rounded-full transition-all hover:scale-110",
+                    selectedColor === color ? "ring-2 ring-offset-2 ring-ring" : ""
+                  )}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={!newTagName.trim()}
+            >
+              Criar Tag
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export function TaskDialog({ 
   isOpen, 
@@ -15,11 +116,17 @@ export function TaskDialog({
   onChange,
   tags,
   onTagSelect,
+  onTagCreate,
+  setTagToDelete,
   error,
   resetForm
 }) {
   const isEditing = !!editingTask
-  const [tagError, setTagError] = useState(false)
+  const [newTagName, setNewTagName] = useState('')
+  const [showTagInput, setShowTagInput] = useState(false)
+  const [tagError, setTagError] = useState('')
+  const [selectedColor, setSelectedColor] = useState('#000000')
+  const [isCreateTagOpen, setIsCreateTagOpen] = useState(false)
 
   useEffect(() => {
     if (editingTask && isOpen) {
@@ -36,24 +143,42 @@ export function TaskDialog({
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!task.tags?.length) {
-      setTagError(true)
+      setTagError('Por favor, selecione pelo menos uma tag para a tarefa')
       return
     }
-    setTagError(false)
+    setTagError('')
     onSubmit(e)
   }
 
   useEffect(() => {
     if (task.tags?.length) {
-      setTagError(false)
+      setTagError('')
     }
   }, [task.tags])
+
+  const handleCreateTag = async (e) => {
+    e.preventDefault()
+    if (!newTagName.trim()) {
+      setTagError('Digite um nome para a tag')
+      return
+    }
+    try {
+      await onTagCreate(newTagName.trim(), selectedColor)
+      setNewTagName('')
+      setShowTagInput(false)
+      setTagError('')
+    } catch (error) {
+      setTagError('Erro ao criar tag')
+    }
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) {
         resetForm?.()
-        setTagError(false)
+        setTagError('')
+        setShowTagInput(false)
+        setNewTagName('')
       }
       onOpenChange(open)
     }}>
@@ -102,12 +227,88 @@ export function TaskDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                Tags
-                <span className="text-sm text-muted-foreground">
-                  (obrigatório)
+              <Label className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  Tags
+                  <span className="text-sm text-muted-foreground">
+                    (obrigatório)
+                  </span>
                 </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Settings className="h-4 w-4 mr-1" />
+                      Gerenciar Tags
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setIsCreateTagOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nova Tag
+                    </DropdownMenuItem>
+                    {tags.map((tag) => (
+                      <DropdownMenuItem
+                        key={tag.id}
+                        className="flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          {tag.name}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setTagToDelete(tag)
+                          }}
+                        >
+                          <X className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </Label>
+
+              {showTagInput && (
+                <div className="flex items-center gap-2 mb-2">
+                  <Input
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    placeholder="Nome da nova tag"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleCreateTag}
+                  >
+                    Criar
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setShowTagInput(false)
+                      setNewTagName('')
+                      setTagError('')
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              )}
+              {tagError && (
+                <p className="text-sm text-red-500 mt-1">
+                  {tagError}
+                </p>
+              )}
+
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => (
                   <Badge
@@ -116,8 +317,7 @@ export function TaskDialog({
                     className={cn(
                       "cursor-pointer transition-colors",
                       task.tags?.some(t => t.id === tag.id) && "bg-primary text-primary-foreground",
-                      "hover:bg-accent",
-                      tagError && "ring-2 ring-red-500"
+                      "hover:bg-accent"
                     )}
                     style={{
                       backgroundColor: task.tags?.some(t => t.id === tag.id) ? tag.color : 'transparent',
@@ -130,11 +330,6 @@ export function TaskDialog({
                   </Badge>
                 ))}
               </div>
-              {tagError && (
-                <p className="text-sm text-red-500 mt-1">
-                  Por favor, selecione pelo menos uma tag para a tarefa
-                </p>
-              )}
             </div>
             {error && (
               <div className="text-sm text-red-500">
@@ -149,6 +344,12 @@ export function TaskDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <CreateTagDialog
+        isOpen={isCreateTagOpen}
+        onOpenChange={setIsCreateTagOpen}
+        onCreateTag={onTagCreate}
+      />
     </Dialog>
   )
 } 
