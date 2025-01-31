@@ -18,16 +18,12 @@ import {
   SelectValue,
 } from "../ui/select"
 import { Plus } from 'lucide-react'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
-import { capitalizeMonth } from '../../lib/date-utils'
 
 export function CreateEventDialog() {
-  const { calendars, createEvent } = useGoogleCalendar()
+  const { calendars, createEvent, isLoading, error: apiError } = useGoogleCalendar()
   const [isOpen, setIsOpen] = useState(false)
-  const [error, setError] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [formError, setFormError] = useState(null)
   const [event, setEvent] = useState({
     title: '',
     start: '',
@@ -39,18 +35,20 @@ export function CreateEventDialog() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError(null)
+    setFormError(null)
+
+    if (!event.title) {
+      setFormError('Título é obrigatório')
+      return
+    }
 
     if (!event.calendarId) {
-      setError('Por favor, selecione um calendário')
+      setFormError('Por favor, selecione um calendário')
       return
     }
 
     try {
-      setIsLoading(true)
-      
-      // Formata o evento para o padrão do Google Calendar
-      const formattedEvent = {
+      await createEvent({
         summary: event.title,
         description: event.description,
         location: event.location,
@@ -62,9 +60,8 @@ export function CreateEventDialog() {
           dateTime: new Date(event.end).toISOString(),
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
         }
-      }
+      }, event.calendarId)
 
-      await createEvent(formattedEvent, event.calendarId)
       setIsOpen(false)
       setEvent({
         title: '',
@@ -76,12 +73,7 @@ export function CreateEventDialog() {
       })
     } catch (error) {
       console.error('Erro ao criar evento:', error)
-      setError(
-        error.result?.error?.message || 
-        'Erro ao criar evento. Verifique os dados e tente novamente.'
-      )
-    } finally {
-      setIsLoading(false)
+      setFormError(error.message || 'Erro ao criar evento')
     }
   }
 
@@ -95,15 +87,15 @@ export function CreateEventDialog() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Criar novo evento</DialogTitle>
+          <DialogTitle>Novo evento</DialogTitle>
           <DialogDescription>
             Adicione os detalhes do seu novo evento no calendário
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="text-sm text-red-500 bg-red-50 p-2 rounded">
-              {error}
+        <form onSubmit={handleSubmit} className="space-y-4" role="form">
+          {(formError || apiError) && (
+            <div className="text-sm text-red-500 bg-red-50 p-2 rounded" role="alert">
+              {formError || apiError.message}
             </div>
           )}
           <div className="space-y-2">
@@ -131,12 +123,7 @@ export function CreateEventDialog() {
                   <SelectItem 
                     key={calendar.id} 
                     value={calendar.id}
-                    className="flex items-center gap-2"
                   >
-                    <div 
-                      className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: calendar.backgroundColor }}
-                    />
                     {calendar.summary}
                   </SelectItem>
                 ))}
@@ -196,14 +183,7 @@ export function CreateEventDialog() {
               type="submit"
               disabled={isLoading}
             >
-              {isLoading ? (
-                <>
-                  <span className="animate-spin mr-2">⭮</span>
-                  Criando...
-                </>
-              ) : (
-                'Criar'
-              )}
+              {isLoading ? 'Carregando...' : 'Salvar'}
             </Button>
           </div>
         </form>

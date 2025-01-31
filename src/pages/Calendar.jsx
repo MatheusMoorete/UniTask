@@ -73,11 +73,15 @@ export default function Calendar() {
   }
 
   const nextMonth = () => {
-    setCurrentDate(prev => new Date(prev.setMonth(prev.getMonth() + 1)))
+    const newDate = new Date(currentDate)
+    newDate.setMonth(newDate.getMonth() + 1)
+    setCurrentDate(newDate)
   }
 
   const prevMonth = () => {
-    setCurrentDate(prev => new Date(prev.setMonth(prev.getMonth() - 1)))
+    const newDate = new Date(currentDate)
+    newDate.setMonth(newDate.getMonth() - 1)
+    setCurrentDate(newDate)
   }
 
   // Gera os dias do mês atual
@@ -236,17 +240,15 @@ export default function Calendar() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
+            <h5 className="text-xl leading-8 font-semibold text-gray-900 min-w-[200px] text-center">
+              {capitalizeMonth(currentDate)} de {format(currentDate, 'yyyy')}
+            </h5>
             <button 
               onClick={nextMonth}
               className="text-gray-500 rounded transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 p-2"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
-          </div>
-          <div className="flex items-center justify-between mb-4">
-            <h5 className="text-xl leading-8 font-semibold text-gray-900">
-              {capitalizeMonth(currentDate)} de {format(currentDate, 'yyyy')}
-            </h5>
           </div>
         </div>
 

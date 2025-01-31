@@ -13,7 +13,7 @@ import { useApiKey } from '../../hooks/useApiKey'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { generateFlashcards } from '../../services/flashcardService'
 
-export function AICardGenerator({ open, onOpenChange, deckId }) {
+export default function AICardGenerator({ open, onOpenChange, deckId }) {
   const [content, setContent] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const { createFlashcard } = useFlashcards(deckId)
@@ -73,7 +73,7 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
       setContent('')
     } catch (error) {
       console.error('Erro ao gerar flashcards:', error)
-      toast.error(error.message || 'Erro ao gerar flashcards')
+      toast.error('Erro ao gerar flashcards')
     } finally {
       setIsGenerating(false)
     }

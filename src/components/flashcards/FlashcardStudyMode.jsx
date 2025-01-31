@@ -24,49 +24,69 @@ const RESPONSE_LABELS = {
   4: { text: 'Muito Fácil', color: 'text-blue-500', bg: 'hover:bg-blue-500/10' }
 }
 
-export function FlashcardStudyMode({ deck, onExit }) {
+function FlashcardStudyMode({ deck: deckProp, onExit }) {
+  const { 
+    deck = deckProp, 
+    flashcards, 
+    processAnswer, 
+    finishSession, 
+    isLoading: isLoadingCards,
+    getDueCards 
+  } = useFlashcards(deckProp?.id)
+  
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [studySession, setStudySession] = useState([])
-  const [sessionStats, setSessionStats] = useState({
-    easy: 0,
-    good: 0,
-    medium: 0,
-    hard: 0,
-    error: 0,
-    total: 0,
-    timeStarted: new Date()
+  const [progress, setProgress] = useState(0)
+  const [startTime] = useState(new Date())
+  const [showStats, setShowStats] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [hasFinished, setHasFinished] = useState(false)
+  const [showHint, setShowHint] = useState(true)
+  const [dueCards, setDueCards] = useState([])
+  const [stats, setStats] = useState({
+    totalTime: 0,
+    correctAnswers: 0,
+    totalCards: 0
   })
 
-  const { flashcards, processAnswer } = useFlashcards(deck.id)
-
-  // Filtra e embaralha os cards no início da sessão
   useEffect(() => {
-    // Pega cards novos (repetitions = 0) e cards para revisar
-    const cardsToStudy = flashcards.filter(card => {
-      // Cards novos
-      if (card.repetitionData.repetitions === 0) return true
-      
-      // Cards para revisar
-      const nextReview = new Date(card.repetitionData.nextReview)
-      const today = new Date()
-      return nextReview.setHours(0,0,0,0) <= today.setHours(0,0,0,0)
-    })
-    
-    const shuffled = [...cardsToStudy].sort(() => Math.random() - 0.5)
-    setStudySession(shuffled)
-  }, [flashcards])
+    toast.info(
+      'Atalhos do teclado:\n' +
+      'Espaço - Virar card\n' +
+      '0-4 - Avaliar card\n' +
+      'ESC - Voltar',
+      {
+        duration: 5000,
+        position: 'bottom-right',
+        id: 'keyboard-shortcuts'
+      }
+    )
+  }, [])
 
-  // Atalhos de teclado
   useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (e.key === KEYBOARD_SHORTCUTS.SPACE) {
-        setIsFlipped(prev => !prev)
-      } else if (KEYBOARD_SHORTCUTS.NUMBERS.includes(e.key) && isFlipped) {
-        handleAnswer(parseInt(e.key))
-      } else if (e.key === KEYBOARD_SHORTCUTS.ESC) {
-        onExit()
+    const handleKeyPress = (event) => {
+      // Previne o comportamento padrão para as teclas que usamos
+      if ([...KEYBOARD_SHORTCUTS.NUMBERS, KEYBOARD_SHORTCUTS.SPACE, KEYBOARD_SHORTCUTS.ESC].includes(event.key)) {
+        event.preventDefault()
+      }
+
+      // Se pressionar ESC, volta para a tela anterior
+      if (event.key === KEYBOARD_SHORTCUTS.ESC) {
+        window.history.back()
+        return
+      }
+
+      // Se pressionar espaço, vira o card
+      if (event.key === KEYBOARD_SHORTCUTS.SPACE) {
+        handleFlip()
+        return
+      }
+
+      // Se o card estiver virado e pressionar um número, registra a resposta
+      if (isFlipped && KEYBOARD_SHORTCUTS.NUMBERS.includes(event.key)) {
+        const quality = parseInt(event.key)
+        handleAnswer(quality)
       }
     }
 
@@ -74,203 +94,251 @@ export function FlashcardStudyMode({ deck, onExit }) {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [isFlipped])
 
-  const currentCard = studySession[currentIndex]
-  const progress = (currentIndex / studySession.length) * 100
+  useEffect(() => {
+    if (flashcards?.length > 0) {
+      const cardsToReview = getDueCards()
+      setDueCards(cardsToReview)
+      setStats(prev => ({
+        ...prev,
+        totalCards: cardsToReview.length
+      }))
+    }
+  }, [flashcards, getDueCards])
+
+  useEffect(() => {
+    const newProgress = (currentIndex / dueCards.length) * 100
+    setProgress(newProgress)
+  }, [currentIndex, dueCards.length])
+
+  useEffect(() => {
+    if (currentIndex === dueCards.length && !hasFinished && dueCards.length > 0) {
+      const endTime = new Date()
+      const totalTime = Math.round((endTime - startTime) / 1000)
+      setStats(prev => ({
+        ...prev,
+        totalTime
+      }))
+      setShowStats(true)
+      setHasFinished(true)
+      finishSession?.()
+    }
+  }, [currentIndex, dueCards.length, startTime, finishSession, hasFinished])
+
+  const handleFlip = () => {
+    setIsFlipped(!isFlipped)
+  }
 
   const handleAnswer = async (quality) => {
-    if (isTransitioning) return
-
-    setIsTransitioning(true)
-    
-    const currentCard = studySession[currentIndex]
-    
     try {
-      await processAnswer(currentCard, quality)
+      setIsLoading(true)
+      if (quality >= 3) {
+        setStats(prev => ({
+          ...prev,
+          correctAnswers: prev.correctAnswers + 1
+        }))
+      }
       
-      // Atualiza estatísticas
-      setSessionStats(prev => ({
-        ...prev,
-        [getQualityKey(quality)]: prev[getQualityKey(quality)] + 1,
-        total: prev.total + 1
-      }))
-
-      // Espera a carta virar de volta antes de mudar
+      if (processAnswer) {
+        await processAnswer(dueCards[currentIndex], quality)
+      }
+      
       setIsFlipped(false)
-      
-      // Aguarda a animação de flip terminar
-      setTimeout(() => {
-        if (currentIndex < studySession.length - 1) {
-          setCurrentIndex(prev => prev + 1)
-        } else {
-          onExit()
-        }
-        setIsTransitioning(false)
-      }, 300)
-
-    } catch (error) {
-      console.error('Erro ao processar resposta:', error)
-      toast.error('Erro ao processar resposta')
-      setIsTransitioning(false)
+      setCurrentIndex(prev => prev + 1)
+      if (currentIndex === 0) {
+        setShowHint(false)
+      }
+    } catch (err) {
+      console.error('Erro ao processar resposta:', err)
+      setError('Ocorreu um erro ao processar sua resposta. Tente novamente.')
+      toast.error('Erro ao processar resposta. Tente novamente.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const getSessionDuration = () => {
-    const duration = Math.floor((new Date() - sessionStats.timeStarted) / 1000)
-    const minutes = Math.floor(duration / 60)
-    const seconds = duration % 60
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  const handleBack = () => {
+    if (onExit) {
+      onExit()
+    } else {
+      window.history.back()
+    }
   }
 
-  const answerButtons = [
-    { quality: 0, label: 'Erro', color: 'text-red-500' },
-    { quality: 1, label: 'Difícil', color: 'text-orange-500' },
-    { quality: 2, label: 'Bom', color: 'text-yellow-500' },
-    { quality: 3, label: 'Fácil', color: 'text-green-500' },
-    { quality: 4, label: 'Muito Fácil', color: 'text-blue-500' }
-  ]
-
-  if (studySession.length === 0 || currentIndex >= studySession.length) {
+  if (isLoadingCards) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] space-y-6">
-        <h3 className="text-xl font-medium">
-          Parabéns! Você completou todos os cards para hoje.
-        </h3>
-        <div className="grid grid-cols-2 gap-4 w-full max-w-xl">
-          <Card className="p-4">
-            <div className="flex items-center gap-2">
-              <Timer className="h-4 w-4 text-primary" />
-              <h3 className="font-medium">Tempo de Estudo</h3>
+      <div className="container mx-auto max-w-3xl py-6 px-4">
+        <Card className="p-6">
+          <div className="text-center space-y-4">
+            <h2 className="text-xl font-semibold">Carregando flashcards...</h2>
+            <div className="animate-pulse flex justify-center">
+              <div className="h-4 w-32 bg-gray-200 rounded"></div>
             </div>
-            <p className="text-2xl font-bold mt-2">{getSessionDuration()}</p>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-2">
-              <Brain className="h-4 w-4 text-orange-500" />
-              <h3 className="font-medium">Cards Estudados</h3>
-            </div>
-            <p className="text-2xl font-bold mt-2">{sessionStats.total}</p>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-green-500" />
-              <h3 className="font-medium">Taxa de Acerto</h3>
-            </div>
-            <p className="text-2xl font-bold mt-2">
-              {sessionStats.total > 0
-                ? Math.round(((sessionStats.easy + sessionStats.good) / sessionStats.total) * 100)
-                : 0}%
-            </p>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-blue-500" />
-              <h3 className="font-medium">Desempenho</h3>
-            </div>
-            <div className="mt-2 space-y-1">
-              <div className="flex justify-between text-sm">
-                <span>Fácil</span>
-                <span>{sessionStats.easy}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Bom</span>
-                <span>{sessionStats.good}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Médio</span>
-                <span>{sessionStats.medium}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Difícil</span>
-                <span>{sessionStats.hard}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Erro</span>
-                <span>{sessionStats.error}</span>
-              </div>
-            </div>
-          </Card>
-        </div>
-        <Button 
-          variant="default" 
-          onClick={onExit}
-          className="mt-4"
-        >
-          Voltar
-        </Button>
+          </div>
+        </Card>
       </div>
     )
   }
 
+  if (!dueCards?.length) {
+    return (
+      <div className="container mx-auto max-w-3xl py-6 px-4">
+        <Card className="p-6">
+          <div className="text-center space-y-4">
+            <h2 className="text-xl font-semibold">Nenhum cartão para revisar</h2>
+            <p className="text-muted-foreground">
+              Você não tem cartões para revisar neste momento. Volte mais tarde!
+            </p>
+            <Button onClick={handleBack} className="mt-4">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  if (currentIndex >= dueCards.length) {
+    return (
+      <div className="container mx-auto max-w-3xl py-6 px-4">
+        <Card className="p-6">
+          <h2 className="text-2xl font-bold mb-4">Sessão Finalizada</h2>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Tempo Total</p>
+              <p className="text-xl font-medium">{Math.floor(stats.totalTime / 60)}m {stats.totalTime % 60}s</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Taxa de Acerto</p>
+              <p className="text-xl font-medium">{Math.round((stats.correctAnswers / stats.totalCards) * 100)}%</p>
+            </div>
+          </div>
+          <Button className="mt-4" onClick={handleBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+        </Card>
+      </div>
+    )
+  }
+
+  const currentCard = dueCards[currentIndex]
+  if (!currentCard) return null
+
   return (
     <div className="container mx-auto max-w-3xl py-6 px-4">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={onExit}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleBack} 
+            className="flex items-center gap-2 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
+            size="sm"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
+          </Button>
+          <h2 className="text-xl font-semibold">{deck?.title || deck?.name}</h2>
+        </div>
         <div className="text-sm text-muted-foreground space-x-4">
-          <span>{currentIndex + 1} de {studySession.length}</span>
-          <span>⏱️ {getSessionDuration()}</span>
+          <span>{currentIndex + 1} de {dueCards.length}</span>
+          <span>⏱️ {Math.floor((new Date() - startTime) / 1000)}s</span>
         </div>
       </div>
 
       <div className="space-y-2">
-        <Progress value={progress} className="h-2" />
+        <Progress 
+          value={progress} 
+          aria-label="Progresso do estudo" 
+          className={cn(
+            "transition-all duration-300",
+            isLoading && "opacity-50"
+          )} 
+        />
         <div className="flex justify-between text-sm text-muted-foreground">
           <span>Progresso: {Math.round(progress)}%</span>
-          <span>Restantes: {studySession.length - currentIndex}</span>
+          <span>Restantes: {dueCards.length - currentIndex}</span>
         </div>
       </div>
 
-      <ReactCardFlip isFlipped={isFlipped} flipDirection="horizontal">
-        {/* Frente do Card */}
-        <div className="w-full">
-          <Card className="w-full p-6">
-            <div className="min-h-[200px] flex items-center justify-center text-center">
-              {!isTransitioning && studySession[currentIndex]?.front}
-            </div>
-            <Button 
-              variant="ghost" 
-              className="w-full"
-              onClick={() => !isTransitioning && setIsFlipped(true)}
-              disabled={isTransitioning}
+      <div className="mt-6 transform transition-all duration-300">
+        <ReactCardFlip isFlipped={isFlipped}>
+          <div className="w-full">
+            <Card 
+              className={cn(
+                "w-full p-6 transform transition-all duration-300 hover:shadow-lg",
+                isLoading && "opacity-50 pointer-events-none"
+              )} 
+              role="region" 
+              aria-label="Frente do cartão"
             >
-              <Undo2 className="w-4 h-4 mr-2" />
-              Virar card (Espaço)
-            </Button>
-          </Card>
-        </div>
+              <div className="min-h-[200px] flex items-center justify-center text-center">
+                {currentCard.front}
+              </div>
+              <Button 
+                className="w-full transform transition-all duration-300 hover:scale-[1.02]" 
+                onClick={handleFlip} 
+                aria-label="Virar cartão"
+              >
+                <Undo2 className="w-4 h-4 mr-2 animate-pulse" aria-hidden="true" />
+                Virar card (Espaço)
+              </Button>
+            </Card>
+          </div>
 
-        {/* Verso do Card */}
-        <div className="w-full">
-          <Card className="w-full p-6">
-            <div className="min-h-[200px] flex items-center justify-center text-center">
-              {!isTransitioning && studySession[currentIndex]?.back}
-            </div>
-            <div className="grid grid-cols-5 gap-2 mt-4">
-              {answerButtons.map(({ quality, label, color }) => (
-                <Button
-                  key={quality}
-                  onClick={() => handleAnswer(quality)}
-                  disabled={isTransitioning}
-                  variant="outline"
-                  className={`flex flex-col items-center justify-center p-4 h-auto gap-1 hover:bg-slate-100 ${color}`}
-                >
-                  <span className="text-lg font-medium">{quality}</span>
-                  <span className="text-sm">{label}</span>
-                </Button>
-              ))}
-            </div>
-          </Card>
-        </div>
-      </ReactCardFlip>
-
-      <div className="text-sm text-muted-foreground text-center mt-4">
-        Dica: Use as teclas 0-4 para responder e Espaço para virar o card
+          <div className="w-full">
+            <Card 
+              className={cn(
+                "w-full p-6 transform transition-all duration-300 hover:shadow-lg",
+                isLoading && "opacity-50 pointer-events-none"
+              )} 
+              role="region" 
+              aria-label="Verso do cartão"
+            >
+              <div className="min-h-[200px] flex items-center justify-center text-center">
+                {currentCard.back}
+              </div>
+              <div className="grid grid-cols-5 gap-2 mt-4" role="group" aria-label="Opções de resposta">
+                {Object.entries(RESPONSE_LABELS).map(([quality, { text, color, bg }]) => (
+                  <Button
+                    key={quality}
+                    variant="outline"
+                    className={cn(
+                      "flex flex-col items-center justify-center p-4 h-auto gap-1 transform transition-all duration-300 hover:scale-[1.05]",
+                      color,
+                      bg,
+                      isLoading && "opacity-50 pointer-events-none"
+                    )}
+                    onClick={() => handleAnswer(parseInt(quality))}
+                    aria-label={`Responder ${text}`}
+                    disabled={isLoading}
+                  >
+                    <span className="text-lg font-medium">{quality}</span>
+                    <span className="text-sm">{text}</span>
+                  </Button>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </ReactCardFlip>
       </div>
+
+      {showHint && currentIndex === 0 && (
+        <div 
+          className={cn(
+            "text-sm text-muted-foreground text-center mt-4 animate-pulse",
+            isLoading && "opacity-50"
+          )} 
+          role="note"
+        >
+          Dica: Use as teclas 0-4 para responder e Espaço para virar o card
+        </div>
+      )}
     </div>
   )
 }
+
+export default FlashcardStudyMode
 
 // Função auxiliar para mapear qualidade para chave de estatística
 function getQualityKey(quality) {

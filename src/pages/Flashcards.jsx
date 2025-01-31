@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '../components/ui/button'
-import { FlashcardStudyMode } from '../components/flashcards/FlashcardStudyMode'
+import FlashcardStudyMode from '../components/flashcards/FlashcardStudyMode'
 import { useDecks } from '../hooks/useDecks'
 import { CreateDeckDialog } from '../components/flashcards/CreateDeckDialog'
 import DeckView from '../components/flashcards/DeckView'

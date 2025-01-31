@@ -1,12 +1,12 @@
 //Estrutura da lista de flashcards de um deck
 
-import { useState } from 'react'
-import { useFlashcards } from '../../hooks/useFlashcards'
+import { useState, useMemo } from 'react'
+import { useFlashcards } from '@/hooks/useFlashcards'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Badge } from '../ui/badge'
-import { Pencil, Trash2, Search, Filter, SortAsc, Clock, Brain } from 'lucide-react'
+import { Pencil, Trash2, Search, Filter, SortAsc, Clock, Brain, ArrowUpNarrowWide } from 'lucide-react'
 import { EditFlashcardDialog } from './EditFlashcardDialog'
 import {
   AlertDialog,
@@ -29,19 +29,48 @@ import {
 import { Checkbox } from '../ui/checkbox'
 import { toast } from "sonner"
 
-export function FlashcardList({ deckId }) {
-  const { flashcards, deleteFlashcard } = useFlashcards(deckId)
+export default function FlashcardList({ deckId }) {
+  const { flashcards, deleteFlashcards } = useFlashcards(deckId)
   const [flashcardToDelete, setFlashcardToDelete] = useState(null)
   const [flashcardToEdit, setFlashcardToEdit] = useState(null)
-  const [search, setSearch] = useState('')
-  const [sortBy, setSortBy] = useState('created') // created, due, difficulty
-  const [filter, setFilter] = useState('all') // all, due, new, learned
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedCards, setSelectedCards] = useState([])
+  const [sortBy, setSortBy] = useState('created')
+  const [sortOrder, setSortOrder] = useState('desc')
+  const [filterBy, setFilterBy] = useState('all')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  const filteredCards = useMemo(() => {
+    return flashcards
+      .filter(card => {
+        const matchesSearch = searchQuery === '' || 
+          card.front.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          card.back.toLowerCase().includes(searchQuery.toLowerCase())
+
+        const matchesFilter = filterBy === 'all' || 
+          (filterBy === 'due' && card.isDue) ||
+          (filterBy === 'learned' && !card.isDue)
+
+        return matchesSearch && matchesFilter
+      })
+      .sort((a, b) => {
+        const order = sortOrder === 'asc' ? 1 : -1
+        switch (sortBy) {
+          case 'front':
+            return a.front.localeCompare(b.front) * order
+          case 'back':
+            return a.back.localeCompare(b.back) * order
+          case 'created':
+            return (new Date(a.createdAt) - new Date(b.createdAt)) * order
+          default:
+            return 0
+        }
+      })
+  }, [flashcards, searchQuery, filterBy, sortBy, sortOrder])
 
   const handleDelete = async (id) => {
     try {
-      await deleteFlashcard(id)
+      await deleteFlashcards(id)
       setFlashcardToDelete(null)
     } catch (error) {
       console.error('Erro ao deletar flashcard:', error)
@@ -64,40 +93,17 @@ export function FlashcardList({ deckId }) {
     </Badge>
   }
 
-  const filteredCards = flashcards
-    .filter(card => {
-      // Filtro de busca
-      if (search) {
-        const searchLower = search.toLowerCase()
-        return card.front.toLowerCase().includes(searchLower) || 
-               card.back.toLowerCase().includes(searchLower)
-      }
-
-      // Filtros de status
-      switch (filter) {
-        case 'due':
-          return new Date(card.repetitionData.nextReview) <= new Date()
-        case 'new':
-          return card.repetitionData.repetitions === 0
-        case 'learned':
-          return card.repetitionData.repetitions > 0
-        default:
-          return true
+  const handleSelectCard = (cardId) => {
+    setSelectedCards(prev => {
+      if (prev.includes(cardId)) {
+        return prev.filter(id => id !== cardId)
+      } else {
+        return [...prev, cardId]
       }
     })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'due':
-          return new Date(a.repetitionData.nextReview) - new Date(b.repetitionData.nextReview)
-        case 'difficulty':
-          return a.repetitionData.easeFactor - b.repetitionData.easeFactor
-        default:
-          return new Date(b.createdAt) - new Date(a.createdAt)
-      }
-    })
+  }
 
-  // Função para selecionar/deselecionar todos os cards
-  const toggleSelectAll = () => {
+  const handleSelectAll = () => {
     if (selectedCards.length === filteredCards.length) {
       setSelectedCards([])
     } else {
@@ -105,22 +111,12 @@ export function FlashcardList({ deckId }) {
     }
   }
 
-  // Função para selecionar/deselecionar um card
-  const toggleSelectCard = (cardId) => {
-    setSelectedCards(prev => 
-      prev.includes(cardId) 
-        ? prev.filter(id => id !== cardId)
-        : [...prev, cardId]
-    )
-  }
-
-  // Função para excluir cards selecionados
   const handleDeleteSelected = async () => {
     try {
-      await deleteFlashcard(selectedCards)
-      toast.success(`${selectedCards.length} cards excluídos com sucesso!`)
+      await deleteFlashcards(selectedCards)
       setSelectedCards([])
       setShowDeleteDialog(false)
+      toast.success(`${selectedCards.length} cards excluídos com sucesso!`)
     } catch (error) {
       console.error('Erro ao excluir cards:', error)
       toast.error('Erro ao excluir cards')
@@ -145,8 +141,8 @@ export function FlashcardList({ deckId }) {
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar cards..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-8"
           />
         </div>
@@ -170,18 +166,15 @@ export function FlashcardList({ deckId }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Filtrar por</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => setFilter('all')}>
+              <DropdownMenuItem onClick={() => setFilterBy('all')}>
                 <Brain className="h-4 w-4 mr-2" />
                 Todos os cards
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilter('due')}>
+              <DropdownMenuItem onClick={() => setFilterBy('due')}>
                 <Clock className="h-4 w-4 mr-2" />
                 Para revisar
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilter('new')}>
-                Novos
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilter('learned')}>
+              <DropdownMenuItem onClick={() => setFilterBy('learned')}>
                 Aprendidos
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -190,7 +183,7 @@ export function FlashcardList({ deckId }) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
-                <SortAsc className="h-4 w-4" />
+                <ArrowUpNarrowWide className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -198,11 +191,11 @@ export function FlashcardList({ deckId }) {
               <DropdownMenuItem onClick={() => setSortBy('created')}>
                 Data de criação
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy('due')}>
-                Data de revisão
+              <DropdownMenuItem onClick={() => setSortBy('front')}>
+                Frente
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy('difficulty')}>
-                Dificuldade
+              <DropdownMenuItem onClick={() => setSortBy('back')}>
+                Verso
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -232,7 +225,7 @@ export function FlashcardList({ deckId }) {
                     </Button>
                     <Checkbox
                       checked={selectedCards.includes(card.id)}
-                      onCheckedChange={() => toggleSelectCard(card.id)}
+                      onCheckedChange={() => handleSelectCard(card.id)}
                     />
                   </div>
                 </div>
@@ -259,7 +252,7 @@ export function FlashcardList({ deckId }) {
           <div className="flex items-center gap-2">
             <Checkbox
               checked={selectedCards.length === filteredCards.length}
-              onCheckedChange={toggleSelectAll}
+              onCheckedChange={handleSelectAll}
             />
             <span className="text-sm text-muted-foreground">
               {selectedCards.length > 0 

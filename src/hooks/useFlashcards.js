@@ -211,18 +211,48 @@ export function useFlashcards(deckId) {
 
   const getDueCards = () => {
     return flashcards.filter(card => {
-      // Cards sem repetitionData são considerados novos
-      if (!card.repetitionData) {
-        return true
-      }
-      
-      // Cards com repetitions = 0 são novos
-      if (card.repetitionData.repetitions === 0) {
-        return true
-      }
+      try {
+        // Se não tem dados de repetição, é um card novo
+        if (!card.repetitionData) {
+          return true
+        }
 
-      return isDueForReview(card)
+        const nextReview = card.repetitionData.nextReview
+        
+        // Se não tem próxima revisão definida, é um card novo
+        if (!nextReview) {
+          return true
+        }
+
+        // Converte a data do Firestore
+        const nextReviewDate = new Date(nextReview?.toDate?.() || nextReview)
+        const today = new Date()
+        
+        // Se a data é inválida, não inclui o card
+        if (isNaN(nextReviewDate.getTime())) {
+          console.warn('Data inválida para o card:', card.id)
+          return false
+        }
+
+        // Normaliza as datas para comparação (remove horas/minutos/segundos)
+        today.setHours(0, 0, 0, 0)
+        nextReviewDate.setHours(0, 0, 0, 0)
+        
+        // Card está disponível se:
+        // 1. Nunca foi estudado (repetitions = 0)
+        // 2. A data de revisão é hoje ou anterior
+        return card.repetitionData.repetitions === 0 || nextReviewDate <= today
+      } catch (error) {
+        console.error('Erro ao processar data do card:', card.id, error)
+        return false
+      }
     })
+  }
+
+  const finishSession = async () => {
+    // Opcional: Aqui você pode adicionar lógica adicional ao finalizar a sessão
+    // Por exemplo, atualizar estatísticas do usuário, etc.
+    console.log('Sessão de estudo finalizada')
   }
 
   // Função para migrar cards antigos
@@ -272,6 +302,7 @@ export function useFlashcards(deckId) {
     deleteFlashcard,
     processAnswer,
     isDueForReview,
-    getDueCards
+    getDueCards,
+    finishSession
   }
 }

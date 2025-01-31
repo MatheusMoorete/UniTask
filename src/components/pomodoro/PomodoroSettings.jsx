@@ -60,7 +60,7 @@ export function PomodoroSettings() {
             Ajuste as configurações do seu timer Pomodoro
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" data-testid="settings-form">
           <div className="space-y-2">
             <Label htmlFor="focusTime">Tempo de Foco (minutos)</Label>
             <Input

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { Loading } from '../components/Loading'
+import { Loading } from '@/components/ui/loading'
 
 export function PrivateRoute({ children }) {
   const { user, loading } = useAuth()

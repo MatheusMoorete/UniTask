@@ -370,13 +370,22 @@ export function GoogleCalendarProvider({ children }) {
         throw new Error('Cliente do Google Calendar não inicializado')
       }
 
+      if (!calendarId) {
+        throw new Error('ID do calendário não fornecido')
+      }
+
       const event = {
         summary: eventData.summary,
-        location: eventData.location,
-        description: eventData.description,
-        start: eventData.start,
-        end: eventData.end,
-        colorId: eventData.colorId
+        location: eventData.location || '',
+        description: eventData.description || '',
+        start: {
+          dateTime: eventData.start.dateTime,
+          timeZone: eventData.start.timeZone
+        },
+        end: {
+          dateTime: eventData.end.dateTime,
+          timeZone: eventData.end.timeZone
+        }
       }
 
       const response = await window.gapi.client.calendar.events.insert({
@@ -389,7 +398,8 @@ export function GoogleCalendarProvider({ children }) {
       return response.result
     } catch (error) {
       console.error('Erro detalhado ao criar evento:', error)
-      throw error
+      const errorMessage = error.result?.error?.message || 'Erro desconhecido'
+      throw new Error('Erro ao criar evento: ' + errorMessage)
     }
   }
 

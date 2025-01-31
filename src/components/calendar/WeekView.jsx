@@ -9,15 +9,20 @@ export function WeekView({ currentDate, events }) {
   console.log('WeekView - Sample event:', events[0])
   
   const weekStart = startOfWeek(currentDate, { locale: ptBR })
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(weekStart, i)
+    return date
+  })
 
   return (
     <div className="flex flex-col h-[800px]">
       {/* Cabeçalho dos dias da semana */}
       <div className="grid grid-cols-7 border-b border-gray-200">
-        {weekDays.map((day) => (
+        {weekDays.map((day, index) => (
           <div 
-            key={day.toISOString()} 
+            key={day.toISOString()}
+            role="columnheader"
+            data-testid={`day-cell-${index}`}
             className={`p-2 text-center border-l first:border-l-0 ${
               isToday(day) ? 'bg-blue-50' : ''
             }`}
@@ -37,7 +42,7 @@ export function WeekView({ currentDate, events }) {
       <div className="flex flex-1 overflow-hidden">
         <div className="flex">
           {/* Coluna de horários */}
-          <div className="w-20 flex-shrink-0">
+          <div className="w-20 flex-shrink-0" data-testid="time-column">
             <div className="h-14" /> {/* Espaço para alinhar com o cabeçalho */}
             <div className="relative h-full">
               {HOURS.map((hour) => (
@@ -88,6 +93,7 @@ export function WeekView({ currentDate, events }) {
                       return (
                         <div
                           key={event.id}
+                          data-testid={`event-${event.id}`}
                           className="absolute left-1 right-1 rounded overflow-hidden"
                           style={{
                             top: `${((startHour * 60 + startMinute)) / 1.5}px`,
@@ -114,7 +120,7 @@ export function WeekView({ currentDate, events }) {
       </div>
 
       <div className="text-lg font-semibold">
-        {capitalizeMonth(startOfWeek)} {format(startOfWeek, 'yyyy')}
+        {capitalizeMonth(format(weekStart, 'MMMM', { locale: ptBR }))} {format(weekStart, 'yyyy')}
       </div>
     </div>
   )
