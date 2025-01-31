@@ -3,15 +3,15 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/generate-flashcards.js": {
+    "server/**/*.js": {
       "memory": 1024,
       "maxDuration": 60
     }
   },
   "rewrites": [
     {
-      "source": "/api/generate-flashcards",
-      "destination": "/api/generate-flashcards.js"
+      "source": "/api/:path*",
+      "destination": "/server/index.js"
     },
     {
       "source": "/(.*)",
@@ -66,16 +66,17 @@
         },
         {
           "key": "Access-Control-Allow-Methods",
-          "value": "GET,OPTIONS,POST"
+          "value": "GET,OPTIONS,POST,PUT,DELETE"
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-KEY, X-PROVIDER"
+          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-KEY, X-PROVIDER, Authorization"
         }
       ]
     }
   ],
   "env": {
+    "NODE_ENV": "production",
     "VERCEL_URL": "https://www.unitask.space"
   }
 }

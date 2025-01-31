@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
@@ -10,6 +10,7 @@ import { APIKeyDialog } from './APIKeyDialog'
 import { Settings, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription } from '../ui/alert'
+import { generateFlashcards } from '../../services/flashcardService'
 
 const FLASHCARD_QUANTITIES = [5, 10, 15, 20]
 
@@ -41,30 +42,12 @@ export function GenerateAIFlashcardsDialog({ open, onOpenChange, deckId }) {
 
     setIsGenerating(true)
     try {
-      const apiUrl = process.env.NODE_ENV === 'development' 
-        ? 'http://localhost:3001/api/generate-flashcards'
-        : '/api/generate-flashcards'
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-KEY': storedKeys[provider],
-          'X-PROVIDER': provider
-        },
-        body: JSON.stringify({
-          content,
-          quantity: Number(quantity)
-        })
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.details || 'Erro ao gerar flashcards')
-      }
-
-      const data = await response.json()
-      const flashcards = JSON.parse(data.choices[0].message.content)
+      const flashcards = await generateFlashcards(
+        content.trim(),
+        Number(quantity),
+        storedKeys[provider],
+        provider
+      )
       
       // Criar os flashcards no banco de dados
       for (const flashcard of flashcards) {
@@ -125,9 +108,11 @@ export function GenerateAIFlashcardsDialog({ open, onOpenChange, deckId }) {
                     <SelectValue placeholder="Quantidade de cards" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="5">5 flashcards</SelectItem>
-                    <SelectItem value="10">10 flashcards</SelectItem>
-                    <SelectItem value="15">15 flashcards</SelectItem>
+                    {FLASHCARD_QUANTITIES.map(qty => (
+                      <SelectItem key={qty} value={qty}>
+                        {qty} flashcards
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

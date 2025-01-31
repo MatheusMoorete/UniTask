@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { useFlashcards } from '../../hooks/useFlashcards'
 import { useApiKey } from '../../hooks/useApiKey'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { generateFlashcards } from '../../services/flashcardService'
 
 export function AICardGenerator({ open, onOpenChange, deckId }) {
   const [content, setContent] = useState('')
@@ -20,10 +21,6 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
   const [tempApiKey, setTempApiKey] = useState('')
   const [selectedProvider, setSelectedProvider] = useState('deepseek')
-
-  const API_URL = import.meta.env.DEV 
-    ? 'http://localhost:3001/api/generate-flashcards'
-    : `${window.location.origin}/api/generate-flashcards`
 
   const handleSaveApiKey = async () => {
     try {
@@ -35,7 +32,7 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
     }
   }
 
-  const generateCards = async () => {
+  const handleGenerateCards = async () => {
     const currentApiKey = apiKeys[selectedProvider]
     if (!currentApiKey) {
       toast.error(`Configure sua chave API do ${selectedProvider === 'openai' ? 'OpenAI' : 'Deepseek'} primeiro`)
@@ -50,45 +47,7 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
 
     setIsGenerating(true)
     try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-KEY': currentApiKey,
-          'X-PROVIDER': selectedProvider
-        },
-        body: JSON.stringify({ content: content.trim() })
-      })
-
-      console.log('Response status:', response.status)
-      console.log('Response headers:', Object.fromEntries(response.headers))
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Erro response text:', errorText)
-        
-        let errorData
-        try {
-          errorData = JSON.parse(errorText)
-        } catch (e) {
-          console.error('Erro ao parsear resposta:', e)
-          errorData = { error: errorText || 'Erro desconhecido' }
-        }
-        
-        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      if (!data?.choices?.[0]?.message?.content) {
-        throw new Error('Resposta inválida da API')
-      }
-
-      const responseContent = data.choices[0].message.content
-      const flashcards = JSON.parse(responseContent)
-
-      if (!Array.isArray(flashcards) || flashcards.length === 0) {
-        throw new Error('Nenhum flashcard foi gerado')
-      }
+      const flashcards = await generateFlashcards(content.trim(), 10, currentApiKey, selectedProvider)
 
       // Cria os flashcards gerados
       for (const card of flashcards) {
@@ -114,7 +73,7 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
       setContent('')
     } catch (error) {
       console.error('Erro ao gerar flashcards:', error)
-      toast.error('Erro ao gerar flashcards')
+      toast.error(error.message || 'Erro ao gerar flashcards')
     } finally {
       setIsGenerating(false)
     }
@@ -209,7 +168,7 @@ export function AICardGenerator({ open, onOpenChange, deckId }) {
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button onClick={generateCards} disabled={isGenerating}>
+              <Button onClick={handleGenerateCards} disabled={isGenerating}>
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />

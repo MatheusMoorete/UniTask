@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev:frontend": "vite",
-    "dev:server": "node server.js",
-    "dev": "npm run dev:server & npm run dev:frontend",
-    "server": "node --experimental-modules server/api.js",
+    "dev:server": "node server/index.js",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:server\"",
     "build": "vite build",
+    "start": "node server/index.js",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "clean": "rimraf node_modules/.vite dist"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.22.2",
@@ -58,8 +59,10 @@
     "@types/gapi.auth2": "^0.0.61",
     "@types/gapi.calendar": "^3.0.11",
     "@use-gesture/react": "^10.3.1",
+    "axios": "^1.7.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "concurrently": "^8.2.2",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
@@ -86,6 +89,7 @@
     "react-router-dom": "^7.1.2",
     "react-swipeable": "^7.0.2",
     "recharts": "^2.15.0",
+    "rimraf": "^5.0.5",
     "shadcn-ui": "^0.9.4",
     "sonner": "^1.7.2",
     "styled-components": "^6.1.14",

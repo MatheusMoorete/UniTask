@@ -70,7 +70,7 @@ export default defineConfig(({ command, mode }) => {
       'import.meta.env.VITE_SUPABASE_PUBLIC_BUCKET_URL': JSON.stringify(env.VITE_SUPABASE_URL + '/storage/v1/object/public/materiais'),
 
       // API URL
-      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL),
+      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL || 'http://localhost:3000'),
 
       // Build Info
       'import.meta.env.VITE_BUILD_TIME': JSON.stringify(new Date().toISOString()),
@@ -79,13 +79,16 @@ export default defineConfig(({ command, mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: 'http://localhost:3001',
-          changeOrigin: true
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false,
+          ws: true
         }
       }
     },
     base: '/',
     optimizeDeps: {
+      include: ['axios'],
       exclude: ['pdfjs-dist']
     }
   }
