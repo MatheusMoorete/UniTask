@@ -6,7 +6,7 @@ import { Menu, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { NotificationProvider } from '../../contexts/NotificationContext'
 import { NotificationButton } from '../NotificationButton'
-import { Toaster } from '../ui/toaster'
+import { Toaster } from 'sonner'
 import Sidebar from './Sidebar'
 import { navigationItems } from '../../config/navigation'
 
@@ -79,7 +79,7 @@ export default function RootLayout() {
           </div>
         </main>
       </div>
-      <Toaster />
+      <Toaster richColors closeButton position="top-center" />
     </NotificationProvider>
   )
 } 

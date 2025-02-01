@@ -2,6 +2,7 @@ import { Calendar as CalendarIcon, LogOut } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
 import { CalendarLoading } from './CalendarLoading'
+import { toast } from 'sonner'
 
 export function ConnectGoogleCalendar() {
   const { handleAuth, handleSignOut, isAuthenticated, loading } = useGoogleCalendar()
@@ -43,6 +44,33 @@ export function ConnectGoogleCalendar() {
     )
   }
 
+  const handleConnect = () => {
+    return new Promise((resolve) => {
+      toast.custom((t) => (
+        <div className="bg-background border rounded-lg shadow-lg p-4 max-w-md">
+          <h3 className="font-semibold mb-2">Aviso de Segurança</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Ao prosseguir, você verá um aviso do Google. Clique em 'Avançado' e depois em 'Acessar UniTask (não seguro)' para continuar.
+          </p>
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={() => {
+                toast.dismiss(t)
+                handleAuth()
+                resolve()
+              }}
+            >
+              OK, Entendi
+            </Button>
+          </div>
+        </div>
+      ), {
+        duration: Infinity,
+      })
+    })
+  }
+
   return (
     <div className="flex flex-col items-center justify-center h-[60vh] gap-6">
       <div className="flex flex-col items-center gap-4">
@@ -61,7 +89,8 @@ export function ConnectGoogleCalendar() {
 
       <div className="flex flex-col items-center gap-3">
         <Button 
-          onClick={handleAuth} 
+          onClick={handleConnect}
+          disabled={loading}
           size="lg" 
           className="bg-[#4285f4] hover:bg-[#3367d6] text-white gap-2 px-6"
         >
@@ -70,7 +99,7 @@ export function ConnectGoogleCalendar() {
             alt="Google Calendar" 
             className="h-5 w-5"
           />
-          Conectar Google Calendar
+          {loading ? 'Conectando...' : 'Conectar Google Calendar'}
         </Button>
         <p className="text-xs text-gray-500">
           Suas informações estão seguras e você pode desconectar a qualquer momento
