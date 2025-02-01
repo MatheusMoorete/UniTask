@@ -1,7 +1,7 @@
 //Estrutura da interface de geração de flashcards com IA
 
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
 import { Label } from '../ui/label'
@@ -88,6 +88,9 @@ export default function AICardGenerator({ open, onOpenChange, deckId }) {
       <DialogContent className="sm:max-w-[625px]">
         <DialogHeader>
           <DialogTitle>Gerar Flashcards com IA</DialogTitle>
+          <DialogDescription>
+            Cole o conteúdo do seu material de estudo e a IA irá gerar flashcards automaticamente.
+          </DialogDescription>
         </DialogHeader>
         
         {(!apiKeys[selectedProvider] || showApiKeyInput) ? (
@@ -111,8 +114,9 @@ export default function AICardGenerator({ open, onOpenChange, deckId }) {
                 placeholder="Insira sua chave API"
                 value={tempApiKey}
                 onChange={(e) => setTempApiKey(e.target.value)}
+                aria-describedby="api-key-description"
               />
-              <p className="text-sm text-muted-foreground">
+              <p id="api-key-description" className="text-sm text-muted-foreground">
                 Obtenha sua chave em{' '}
                 <a 
                   href={selectedProvider === 'openai' ? 'https://platform.openai.com/api-keys' : 'https://platform.deepseek.com/'}
@@ -163,7 +167,11 @@ export default function AICardGenerator({ open, onOpenChange, deckId }) {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={10}
+              aria-describedby="content-description"
             />
+            <p id="content-description" className="sr-only">
+              Cole o texto do seu material de estudo para gerar flashcards automaticamente usando inteligência artificial
+            </p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar

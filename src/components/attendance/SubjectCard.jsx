@@ -47,7 +47,10 @@ const SubjectCard = ({ subject, onUpdate, onDelete }) => {
             </CardDescription>
           </div>
           {absencePercentage >= 75 && (
-            <AlertTriangle className={getStatusColor(absencePercentage)} />
+            <AlertTriangle 
+              className={getStatusColor(absencePercentage)} 
+              aria-label="Alerta de faltas"
+            />
           )}
         </div>
       </CardHeader>

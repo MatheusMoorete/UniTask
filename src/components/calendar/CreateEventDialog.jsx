@@ -1,3 +1,5 @@
+// src/components/calendar/CreateEventDialog.jsx
+
 import { useState } from 'react'
 import { 
   Dialog, 
@@ -5,7 +7,8 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogTrigger,
-  DialogDescription 
+  DialogDescription,
+  DialogFooter
 } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -19,9 +22,10 @@ import {
 } from "../ui/select"
 import { Plus } from 'lucide-react'
 import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
+import { createICSFile } from '../../utils/calendar'
 
 export function CreateEventDialog() {
-  const { calendars, createEvent, isLoading, error: apiError } = useGoogleCalendar()
+  const { isAuthenticated, createEvent, calendars, isLoading: isGoogleLoading } = useGoogleCalendar()
   const [isOpen, setIsOpen] = useState(false)
   const [formError, setFormError] = useState(null)
   const [event, setEvent] = useState({
@@ -35,46 +39,68 @@ export function CreateEventDialog() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    console.log('Form submitted')
     setFormError(null)
 
     if (!event.title) {
+      console.log('Title validation failed')
       setFormError('Título é obrigatório')
       return
     }
 
-    if (!event.calendarId) {
+    if (isAuthenticated && !event.calendarId) {
+      console.log('Calendar validation failed')
       setFormError('Por favor, selecione um calendário')
       return
     }
 
     try {
-      await createEvent({
-        summary: event.title,
-        description: event.description,
-        location: event.location,
-        start: {
-          dateTime: new Date(event.start).toISOString(),
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-        },
-        end: {
-          dateTime: new Date(event.end).toISOString(),
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-        }
-      }, event.calendarId)
+      if (isAuthenticated) {
+        console.log('Trying to create event...')
+        await createEvent({
+          summary: event.title,
+          description: event.description,
+          location: event.location,
+          start: {
+            dateTime: new Date(event.start).toISOString(),
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          },
+          end: {
+            dateTime: new Date(event.end).toISOString(),
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          }
+        }, event.calendarId)
 
-      setIsOpen(false)
-      setEvent({
-        title: '',
-        start: '',
-        end: '',
-        description: '',
-        location: '',
-        calendarId: ''
-      })
+        console.log('Event created successfully')
+        setIsOpen(false)
+        setEvent({
+          title: '',
+          start: '',
+          end: '',
+          description: '',
+          location: '',
+          calendarId: ''
+        })
+      }
     } catch (error) {
-      console.error('Erro ao criar evento:', error)
-      setFormError(error.message || 'Erro ao criar evento')
+      console.log('Error caught in handleSubmit:', error)
+      setFormError('Erro ao criar evento')
     }
+  }
+
+  const handleDownloadICS = () => {
+    if (!event.title || !event.start || !event.end) {
+      setFormError('Preencha pelo menos título, data de início e fim')
+      return
+    }
+    
+    createICSFile({
+      title: event.title,
+      start: event.start,
+      end: event.end,
+      description: event.description,
+      location: event.location
+    })
   }
 
   return (
@@ -82,20 +108,29 @@ export function CreateEventDialog() {
       <DialogTrigger asChild>
         <Button className="bg-[#1a73e8] hover:bg-[#1557b0] text-white">
           <Plus className="mr-2 h-4 w-4" />
-          Criar evento
+          Criar Evento
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" aria-hidden={false}>
         <DialogHeader>
           <DialogTitle>Novo evento</DialogTitle>
           <DialogDescription>
             Adicione os detalhes do seu novo evento no calendário
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4" role="form">
-          {(formError || apiError) && (
-            <div className="text-sm text-red-500 bg-red-50 p-2 rounded" role="alert">
-              {formError || apiError.message}
+        <form 
+          onSubmit={handleSubmit} 
+          className="space-y-4"
+          role="form"
+          aria-label="Formulário de novo evento"
+        >
+          {(formError) && (
+            <div 
+              className="text-sm text-red-500 bg-red-50 p-2 rounded" 
+              role="alert"
+              data-testid="error-message"
+            >
+              {formError}
             </div>
           )}
           <div className="space-y-2">
@@ -108,28 +143,30 @@ export function CreateEventDialog() {
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="calendar">Calendário</Label>
-            <Select
-              value={event.calendarId}
-              onValueChange={(value) => setEvent({ ...event, calendarId: value })}
-              required
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um calendário" />
-              </SelectTrigger>
-              <SelectContent>
-                {calendars.map((calendar) => (
-                  <SelectItem 
-                    key={calendar.id} 
-                    value={calendar.id}
-                  >
-                    {calendar.summary}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {isAuthenticated && (
+            <div className="space-y-2">
+              <Label htmlFor="calendar">Calendário</Label>
+              <Select
+                value={event.calendarId}
+                onValueChange={(value) => setEvent({ ...event, calendarId: value })}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um calendário" />
+                </SelectTrigger>
+                <SelectContent>
+                  {calendars.map((calendar) => (
+                    <SelectItem 
+                      key={calendar.id} 
+                      value={calendar.id}
+                    >
+                      {calendar.summary}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="start">Início</Label>
@@ -170,22 +207,35 @@ export function CreateEventDialog() {
               placeholder="Digite uma descrição (opcional)"
             />
           </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsOpen(false)}
-              disabled={isLoading}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              type="submit"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Carregando...' : 'Salvar'}
-            </Button>
-          </div>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
+            {isAuthenticated ? (
+              <>
+                <Button
+                  type="submit"
+                  disabled={isGoogleLoading}
+                  className="flex-1"
+                >
+                  {isGoogleLoading ? 'Salvando...' : 'Salvar no Google Calendar'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDownloadICS}
+                  className="flex-1"
+                >
+                  Baixar arquivo .ics
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleDownloadICS}
+                className="flex-1"
+              >
+                Baixar arquivo .ics
+              </Button>
+            )}
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

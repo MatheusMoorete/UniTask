@@ -75,8 +75,10 @@ export default function GoogleCalendarConnect({ onConnect, onDisconnect }) {
     // Notifica o componente pai
     onDisconnect?.()
 
-    // Recarrega a página para garantir que tudo seja limpo
-    window.location.reload()
+    // Apenas recarrega a página se não estiver em ambiente de teste
+    if (process.env.NODE_ENV !== 'test') {
+      window.location.reload()
+    }
   }
 
   if (connectedEmail) {
