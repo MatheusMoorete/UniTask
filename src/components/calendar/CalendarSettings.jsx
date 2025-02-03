@@ -65,7 +65,7 @@ export function CalendarSettings() {
               Filtro de Agendas Google
             </AccordionTrigger>
             <AccordionContent>
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-2 max-h-[300px] overflow-y-auto pr-2">
                 {calendars.map((calendar) => (
                   <div key={calendar.id} className="flex items-center space-x-2">
                     <Checkbox
@@ -94,7 +94,7 @@ export function CalendarSettings() {
               Filtro de Eventos do Dashboard
             </AccordionTrigger>
             <AccordionContent>
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-2 max-h-[300px] overflow-y-auto pr-2">
                 {calendars.map((calendar) => (
                   <div key={calendar.id} className="flex items-center space-x-2">
                     <Checkbox
