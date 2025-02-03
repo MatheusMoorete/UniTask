@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select"
-import { Plus } from 'lucide-react'
+import { Plus, Loader2 } from 'lucide-react'
 import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
 import { createICSFile } from '../../utils/calendar'
 
@@ -36,21 +36,25 @@ export function CreateEventDialog() {
     location: '',
     calendarId: ''
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     console.log('Form submitted')
     setFormError(null)
+    setIsSubmitting(true)
 
     if (!event.title) {
       console.log('Title validation failed')
       setFormError('Título é obrigatório')
+      setIsSubmitting(false)
       return
     }
 
     if (isAuthenticated && !event.calendarId) {
       console.log('Calendar validation failed')
       setFormError('Por favor, selecione um calendário')
+      setIsSubmitting(false)
       return
     }
 
@@ -85,6 +89,8 @@ export function CreateEventDialog() {
     } catch (error) {
       console.log('Error caught in handleSubmit:', error)
       setFormError('Erro ao criar evento')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -151,7 +157,7 @@ export function CreateEventDialog() {
                 onValueChange={(value) => setEvent({ ...event, calendarId: value })}
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full" role="combobox" aria-label="Selecione um calendário">
                   <SelectValue placeholder="Selecione um calendário" />
                 </SelectTrigger>
                 <SelectContent>
@@ -159,6 +165,8 @@ export function CreateEventDialog() {
                     <SelectItem 
                       key={calendar.id} 
                       value={calendar.id}
+                      role="option"
+                      aria-selected={event.calendarId === calendar.id}
                     >
                       {calendar.summary}
                     </SelectItem>
@@ -207,35 +215,31 @@ export function CreateEventDialog() {
               placeholder="Digite uma descrição (opcional)"
             />
           </div>
-          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
-            {isAuthenticated ? (
-              <>
-                <Button
-                  type="submit"
-                  disabled={isGoogleLoading}
-                  className="flex-1"
-                >
-                  {isGoogleLoading ? 'Salvando...' : 'Salvar no Google Calendar'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleDownloadICS}
-                  className="flex-1"
-                >
-                  Baixar arquivo .ics
-                </Button>
-              </>
-            ) : (
-              <Button
-                type="button"
-                onClick={handleDownloadICS}
-                className="flex-1"
-              >
-                Baixar arquivo .ics
-              </Button>
-            )}
-          </DialogFooter>
+          <div className="sm:justify-end sm:space-x-2 flex flex-col sm:flex-row gap-2 pt-4">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1"
+              aria-label={isSubmitting ? "Carregando..." : "Criar Evento"}
+              onClick={handleSubmit}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <span>Carregando...</span>
+                </>
+              ) : (
+                'Criar Evento'
+              )}
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              onClick={handleDownloadICS}
+            >
+              Baixar arquivo .ics
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

@@ -2,7 +2,7 @@ import { TaskBoard } from '../components/tasks/board'
 import { useTaskBoard } from '../contexts/BoardContext'
 import { BoardHeader } from '../components/tasks/board/BoardHeader'
 
-export default function TaskList() {
+export default function TaskPage() {
   const {
     columns,
     filteredTasks,

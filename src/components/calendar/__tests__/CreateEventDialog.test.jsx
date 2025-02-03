@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CreateEventDialog } from '../CreateEventDialog'
 import { useGoogleCalendar } from '../../../contexts/GoogleCalendarContext'
@@ -116,7 +116,8 @@ describe('CreateEventDialog', () => {
       calendars: mockCalendars,
       createEvent: mockCreateEvent,
       isLoading: false,
-      error: null
+      error: null,
+      isAuthenticated: true
     })
   })
 
@@ -144,27 +145,30 @@ describe('CreateEventDialog', () => {
   })
 
   it('deve listar os calendários disponíveis', async () => {
+    useGoogleCalendar.mockReturnValue({
+      calendars: mockCalendars,
+      createEvent: mockCreateEvent,
+      isLoading: false,
+      error: null,
+      isAuthenticated: true
+    })
+
     const user = userEvent.setup()
-    await act(async () => {
-      render(<CreateEventDialog />)
-    })
+    render(<CreateEventDialog />)
     
-    const button = await screen.findByRole('button', { name: /criar evento/i })
-    await act(async () => {
-      await user.click(button)
-    })
+    const button = screen.getByRole('button', { name: /criar evento/i })
+    await user.click(button)
     
-    const combobox = await screen.findByRole('combobox')
-    await act(async () => {
-      await user.click(combobox)
-    })
+    // Clica no trigger do select
+    const selectButton = screen.getByRole('combobox', { name: /selecione um calendário/i })
+    await user.click(selectButton)
     
-    await waitFor(async () => {
-      const options = await screen.findAllByRole('option')
-      expect(options).toHaveLength(2)
-      expect(options[0]).toHaveTextContent('Calendário 1')
-      expect(options[1]).toHaveTextContent('Calendário 2')
-    })
+    // Verifica as opções do calendário
+    const calendar1 = screen.getByRole('option', { name: 'Calendário 1' })
+    const calendar2 = screen.getByRole('option', { name: 'Calendário 2' })
+    
+    expect(calendar1).toBeInTheDocument()
+    expect(calendar2).toBeInTheDocument()
   })
 
   it('deve validar campos obrigatórios', async () => {
@@ -256,26 +260,45 @@ describe('CreateEventDialog', () => {
   })
 
   it('deve mostrar estado de carregamento durante a submissão', async () => {
-    const mockCreateEventLoading = vi.fn(() => new Promise(() => {}))
+    const mockCreateEvent = vi.fn(() => new Promise(resolve => setTimeout(resolve, 1000)))
     useGoogleCalendar.mockReturnValue({
       calendars: mockCalendars,
-      createEvent: mockCreateEventLoading,
-      isLoading: true,
-      error: null
+      createEvent: mockCreateEvent,
+      isLoading: false,
+      error: null,
+      isAuthenticated: true
     })
 
-    const user = userEvent.setup()
-    await act(async () => {
-      render(<CreateEventDialog />)
-    })
+    render(<CreateEventDialog />)
+
+    // Abre o diálogo
+    const openButton = screen.getByRole('button', { name: /criar evento/i })
+    await userEvent.click(openButton)
+
+    // Preenche o formulário
+    const titleInput = screen.getByLabelText(/título/i)
+    const startInput = screen.getByLabelText(/início/i)
+    const endInput = screen.getByLabelText(/fim/i)
+
+    await userEvent.type(titleInput, 'Teste de Evento')
+    await userEvent.type(startInput, '2024-02-15T10:00')
+    await userEvent.type(endInput, '2024-02-15T11:00')
     
-    const button = await screen.findByRole('button', { name: /criar evento/i })
-    await act(async () => {
-      await user.click(button)
-    })
+    // Seleciona um calendário
+    const selectButton = screen.getByRole('combobox', { name: /selecione um calendário/i })
+    await userEvent.click(selectButton)
     
-    const submitButton = await screen.findByRole('button', { name: /carregando/i })
-    expect(submitButton).toBeDisabled()
+    const calendar1 = screen.getByRole('option', { name: 'Calendário 1' })
+    await userEvent.click(calendar1)
+
+    // Submete o formulário
+    const submitButton = screen.getByRole('button', { name: /criar evento/i })
+    await userEvent.click(submitButton)
+
+    // Verifica se o botão mostra o estado de carregamento
+    const loadingButton = await screen.findByRole('button', { name: /carregando/i })
+    expect(loadingButton).toBeInTheDocument()
+    expect(loadingButton).toBeDisabled()
   })
 
   it.skip('deve mostrar mensagem de erro quando a criação falha', async () => {

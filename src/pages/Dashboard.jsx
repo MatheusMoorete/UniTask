@@ -26,19 +26,50 @@ import UpcomingDeadlines from '../components/dashboard/UpcomingDeadlines'
 import { useAuth } from '../contexts/AuthContext'
 import { NextDeadlines } from '../components/dashboard/NextDeadlines'
 import { AttendanceWarning } from '@/components/dashboard/AttendanceWarning'
+import { useFirestore } from '../contexts/FirestoreContext'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
 
 const TaskProgress = () => {
-  const { tasks } = useTasks()
+  const { tasks: boardTasks } = useTasks()
+  const [todoTasks, setTodoTasks] = useState([])
   const navigate = useNavigate()
-  const completedTasks = tasks.filter(task => task.completed).length
-  const pendingTasks = tasks.filter(task => !task.completed).length
-  const totalTasks = tasks.length
+  const { user } = useAuth()
+  const { db } = useFirestore()
+
+  // Fetch TodoList tasks
+  useEffect(() => {
+    if (!user?.uid) return
+
+    const todoTasksQuery = query(
+      collection(db, 'tasks'),
+      where('userId', '==', user.uid),
+      where('date', '!=', null),
+      where('defaultColumnId', '==', 'todo')
+    )
+
+    const unsubscribe = onSnapshot(todoTasksQuery, (snapshot) => {
+      const tasksData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      console.log('TodoList tasks:', tasksData)
+      setTodoTasks(tasksData)
+    })
+
+    return () => unsubscribe()
+  }, [user, db])
+
+  // Combine and calculate stats for all tasks
+  const allTasks = todoTasks
+  const completedTasks = allTasks.filter(task => task.completed && task.defaultColumnId === 'todo').length
+  const pendingTasks = allTasks.filter(task => !task.completed && task.defaultColumnId === 'todo').length
+  const totalTasks = allTasks.filter(task => task.defaultColumnId === 'todo').length
   const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
   return (
     <Card 
       className="border-l-4 border-l-primary shadow-md hover:bg-accent/10 cursor-pointer transition-colors"
-      onClick={() => navigate('/tasks')}
+      onClick={() => navigate('/todo')}
     >
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">

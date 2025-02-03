@@ -29,24 +29,25 @@ service cloud.firestore {
         let incoming = request.resource.data;
         return incoming.title is string
           && incoming.userId == request.auth.uid
-          && incoming.columnId is string
-          && incoming.position is number
-          && (incoming.tags == null || incoming.tags is list);
+          && (incoming.columnId is string || incoming.columnId == null)
+          && (incoming.position is number || incoming.position == null)
+          && (incoming.tags == null || incoming.tags is list)
+          && (incoming.date == null || incoming.date is timestamp)
+          && (incoming.description == null || incoming.description is string)
+          && (incoming.priority == null || incoming.priority is string)
+          && (incoming.subtasks == null || incoming.subtasks is list)
+          && (incoming.location == null || incoming.location is string)
+          && (incoming.completed == null || incoming.completed is bool)
+          && (incoming.createdAt == null || incoming.createdAt is timestamp)
+          && (incoming.updatedAt == null || incoming.updatedAt is timestamp);
       }
 
       allow read: if request.auth != null && (
         resource == null || resource.data.userId == request.auth.uid
       );
-      allow create: if request.auth != null 
-        && request.resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && isValidTask();
       allow update: if request.auth != null 
-        && resource.data.userId == request.auth.uid
-        && (
-          // Permite atualização parcial para tags
-          request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['tags', 'updatedAt'])
-          || isValidTask() // Ou validação completa para outras atualizações
-        );
+        && resource.data.userId == request.auth.uid;
       allow delete: if request.auth != null 
         && resource.data.userId == request.auth.uid;
     }

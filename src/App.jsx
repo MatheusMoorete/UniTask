@@ -7,7 +7,6 @@ import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
 import ResetPassword from './pages/auth/ResetPassword'
 import Dashboard from './pages/Dashboard'
-import TaskList from './pages/TaskList'
 import Calendar from './pages/Calendar'
 import Pomodoro from './pages/Pomodoro'
 import Attendance from './pages/Attendance'
@@ -22,6 +21,7 @@ import { Toaster } from 'sonner'
 import Flashcards from './pages/Flashcards'
 import Landing from './pages/Landing'
 import { useEffect } from 'react'
+import { TodoList } from './components/todo/TodoList'
 
 const defaultSettings = {
   focusTime: 25,
@@ -72,7 +72,7 @@ function AppRoutes() {
       }>
         <Route path="/" element={<Navigate to="/dashboard" />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/tasks" element={<TaskList />} />
+        <Route path="/todo" element={<TodoList />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/pomodoro" element={<Pomodoro />} />
         <Route path="/attendance" element={<Attendance />} />

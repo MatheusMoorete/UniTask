@@ -2,7 +2,7 @@ import { LayoutDashboard, ListTodo, Calendar, Timer, GraduationCap, Book, BookOp
 
 export const navigationItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
-  { icon: ListTodo, label: 'Lista de Tarefas', href: '/tasks' },
+  { icon: ListTodo, label: 'Lista de Tarefas', href: '/todo' },
   { icon: Calendar, label: 'Calendário', href: '/calendar' },
   { icon: Timer, label: 'Timer Pomodoro', href: '/pomodoro' },
   { icon: GraduationCap, label: 'Faltômetro', href: '/attendance' },

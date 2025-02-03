@@ -1,9 +1,13 @@
 import { format, addHours, isToday, isSameDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { useState } from 'react'
+import { EditEventDialog } from './EditEventDialog'
 
 const HOURS = Array.from({ length: 19 }, (_, i) => i + 5) // Começa às 5h e vai até 23h
 
 export function DayView({ currentDate, events }) {
+  const [selectedEvent, setSelectedEvent] = useState(null)
+
   // Função para normalizar as datas dos eventos
   const normalizeEventDates = (event) => ({
     ...event,
@@ -17,8 +21,23 @@ export function DayView({ currentDate, events }) {
     .filter(event => isSameDay(event.start, currentDate))
     .sort((a, b) => a.start.getTime() - b.start.getTime())
 
+  const handleEventClick = (event) => {
+    setSelectedEvent(event)
+  }
+
+  const handleCloseDialog = () => {
+    setSelectedEvent(null)
+  }
+
   return (
     <div className="flex flex-col h-full">
+      {selectedEvent && (
+        <EditEventDialog 
+          event={selectedEvent} 
+          onClose={handleCloseDialog}
+        />
+      )}
+
       {/* Cabeçalho do dia */}
       <div className="flex-none p-4 border-b border-gray-200 bg-gray-50">
         <div className="text-sm font-medium text-gray-500">
@@ -28,7 +47,10 @@ export function DayView({ currentDate, events }) {
 
       <div className="flex flex-1 min-h-0 h-[480px]"> {/* Container fixo de 8 horas */}
         {/* Coluna de horários */}
-        <div className="flex-none w-20 border-r border-gray-200 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+        <div 
+          data-testid="time-column"
+          className="flex-none w-20 border-r border-gray-200 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+        >
           <div className="h-4" /> {/* Espaçamento superior */}
           {HOURS.map((hour) => (
             <div 
@@ -65,6 +87,7 @@ export function DayView({ currentDate, events }) {
               return (
                 <div
                   key={event.id}
+                  data-testid={`event-${event.id}`}
                   className="absolute left-2 right-2 rounded overflow-hidden cursor-pointer hover:opacity-90"
                   style={{
                     top: `${top + 16}px`, // Adiciona o espaçamento superior
@@ -72,6 +95,9 @@ export function DayView({ currentDate, events }) {
                     borderLeft: `3px solid ${event.color || '#1a73e8'}`,
                     backgroundColor: `${event.color}15` || '#e8f0fe'
                   }}
+                  onClick={() => handleEventClick(event)}
+                  role="button"
+                  tabIndex={0}
                 >
                   <div className="p-2 h-full">
                     <div className="text-sm font-medium text-gray-900">

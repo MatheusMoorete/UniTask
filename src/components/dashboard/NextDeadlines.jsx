@@ -31,6 +31,23 @@ export function NextDeadlines() {
     })
     .slice(0, 5)
 
+  const getEventDateTime = (event) => {
+    // Se o evento já é uma data
+    if (event.start instanceof Date) {
+      return event.start
+    }
+    // Se o evento tem dateTime (hora específica)
+    if (event.start.dateTime) {
+      return new Date(event.start.dateTime)
+    }
+    // Se o evento é de dia inteiro
+    return new Date(event.start.date)
+  }
+
+  const isAllDayEvent = (event) => {
+    return event.start instanceof Date ? false : !event.start.dateTime
+  }
+
   return (
     <Card 
       className="border-l-4 border-l-accent shadow-md hover:bg-accent/10 cursor-pointer transition-colors"
@@ -53,28 +70,35 @@ export function NextDeadlines() {
           </p>
         ) : (
           <div className="space-y-4">
-            {upcomingEvents.map(event => (
-              <div 
-                key={event.id} 
-                className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50"
-              >
+            {upcomingEvents.map(event => {
+              const eventDate = getEventDateTime(event)
+              const isAllDay = isAllDayEvent(event)
+
+              return (
                 <div 
-                  className="w-2 h-2 mt-2 rounded-full flex-shrink-0" 
-                  style={{ backgroundColor: event.calendarColor || '#1a73e8' }}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {event.summary}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {format(
-                      new Date(event.start instanceof Date ? event.start : event.start.dateTime || event.start.date),
-                      "dd/MM"
-                    )}
-                  </p>
+                  key={event.id} 
+                  className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50"
+                >
+                  <div 
+                    className="w-2 h-2 mt-2 rounded-full flex-shrink-0" 
+                    style={{ backgroundColor: event.calendarColor || '#1a73e8' }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {event.summary}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {format(eventDate, "dd/MM")}
+                      {!isAllDay && (
+                        <span className="ml-2">
+                          {format(eventDate, "HH:mm")}
+                        </span>
+                      )}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </CardContent>
