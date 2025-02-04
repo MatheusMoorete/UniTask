@@ -14,12 +14,15 @@ export default function RootLayout() {
   const { user } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
+  const closeMobileMenu = () => setIsMobileMenuOpen(false)
+
   return (
     <NotificationProvider>
       <div className="flex min-h-screen bg-background">
+        {/* Desktop Sidebar */}
         <Sidebar className="hidden md:fixed md:inset-y-0 md:left-0 md:flex md:w-64 md:flex-col" />
 
-        {/* Menu Mobile */}
+        {/* Mobile Menu */}
         <div className={cn(
           "fixed inset-0 z-50 bg-background md:hidden transition-transform duration-300 ease-in-out",
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
@@ -28,33 +31,18 @@ export default function RootLayout() {
             <span className="text-xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
               UniTask
             </span>
-            <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
+            <Button variant="ghost" size="icon" onClick={closeMobileMenu}>
               <X className="h-6 w-6" />
             </Button>
           </div>
-          <nav className="mt-4 px-4 space-y-1">
-            {navigationItems.map((item) => (
-              <NavLink
-                key={item.href}
-                to={item.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors',
-                    isActive 
-                      ? 'bg-primary/10 text-primary' 
-                      : 'text-muted-foreground hover:bg-accent/5 hover:text-accent'
-                  )
-                }
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+          <div className="flex flex-col h-[calc(100vh-4rem)]">
+            <Sidebar isMobile onNavigate={closeMobileMenu} />
+          </div>
         </div>
 
+        {/* Main Content */}
         <main className="flex-1 md:ml-64">
+          {/* Top Bar */}
           <div className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-card/80 backdrop-blur-sm px-6">
             <Button
               variant="ghost"
@@ -74,6 +62,8 @@ export default function RootLayout() {
             </div>
             <NotificationButton />
           </div>
+
+          {/* Page Content */}
           <div className="p-2 sm:p-4 md:p-6">
             <Outlet />
           </div>

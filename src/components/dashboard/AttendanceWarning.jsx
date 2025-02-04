@@ -4,10 +4,28 @@ import { AlertTriangle } from 'lucide-react'
 import { useSubjects } from '../../hooks/useSubjects'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '../../lib/utils'
+import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
+import { isAfter, isBefore, startOfDay, addDays } from 'date-fns'
 
 export function AttendanceWarning() {
   const { subjects } = useSubjects()
   const navigate = useNavigate()
+  const { events, dashboardCalendars } = useGoogleCalendar()
+
+  // Filtra eventos dos próximos 7 dias
+  const upcomingEvents = events
+    .filter(event => {
+      if (!dashboardCalendars.includes(event.calendarId)) {
+        return false
+      }
+      const eventDate = new Date(event.start instanceof Date ? event.start : event.start.dateTime || event.start.date)
+      const today = startOfDay(new Date())
+      const nextWeek = addDays(today, 7)
+      return isAfter(eventDate, today) && isBefore(eventDate, nextWeek)
+    })
+
+  // Define o número de matérias a mostrar baseado na quantidade de eventos
+  const numSubjectsToShow = upcomingEvents.length > 5 ? 3 : 2
 
   // Função para calcular a porcentagem de faltas utilizada
   const calculateAttendancePercentage = (subject) => {
@@ -77,13 +95,13 @@ export function AttendanceWarning() {
 
   const subjectsAtRisk = processedSubjects.filter(subject => subject.percentage >= 75)
   const shouldShowRiskWarning = subjects.length > 3 && subjectsAtRisk.length > 0
-  const additionalSubjects = subjects.length - 2
-  const additionalRiskSubjects = subjectsAtRisk.length - 2 // Matérias em risco além das 2 mostradas
+  const additionalSubjects = subjects.length - numSubjectsToShow
+  const additionalRiskSubjects = subjectsAtRisk.length - numSubjectsToShow // Matérias em risco além das mostradas
 
   return (
     <Card 
       className={cn(
-        "border-l-4 shadow-md hover:bg-accent/10 cursor-pointer transition-colors",
+        "border-l-4 shadow-md hover:bg-accent/10 cursor-pointer transition-colors h-full flex flex-col",
         subjects.some(s => calculateAttendancePercentage(s) >= 75)
           ? "border-l-red-500"
           : subjects.some(s => calculateAttendancePercentage(s) >= 50)
@@ -116,9 +134,9 @@ export function AttendanceWarning() {
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         <div className="space-y-3">
-          {processedSubjects.slice(0, 2).map(subject => {
+          {processedSubjects.slice(0, numSubjectsToShow).map(subject => {
             const totalAbsences = calculateTotalAbsences(subject)
             const status = getStatusConfig(subject.percentage)
 

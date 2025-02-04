@@ -50,7 +50,7 @@ export function NextDeadlines() {
 
   return (
     <Card 
-      className="border-l-4 border-l-accent shadow-md hover:bg-accent/10 cursor-pointer transition-colors"
+      className="border-l-4 border-l-accent shadow-md hover:bg-accent/10 cursor-pointer transition-colors h-full flex flex-col"
       onClick={() => navigate('/calendar')}
     >
       <CardHeader>
@@ -59,7 +59,7 @@ export function NextDeadlines() {
           Próximos Prazos
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         {!isAuthenticated ? (
           <p className="text-sm text-gray-500">
             Conecte seu Google Calendar para ver seus próximos prazos

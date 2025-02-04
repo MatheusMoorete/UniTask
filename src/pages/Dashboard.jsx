@@ -30,15 +30,19 @@ import { useFirestore } from '../contexts/FirestoreContext'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 
 const TaskProgress = () => {
-  const { tasks: boardTasks } = useTasks()
-  const [todoTasks, setTodoTasks] = useState([])
+  const [tasks, setTasks] = useState([])
+  const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
   const { user } = useAuth()
   const { db } = useFirestore()
 
   // Fetch TodoList tasks
   useEffect(() => {
-    if (!user?.uid) return
+    if (!user?.uid) {
+      setTasks([])
+      setLoading(false)
+      return
+    }
 
     const todoTasksQuery = query(
       collection(db, 'tasks'),
@@ -52,23 +56,22 @@ const TaskProgress = () => {
         id: doc.id,
         ...doc.data()
       }))
-      console.log('TodoList tasks:', tasksData)
-      setTodoTasks(tasksData)
+      setTasks(tasksData)
+      setLoading(false)
     })
 
     return () => unsubscribe()
   }, [user, db])
 
-  // Combine and calculate stats for all tasks
-  const allTasks = todoTasks
-  const completedTasks = allTasks.filter(task => task.completed && task.defaultColumnId === 'todo').length
-  const pendingTasks = allTasks.filter(task => !task.completed && task.defaultColumnId === 'todo').length
-  const totalTasks = allTasks.filter(task => task.defaultColumnId === 'todo').length
+  // Calculate stats
+  const completedTasks = tasks.filter(task => task.completed && task.defaultColumnId === 'todo').length
+  const pendingTasks = tasks.filter(task => !task.completed && task.defaultColumnId === 'todo').length
+  const totalTasks = tasks.filter(task => task.defaultColumnId === 'todo').length
   const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
   return (
     <Card 
-      className="border-l-4 border-l-primary shadow-md hover:bg-accent/10 cursor-pointer transition-colors"
+      className="border-l-4 border-l-primary shadow-md hover:bg-accent/10 cursor-pointer transition-colors h-full"
       onClick={() => navigate('/todo')}
     >
       <CardHeader className="pb-2">
@@ -102,7 +105,7 @@ const FocusTime = () => {
   const streak = getStreak()
 
   return (
-    <Card className="border-l-4 border-l-secondary shadow-md">
+    <Card className="border-l-4 border-l-secondary shadow-md h-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Clock className="h-4 w-4 text-secondary" />
@@ -126,19 +129,45 @@ const FocusTime = () => {
 
 const Dashboard = () => {
   const { user } = useAuth()
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 420)
   const [isEditingSemester, setIsEditingSemester] = useState(false)
   const [semester, setSemester] = useState('2º Semestre 2024')
   const [tempSemester, setTempSemester] = useState(semester)
+  const { getTodayFocusTime, formatTime, getStreak } = usePomodoro()
+  const todayTime = getTodayFocusTime()
+  const streak = getStreak()
+  const [tasks, setTasks] = useState([])
+  const [loading, setLoading] = useState(true)
+  const { db } = useFirestore()
 
+  // Fetch TodoList tasks
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 420)
+    if (!user?.uid) {
+      setTasks([])
+      setLoading(false)
+      return
     }
 
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+    const todoTasksQuery = query(
+      collection(db, 'tasks'),
+      where('userId', '==', user.uid),
+      where('date', '!=', null),
+      where('defaultColumnId', '==', 'todo')
+    )
+
+    const unsubscribe = onSnapshot(todoTasksQuery, (snapshot) => {
+      const tasksData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setTasks(tasksData)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [user, db])
+
+  // Calculate task stats
+  const pendingTasks = tasks.filter(task => !task.completed && task.defaultColumnId === 'todo').length
 
   const handleSemesterEdit = () => {
     if (isEditingSemester) {
@@ -147,51 +176,12 @@ const Dashboard = () => {
     setIsEditingSemester(!isEditingSemester)
   }
 
-  // Versão mobile do dashboard
-  if (isMobile) {
-    return (
-      <div className="space-y-4">
-        {/* Cards simplificados para mobile */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex flex-col items-center text-center">
-                <Brain className="h-8 w-8 text-primary mb-2" />
-                <div className="text-2xl font-bold">4h</div>
-                <p className="text-xs text-muted-foreground">Tempo Focado</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex flex-col items-center text-center">
-                <Target className="h-8 w-8 text-primary mb-2" />
-                <div className="text-2xl font-bold">8</div>
-                <p className="text-xs text-muted-foreground">Tarefas Concluídas</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Próximos Prazos */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Próximos Prazos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <UpcomingDeadlines />
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Versão desktop do dashboard (mantenha o layout original)
   return (
-    <div className="h-full">
-      <div className="flex items-center justify-between mb-6">
+    <div className="h-full p-4 md:p-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Acompanhe seu progresso acadêmico
           </p>
@@ -220,11 +210,56 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <TaskProgress />
-        <FocusTime />
-        <NextDeadlines />
-        <AttendanceWarning />
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+        {/* Mobile Stats Cards - Visible only on small screens */}
+        <div className="grid grid-cols-2 gap-4 sm:hidden">
+          <Card className="border-l-4 border-l-secondary shadow-md">
+            <CardContent className="p-4">
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="h-4 w-4 text-secondary" />
+                  <span className="text-sm font-medium">Tempo Focado</span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-2xl font-bold">{formatTime(todayTime)}</p>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <TrendingUp className="h-3 w-3" />
+                    <span>{streak} dias seguidos</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-primary shadow-md">
+            <CardContent className="p-4">
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2 mb-3">
+                  <Target className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Tarefas</span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-2xl font-bold">{pendingTasks}</p>
+                  <p className="text-xs text-muted-foreground">pendentes hoje</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Desktop Cards - Hidden on mobile, visible on sm and up */}
+        <div className="hidden sm:block h-full">
+          <TaskProgress />
+        </div>
+        <div className="hidden sm:block h-full">
+          <FocusTime />
+        </div>
+        <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+          <NextDeadlines />
+        </div>
+        <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+          <AttendanceWarning />
+        </div>
       </div>
     </div>
   )
