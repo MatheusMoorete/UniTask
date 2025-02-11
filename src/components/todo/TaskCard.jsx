@@ -42,6 +42,23 @@ const PRIORITY_OPTIONS = [
   { value: 'P4', label: 'P4 - Nenhuma' }
 ]
 
+// Função para converter para data válida
+const toValidDate = (date) => {
+  if (!date) return new Date()
+  try {
+    // Se já for uma instância de Date, retorna ela mesma
+    if (date instanceof Date && !isNaN(date)) return date
+    // Se for um timestamp do Firestore
+    if (date?.toDate) return date.toDate()
+    // Se for uma string ou número, tenta converter
+    const parsed = new Date(date)
+    return isNaN(parsed) ? new Date() : parsed
+  } catch (error) {
+    console.error('Error converting date:', error)
+    return new Date()
+  }
+}
+
 export function TaskCard({ 
   task,
   isOpen, 
@@ -72,16 +89,9 @@ export function TaskCard({
   useEffect(() => {
     if (task) {
       try {
-        // Converter a data do Firestore para objeto Date
-        const taskDate = task.date instanceof Date 
-          ? task.date 
-          : task.date?.toDate 
-            ? task.date.toDate() 
-            : new Date(task.date || new Date())
-
         setFormData({
           ...task,
-          date: taskDate,
+          date: toValidDate(task.date),
           priority: task.priority || 'P2',
           subtasks: task.subtasks || [],
           location: task.location || '',
@@ -89,7 +99,6 @@ export function TaskCard({
         })
       } catch (error) {
         console.error('Error setting form data:', error)
-        // Usar data atual como fallback
         setFormData({
           ...task,
           date: new Date(),
@@ -200,7 +209,7 @@ export function TaskCard({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[95vw] w-full sm:max-w-md md:max-w-lg">
           <DialogHeader className="space-y-2 pb-4">
             <DialogTitle>Editar Tarefa</DialogTitle>
             <DialogDescription>
@@ -219,6 +228,7 @@ export function TaskCard({
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="Digite o título da tarefa"
                   required
+                  className="w-full"
                 />
               </div>
 
@@ -230,13 +240,13 @@ export function TaskCard({
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Digite uma descrição (opcional)"
                   rows={2}
-                  className="resize-none"
+                  className="resize-none w-full"
                 />
               </div>
             </div>
 
             {/* Data e Prioridade */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Prazo</Label>
                 <Popover>
@@ -246,13 +256,15 @@ export function TaskCard({
                       className="w-full justify-start text-left font-normal"
                     >
                       <Calendar className="mr-2 h-4 w-4" />
-                      {format(formData.date, "dd/MM/yyyy", { locale: ptBR })}
+                      {format(toValidDate(formData.date), "dd/MM/yyyy", { locale: ptBR })}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <CustomCalendar
-                      selectedDate={formData.date}
-                      onDateSelect={(date) => setFormData(prev => ({ ...prev, date }))}
+                    <CalendarComponent
+                      mode="single"
+                      selected={toValidDate(formData.date)}
+                      onSelect={(date) => setFormData(prev => ({ ...prev, date: toValidDate(date) }))}
+                      initialFocus
                     />
                   </PopoverContent>
                 </Popover>
@@ -264,8 +276,8 @@ export function TaskCard({
                   value={formData.priority}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione a prioridade" />
                   </SelectTrigger>
                   <SelectContent>
                     {PRIORITY_OPTIONS.map(option => (
@@ -278,143 +290,152 @@ export function TaskCard({
               </div>
             </div>
 
+            {/* Local */}
+            <div>
+              <Label htmlFor="location">Local</Label>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Input
+                  id="location"
+                  value={formData.location}
+                  onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                  placeholder="Digite o local (opcional)"
+                  className="flex-1"
+                />
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div>
+              <Label>Tags</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {tags.map(tag => (
+                  <Badge
+                    key={tag.id}
+                    variant="secondary"
+                    className={cn(
+                      "cursor-pointer transition-colors",
+                      formData.tags.some(t => t.id === tag.id)
+                        ? "bg-primary/20 hover:bg-primary/30"
+                        : "hover:bg-accent"
+                    )}
+                    onClick={() => handleTagSelect(tag)}
+                  >
+                    {tag.name}
+                    {formData.tags.some(t => t.id === tag.id) && (
+                      <X
+                        className="ml-1 h-3 w-3"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTagSelect(tag)
+                        }}
+                      />
+                    )}
+                  </Badge>
+                ))}
+                {showTagInput ? (
+                  <form onSubmit={handleCreateTag} className="flex items-center gap-2">
+                    <Input
+                      value={newTagName}
+                      onChange={(e) => setNewTagName(e.target.value)}
+                      placeholder="Nome da tag"
+                      className="h-7 w-32 text-sm"
+                    />
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                    >
+                      Adicionar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => {
+                        setShowTagInput(false)
+                        setNewTagName('')
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  </form>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTagInput(true)}
+                    className="h-7"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Nova Tag
+                  </Button>
+                )}
+              </div>
+            </div>
+
             {/* Subtarefas */}
             <div>
-              <Label className="mb-2 block">Subtarefas</Label>
-              <div className="space-y-2 max-h-32 overflow-y-auto">
+              <Label>Subtarefas</Label>
+              <div className="space-y-2 mt-2">
                 {formData.subtasks.map((subtask, index) => (
                   <div key={index} className="flex items-center gap-2">
                     <Input
                       value={subtask.title}
                       onChange={(e) => handleSubtaskChange(index, e.target.value)}
                       placeholder="Digite a subtarefa"
-                      className="h-8"
+                      className="flex-1"
                     />
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
+                      size="sm"
                       onClick={() => handleRemoveSubtask(index)}
                     >
-                      <X className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  className="w-full"
                   onClick={handleAddSubtask}
+                  className="w-full"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Adicionar subtarefa
+                  Adicionar Subtarefa
                 </Button>
               </div>
             </div>
 
-            {/* Etiquetas */}
-            <div>
-              <Label className="mb-2 block">Etiquetas</Label>
-              {showTagInput ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={newTagName}
-                    onChange={(e) => setNewTagName(e.target.value)}
-                    placeholder="Nome da nova tag"
-                    className="flex-1 h-8"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-8"
-                    onClick={handleCreateTag}
-                  >
-                    Criar
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8"
-                    onClick={() => {
-                      setShowTagInput(false)
-                      setNewTagName('')
-                      setError('')
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              ) : (
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteAlert(true)
+                }}
+                className="w-full sm:w-auto"
+              >
+                Excluir
+              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setShowTagInput(true)}
-                >
-                  <Tag className="h-4 w-4 mr-2" />
-                  Adicionar etiquetas
-                </Button>
-              )}
-              {error && (
-                <p className="text-sm text-red-500 mt-1">
-                  {error}
-                </p>
-              )}
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {tags.map((tag) => (
-                    <Badge
-                      key={tag.id}
-                      variant="outline"
-                      className={`cursor-pointer text-xs ${
-                        formData.tags.some(t => t.id === tag.id) 
-                          ? 'bg-primary text-primary-foreground'
-                          : ''
-                      }`}
-                      onClick={() => handleTagSelect(tag)}
-                    >
-                      {tag.name}
-                      {formData.tags.some(t => t.id === tag.id) && (
-                        <X 
-                          className="h-3 w-3 ml-1 hover:text-red-500"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setTagToDelete(tag)
-                          }}
-                        />
-                      )}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-
-
-            {/* Botões */}
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                onClick={() => setShowDeleteAlert(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Excluir
-              </Button>
-              <div className="flex gap-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
                   onClick={() => onOpenChange(false)}
+                  className="w-full sm:w-auto"
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" size="sm">
+                <Button type="submit" className="w-full sm:w-auto">
                   Salvar
                 </Button>
               </div>
@@ -423,52 +444,22 @@ export function TaskCard({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog 
-        open={!!tagToDelete} 
-        onOpenChange={() => setTagToDelete(null)}
-      >
-        <AlertDialogContent>
+      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+        <AlertDialogContent className="max-w-[95vw] w-full sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover etiqueta</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja remover esta etiqueta da tarefa?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => {
-                handleTagSelect(tagToDelete)
-                setTagToDelete(null)
-              }}
-            >
-              Remover
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog 
-        open={showDeleteAlert} 
-        onOpenChange={setShowDeleteAlert}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir tarefa</AlertDialogTitle>
+            <AlertDialogTitle>Excluir Tarefa</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir esta tarefa? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              variant="destructive"
               onClick={() => {
                 onDelete(task.id)
-                setShowDeleteAlert(false)
                 onOpenChange(false)
               }}
+              className="w-full sm:w-auto"
             >
               Excluir
             </AlertDialogAction>

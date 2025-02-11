@@ -25,9 +25,4 @@ Loading.propTypes = {
   className: PropTypes.string
 }
 
-Loading.defaultProps = {
-  fullScreen: false,
-  message: 'Carregando...'
-}
-
 Loading.displayName = 'Loading' 

@@ -5,8 +5,8 @@ import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, MapPin, Chev
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
-import { TaskDialog } from './TaskDialog'
-import { TaskCard } from './TaskCard'
+import { CreateTaskDialog } from './CreateTaskDialog'
+import { EditTaskDialog } from './EditTaskDialog'
 import { CustomCalendar } from '../ui/custom-calendar'
 import { db } from '../../lib/firebase'
 import { collection, addDoc, updateDoc, deleteDoc, getDocs, query, where, doc } from 'firebase/firestore'
@@ -17,17 +17,38 @@ import {
 } from "../ui/popover"
 import { cn } from "../../lib/utils"
 import { useAuth } from '../../contexts/AuthContext'
+import { Calendar } from 'lucide-react'
+import { Badge } from '../ui/badge'
+import confetti from 'canvas-confetti'
 
 function TodoList() {
   const { user } = useAuth()
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
-  const [showTaskCard, setShowTaskCard] = useState(false)
   const { events = [] } = useGoogleCalendar()
   const [tags, setTags] = useState([])
   const [tasks, setTasks] = useState([])
   const defaultColumnId = 'todo'
+  const [expandedCards, setExpandedCards] = useState(new Set())
+
+  // Função para converter para data válida
+  const toValidDate = (date) => {
+    if (!date) return new Date()
+    try {
+      // Se já for uma instância de Date, retorna ela mesma
+      if (date instanceof Date && !isNaN(date)) return date
+      // Se for um timestamp do Firestore
+      if (date?.toDate) return date.toDate()
+      // Se for uma string ou número, tenta converter
+      const parsed = new Date(date)
+      return isNaN(parsed) ? new Date() : parsed
+    } catch (error) {
+      console.error('Error converting date:', error)
+      return new Date()
+    }
+  }
 
   // Carregar tarefas e tags do usuário
   useEffect(() => {
@@ -46,12 +67,16 @@ function TodoList() {
           // Carregar tarefas
           const tasksQuery = query(collection(db, 'tasks'), where('userId', '==', user.uid))
           const tasksSnapshot = await getDocs(tasksQuery)
-          const userTasks = tasksSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            tags: doc.data().tags || [], // Garantir que tags existe
-            isExpanded: false // Inicialmente todas as tarefas estão recolhidas
-          }))
+          const userTasks = tasksSnapshot.docs.map(doc => {
+            const data = doc.data()
+            return {
+              id: doc.id,
+              ...data,
+              date: toValidDate(data.date),
+              tags: data.tags || [],
+              isExpanded: false
+            }
+          })
           setTasks(userTasks || [])
         } catch (error) {
           console.error('Error loading user data:', error)
@@ -72,25 +97,22 @@ function TodoList() {
         defaultColumnId: 'todo',
         position: tasks?.length || 0,
         updatedAt: new Date(),
-        isExpanded: false, // Inicialmente a tarefa está recolhida
-        // Garantir que a data seja um objeto Date válido
-        date: taskData.date instanceof Date ? taskData.date : new Date(taskData.date || selectedDate),
+        isExpanded: false,
+        date: toValidDate(taskData.date || selectedDate),
         tags: taskData.tags || []
       }
 
       if (selectedTask) {
-        // Editar tarefa existente
         const taskRef = doc(db, 'tasks', selectedTask.id)
         await updateDoc(taskRef, newTask)
         setTasks(tasks.map(t => t.id === selectedTask.id ? { ...newTask, id: selectedTask.id } : t))
       } else {
-        // Adicionar nova tarefa
         const docRef = await addDoc(collection(db, 'tasks'), newTask)
         const addedTask = { ...newTask, id: docRef.id }
         setTasks([...tasks, addedTask])
       }
       setSelectedTask(null)
-      setIsTaskDialogOpen(false)
+      setIsCreateDialogOpen(false)
     } catch (error) {
       console.error('Error saving task:', error)
     }
@@ -153,26 +175,41 @@ function TodoList() {
 
   const handleToggleComplete = async (taskId) => {
     try {
-      const task = tasks.find(t => t.id === taskId)
-      if (!task) return
+      const taskToUpdate = tasks.find((task) => task.id === taskId);
+      if (!taskToUpdate) return;
 
-      const updatedTask = { ...task, completed: !task.completed }
-      const taskRef = doc(db, 'tasks', taskId)
-      await updateDoc(taskRef, updatedTask)
-      setTasks(tasks.map(t => t.id === taskId ? updatedTask : t))
+      const updatedTask = { ...taskToUpdate, completed: !taskToUpdate.completed };
+      
+      // Se a tarefa foi marcada como completa, dispara o efeito de confete
+      if (!taskToUpdate.completed) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444']
+        });
+      }
+
+      await updateDoc(doc(db, 'tasks', taskId), {
+        completed: !taskToUpdate.completed
+      });
+
+      setTasks(tasks.map((task) => 
+        task.id === taskId ? updatedTask : task
+      ));
+
     } catch (error) {
-      console.error('Error updating task:', error)
+      console.error('Erro ao atualizar tarefa:', error);
     }
-  }
+  };
 
   const handleTaskUpdate = async (updatedTask) => {
     try {
       if (!updatedTask?.id) return
 
-      // Garantir que a data seja um objeto Date válido
       const taskToUpdate = {
         ...updatedTask,
-        date: updatedTask.date instanceof Date ? updatedTask.date : new Date(updatedTask.date),
+        date: toValidDate(updatedTask.date),
         updatedAt: new Date()
       }
 
@@ -186,9 +223,16 @@ function TodoList() {
     }
   }
 
-  const handleEditTask = (task) => {
+  const handleTaskClick = (task) => {
     setSelectedTask(task)
-    setIsTaskDialogOpen(true)
+    setIsEditDialogOpen(true)
+    setIsCreateDialogOpen(false)
+  }
+
+  const handleNewTask = () => {
+    setSelectedTask(null)
+    setIsCreateDialogOpen(true)
+    setIsEditDialogOpen(false)
   }
 
   const handleAddFromCalendar = (event) => {
@@ -198,7 +242,7 @@ function TodoList() {
       id: Date.now().toString(),
       title: event.summary || '',
       description: event.description || '',
-      date: new Date(event.start?.dateTime || event.start?.date || new Date()),
+      date: toValidDate(event.start?.dateTime || event.start?.date),
       priority: 'P2',
       completed: false,
       subtasks: [],
@@ -210,7 +254,8 @@ function TodoList() {
       position: tasks?.length || 0,
       updatedAt: new Date()
     }
-    setTasks([...tasks, newTask])
+
+    handleAddTask(newTask)
   }
 
   const handlePreviousDay = () => {
@@ -236,22 +281,13 @@ function TodoList() {
     const date = addDays(startOfWeek(selectedDate), index)
     return {
       date,
-      dayName: format(date, 'EEE', { locale: ptBR }),
+      dayNameShort: format(date, 'E', { locale: ptBR }).slice(0, 3),
+      dayNameLong: format(date, 'EEEE', { locale: ptBR }),
       dayNumber: format(date, 'd'),
       isSelected: format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'),
       isToday: format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
     }
   }) : []
-
-  const handleTaskClick = (task) => {
-    setSelectedTask(task)
-    setShowTaskCard(true)
-  }
-
-  const handleCloseTaskCard = () => {
-    setSelectedTask(null)
-    setShowTaskCard(false)
-  }
 
   // Função para verificar se uma data é do mesmo dia
   const isSameDay = (date1, date2) => {
@@ -293,255 +329,301 @@ function TodoList() {
     }
   }
 
-  return (
-    <div className="container mx-auto py-6 max-w-5xl">
-      {/* Title */}
-      <h1 className="text-2xl font-bold mb-4">ToDo List</h1>
+  // Função para obter a cor do hover baseado na prioridade
+  const getHoverColor = (priority) => {
+    switch (priority) {
+      case 'P1':
+        return 'hover:bg-red-50'
+      case 'P2':
+        return 'hover:bg-yellow-50'
+      case 'P3':
+        return 'hover:bg-green-50'
+      default:
+        return 'hover:bg-accent/50'
+    }
+  }
 
-      {/* Navigation Bar */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-[180px] flex items-center justify-center text-center font-normal",
-                  "transition-all duration-200 hover:shadow-md hover:border-primary/20 hover:bg-primary/5 hover:text-foreground",
-                  !selectedDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, "MMMM yyyy", { locale: ptBR }) : "Selecione uma data"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <CustomCalendar 
-                selectedDate={selectedDate || new Date()}
-                onDateSelect={setSelectedDate}
-              />
-            </PopoverContent>
-          </Popover>
+  // Função para alternar expansão do card
+  const toggleCardExpansion = (taskId, e) => {
+    e.stopPropagation()
+    setExpandedCards(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId)
+      } else {
+        newSet.add(taskId)
+      }
+      return newSet
+    })
+  }
+
+  return (
+    <div className="h-full p-4 md:p-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold">Lista de Tarefas</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gerencie suas tarefas e prazos
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePreviousDay}
-            className="h-9 w-9 transition-all duration-200 hover:shadow-sm hover:bg-primary/10 hover:text-primary"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto"
             onClick={handleToday}
-            className="h-9 px-3 transition-all duration-200 hover:shadow-sm hover:bg-primary/10 hover:text-primary"
           >
             Hoje
           </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={handlePreviousDay}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto min-w-[120px]"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="center">
+                <CustomCalendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={handleNextDay}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleNextDay}
-            className="h-9 w-9 transition-all duration-200 hover:shadow-sm hover:bg-primary/10 hover:text-primary"
+            onClick={handleNewTask}
+            size="sm"
+            className="w-full sm:w-auto"
           >
-            <ChevronRight className="h-4 w-4" />
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Tarefa
           </Button>
         </div>
-        <Button onClick={() => setIsTaskDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar tarefa
-        </Button>
       </div>
 
-      {/* Barra de navegação dos dias */}
-      <div className="grid grid-cols-7 border-b mb-6">
-        {weekDays.map(({ date, dayName, dayNumber, isSelected, isToday }) => (
+      {/* Week Days */}
+      <div className="grid grid-cols-7 gap-2 mb-6">
+        {weekDays.map(({ date, dayNameShort, dayNameLong, dayNumber, isSelected, isToday }) => (
           <button
-            key={format(date, 'yyyy-MM-dd')}
+            key={date.toString()}
             onClick={() => setSelectedDate(date)}
             className={cn(
-              "flex flex-col items-center py-2 transition-colors border-b-2",
-              isSelected 
-                ? "border-primary text-primary font-medium bg-primary/5" 
-                : "border-transparent hover:bg-primary/[0.03]",
-              !isSelected && isToday && "text-primary"
+              "group relative flex flex-col items-center justify-center py-2 rounded-xl transition-all duration-200",
+              "hover:bg-transparent",
+              isSelected ? "text-blue-600" : "text-muted-foreground",
+              isToday && !isSelected && "text-blue-500"
             )}
           >
-            <span className={cn(
-              "text-xs capitalize",
-              isSelected ? "text-primary" : "text-muted-foreground"
-            )}>
-              {dayName}
+            <span className="text-[0.65rem] sm:text-xs font-medium mb-1 opacity-60 group-hover:opacity-100 transition-opacity">
+              <span className="sm:hidden">{dayNameShort}</span>
+              <span className="hidden sm:inline">{dayNameLong}</span>
             </span>
             <span className={cn(
-              "text-sm",
-              isSelected && "font-bold"
+              "flex items-center justify-center w-8 h-8 text-sm rounded-full transition-all",
+              "group-hover:bg-blue-50/50",
+              isSelected && "bg-blue-600 text-white font-medium group-hover:bg-blue-600",
+              isToday && !isSelected && "bg-blue-100/50 group-hover:bg-blue-100"
             )}>
               {dayNumber}
             </span>
+            {isSelected && (
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-600" />
+            )}
           </button>
         ))}
       </div>
 
-      {/* Lista de Tarefas */}
-      <div className="space-y-4">
-        {filteredTasks.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            Nenhuma tarefa para este dia
-          </div>
-        ) : (
-          filteredTasks.map(task => (
-            <div
-              key={task.id}
-              className={cn(
-                "flex items-start gap-4 p-4 rounded-lg border border-gray-200/75 transition-all hover:shadow-md bg-white",
-                "transform hover:-translate-y-0.5 duration-200",
-                task.priority === 'P1' && "hover:bg-red-50/50",
-                task.priority === 'P2' && "hover:bg-yellow-50/50",
-                task.priority === 'P3' && "hover:bg-green-50/50",
-                !['P1', 'P2', 'P3'].includes(task.priority) && "hover:bg-gray-50/50"
-              )}
-              onClick={() => handleTaskClick(task)}
-            >
-              <div className="flex items-center self-center" onClick={(e) => e.stopPropagation()}>
+      {/* Tasks List */}
+      <div className="w-full max-w-full sm:max-w-[90%] mx-auto space-y-2 mt-4">
+        <div className="space-y-2">
+          {tasks
+            .filter(task => task.defaultColumnId === defaultColumnId)
+            .sort((a, b) => {
+              if (a.completed === b.completed) {
+                return new Date(b.updatedAt) - new Date(a.updatedAt)
+              }
+              return a.completed ? 1 : -1
+            })
+            .map(task => (
+              <div
+                key={task.id}
+                className={cn(
+                  "group flex items-start gap-3 p-3 rounded-lg transition-colors border border-border/50",
+                  "cursor-pointer shadow-sm hover:shadow-md",
+                  getHoverColor(task.priority),
+                  task.completed && "opacity-50"
+                )}
+                onClick={() => handleTaskClick(task)}
+              >
                 <Checkbox
                   checked={task.completed}
                   onCheckedChange={() => handleToggleComplete(task.id)}
-                  className="h-4 w-4 rounded-full border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-1"
                 />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <h3 className={cn(
-                      "font-medium truncate",
-                      task.completed ? 'line-through text-muted-foreground' : ''
-                    )}>
-                      {task.title}
-                    </h3>
-                    {task.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                        {task.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {task.priority && (
-                      <span className={cn(
-                        "text-xs px-2.5 py-1 rounded-full font-medium shadow-sm",
-                        getPriorityColor(task.priority)
+                <div className="flex-1 min-w-0">
+                  {/* Cabeçalho do Card */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <h3 className={cn(
+                        "font-medium leading-none",
+                        task.completed && "line-through"
                       )}>
-                        {task.priority}
-                      </span>
-                    )}
-                    {task.calendarEventId && (
-                      <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    )}
+                        {task.title}
+                      </h3>
+                      {task.description && (
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                          {task.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "text-xs px-2 py-0.5 rounded-full font-medium",
+                          getPriorityColor(task.priority)
+                        )}>
+                          {task.priority}
+                        </span>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          <span>
+                            {format(toValidDate(task.date), "dd/MM/yyyy", { locale: ptBR })}
+                            {task.date instanceof Date && task.date.getHours() !== 0 && (
+                              <> • {format(task.date, "HH:mm")}</>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      {task.location && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3" />
+                          <span className="truncate max-w-[150px]">{task.location}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                {task.subtasks?.length > 0 && (
-                  <div className="mt-3">
+
+                  {/* Botão de Expandir Subtarefas */}
+                  {task.subtasks?.length > 0 && (
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setTasks(prev => prev.map(t => 
-                          t.id === task.id 
-                            ? { ...t, isExpanded: !t.isExpanded }
-                            : t
-                        ))
-                      }}
-                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
+                      onClick={(e) => toggleCardExpansion(task.id, e)}
+                      className="flex items-center gap-2 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
                     >
                       <ChevronDown 
                         className={cn(
                           "h-4 w-4 transition-transform duration-200",
-                          task.isExpanded && "transform rotate-180"
+                          expandedCards.has(task.id) && "rotate-180"
                         )}
                       />
                       <span>{task.subtasks.length} subtarefa{task.subtasks.length !== 1 ? 's' : ''}</span>
                     </button>
-                    
-                    {task.isExpanded && (
-                      <div className="mt-2 space-y-1.5 pl-6">
-                        {task.subtasks.map((subtask, index) => (
-                          <div 
-                            key={index} 
-                            className="flex items-center gap-2 text-sm text-muted-foreground hover:bg-accent/5 rounded p-0.5"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Checkbox
-                              checked={subtask.completed}
-                              onCheckedChange={() => {
-                                const newSubtasks = [...task.subtasks]
-                                newSubtasks[index].completed = !newSubtasks[index].completed
-                                handleTaskUpdate({
-                                  ...task,
-                                  subtasks: newSubtasks
-                                })
-                              }}
-                              className="h-3.5 w-3.5 rounded border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                            />
-                            <span className={cn(
-                              "truncate",
-                              subtask.completed && 'line-through'
-                            )}>
-                              {subtask.title}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {task.tags?.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {task.tags.map(tag => (
-                      <span
-                        key={tag.id}
-                        className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full"
-                      >
-                        {tag.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {task.location && (
-                  <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5" />
-                    <span className="truncate">{task.location}</span>
-                  </div>
-                )}
+                  )}
+
+                  {/* Subtarefas */}
+                  {task.subtasks?.length > 0 && expandedCards.has(task.id) && (
+                    <div className="mt-2 space-y-1.5 pl-4 border-l-2 border-accent">
+                      {task.subtasks.map((subtask, index) => (
+                        <div 
+                          key={index}
+                          className="flex items-center gap-2 text-sm text-muted-foreground"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Checkbox
+                            checked={subtask.completed}
+                            onCheckedChange={() => {
+                              const newSubtasks = [...task.subtasks]
+                              newSubtasks[index].completed = !newSubtasks[index].completed
+                              handleTaskUpdate({
+                                ...task,
+                                subtasks: newSubtasks
+                              })
+                            }}
+                            className="h-3.5 w-3.5"
+                          />
+                          <span className={cn(
+                            "text-sm",
+                            subtask.completed && "line-through"
+                          )}>
+                            {subtask.title}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {task.tags?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {task.tags.map(tag => (
+                        <Badge
+                          key={tag.id}
+                          variant="secondary"
+                          className="text-xs"
+                          style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                        >
+                          {tag.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
-        )}
+            ))}
+        </div>
       </div>
 
-      {/* Task Card Dialog */}
-      <TaskCard
-        task={selectedTask}
-        isOpen={showTaskCard}
-        onOpenChange={setShowTaskCard}
-        onUpdate={handleTaskUpdate}
-        onDelete={handleDeleteTask}
-        tags={tags}
-        onTagCreate={handleAddTag}
-        onTagDelete={handleDeleteTag}
-      />
-
-      {/* Dialog de Tarefa */}
-      <TaskDialog
-        isOpen={isTaskDialogOpen}
-        onOpenChange={setIsTaskDialogOpen}
-        task={selectedTask}
+      {/* Task Dialogs */}
+      <CreateTaskDialog
+        isOpen={isCreateDialogOpen}
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open)
+          if (!open) setSelectedTask(null)
+        }}
         onSubmit={handleAddTask}
-        onDelete={handleDeleteTask}
-        calendarEvents={events}
-        onAddFromCalendar={handleAddFromCalendar}
         tags={tags}
         onTagCreate={handleAddTag}
         onTagDelete={handleDeleteTag}
         columnId={defaultColumnId}
+      />
+
+      <EditTaskDialog
+        isOpen={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open)
+          if (!open) setSelectedTask(null)
+        }}
+        onSubmit={handleTaskUpdate}
+        task={selectedTask}
+        tags={tags}
+        onTagCreate={handleAddTag}
+        onTagDelete={handleDeleteTag}
+        onDelete={handleDeleteTask}
       />
     </div>
   )
