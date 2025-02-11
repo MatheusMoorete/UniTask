@@ -1,5 +1,0 @@
-export { TaskBoard } from './TaskBoard'
-export { AddColumnButton } from './AddColumnButton'
-export { BoardColumn } from './BoardColumn'
-export { BoardHeader } from './BoardHeader'
-export { SortableColumn } from './SortableColumn' 

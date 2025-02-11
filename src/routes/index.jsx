@@ -1,13 +1,14 @@
-import { TodoList } from '../components/todo/TodoList'
-import { TaskBoard } from '../components/tasks/board'
+import { Suspense } from 'react'
+import { TodoList } from './lazyRoutes'
+import { LoadingSpinner } from '../components/ui/loading-spinner'
 
 export const routes = [
   {
-    path: '/tasks',
-    element: <TaskBoard />
-  },
-  {
     path: '/todo',
-    element: <TodoList />
+    element: (
+      <Suspense fallback={<LoadingSpinner />}>
+        <TodoList />
+      </Suspense>
+    )
   }
 ] 
