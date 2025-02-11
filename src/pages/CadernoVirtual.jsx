@@ -9,8 +9,7 @@ import { AddConteudoMenu } from '../components/notebook/AddConteudoMenu'
 import { AddTextDialog } from '../components/notebook/AddTextDialog'
 import { useCadernoVirtual } from '../hooks/useCadernoVirtual'
 import { Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
-import { Toaster } from 'sonner'
+import { showToast } from '../lib/toast'
 import {
   Dialog,
   DialogContent,
@@ -141,7 +140,7 @@ export function CadernoVirtual() {
 
   // Função para remover material
   const handleRemoveMaterial = async (material) => {
-    toast.custom((t) => (
+    showToast((t) => (
       <div className="bg-white rounded-lg shadow-lg p-4 border">
         <div className="mb-4">
           <h3 className="text-sm font-medium mb-1">Confirmar remoção</h3>
@@ -153,7 +152,7 @@ export function CadernoVirtual() {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => toast.dismiss(t)}
+            onClick={() => showToast.dismiss(t)}
           >
             Cancelar
           </Button>
@@ -161,12 +160,12 @@ export function CadernoVirtual() {
             variant="destructive" 
             size="sm"
             onClick={async () => {
-              toast.dismiss(t)
+              showToast.dismiss(t)
               try {
                 await removeMaterial(material.id, material.fileUrl)
-                toast.success('Material removido com sucesso!')
+                showToast.success('Material removido com sucesso!')
               } catch (error) {
-                toast.error('Erro ao remover material')
+                showToast.error('Erro ao remover material')
                 console.error(error)
               }
             }}
@@ -208,7 +207,7 @@ export function CadernoVirtual() {
         onClick={() => {
           setIsHighlightMode(!isHighlightMode)
           if (!isHighlightMode) {
-            toast.info('Modo marcação ativado: selecione o texto que deseja destacar', {
+            showToast.info('Modo marcação ativado: selecione o texto que deseja destacar', {
               duration: 2000,
               position: 'bottom-center'
             })
@@ -319,7 +318,7 @@ export function CadernoVirtual() {
         {...props.attrs}
         onClick={() => {
           if (props.annotation?.comment) {
-            toast.custom((t) => (
+            showToast.custom((t) => (
               <div className="bg-white rounded-lg shadow-lg p-4 border max-w-sm">
                 <div className="mb-2">
                   <p className="text-sm font-medium mb-1">Texto marcado:</p>
@@ -410,7 +409,7 @@ export function CadernoVirtual() {
       [selectedFile?.id]: [...(prev[selectedFile?.id] || []), highlight]
     }))
 
-    toast.success('Marcação salva com sucesso!', {
+    showToast.success('Marcação salva com sucesso!', {
       position: 'bottom-center',
       duration: 2000
     })
@@ -697,19 +696,10 @@ export function CadernoVirtual() {
       </Dialog>
 
       <CommentDialog />
-
-      <Toaster 
-        position="top-center"
-        expand={false}
-        richColors
-        toastOptions={{
-          className: 'border border-border',
-          style: {
-            background: 'hsl(var(--background))',
-            color: 'hsl(var(--foreground))',
-          },
-        }}
-      />
     </>
   )
-} 
+}
+
+CadernoVirtual.displayName = 'CadernoVirtual'
+
+export default CadernoVirtual 

@@ -25,7 +25,7 @@ import { Progress } from '../components/ui/progress'
 import { Plus, Trash2, Pencil, Loader2, MinusCircle, PlusCircle, Clock } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { motion } from 'framer-motion'
-import { toast } from 'sonner'
+import { showToast } from '../lib/toast'
 
 export default function Attendance() {
   const { subjects, loading, addSubject, updateSubject, deleteSubject, addAbsence, removeAbsence } = useSubjects()
@@ -180,9 +180,9 @@ export default function Attendance() {
   }
 
   const handleDelete = async (subjectId, subjectName) => {
-    toast.promise(
+    showToast.promise(
       new Promise((resolve, reject) => {
-        toast.custom((t) => (
+        showToast.custom((t) => (
           <div className="flex flex-col gap-3 bg-background border rounded-lg p-4 shadow-lg">
             <div className="space-y-1">
               <h3 className="font-medium">Confirmar exclusão</h3>
@@ -195,7 +195,7 @@ export default function Attendance() {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  toast.dismiss(t)
+                  showToast.dismiss(t)
                   reject()
                 }}
               >
@@ -205,7 +205,7 @@ export default function Attendance() {
                 variant="destructive"
                 size="sm"
                 onClick={() => {
-                  toast.dismiss(t)
+                  showToast.dismiss(t)
                   resolve()
                 }}
               >

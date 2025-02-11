@@ -27,7 +27,7 @@ import {
   DropdownMenuLabel,
 } from "../ui/dropdown-menu"
 import { Checkbox } from '../ui/checkbox'
-import { toast } from "sonner"
+import { showToast } from '../../lib/toast'
 
 export default function FlashcardList({ deckId }) {
   const { flashcards, deleteFlashcards } = useFlashcards(deckId)
@@ -116,10 +116,10 @@ export default function FlashcardList({ deckId }) {
       await deleteFlashcards(selectedCards)
       setSelectedCards([])
       setShowDeleteDialog(false)
-      toast.success(`${selectedCards.length} cards excluídos com sucesso!`)
+      showToast.success(`${selectedCards.length} cards excluídos com sucesso!`)
     } catch (error) {
       console.error('Erro ao excluir cards:', error)
-      toast.error('Erro ao excluir cards')
+      showToast.error('Erro ao excluir cards')
     }
   }
 

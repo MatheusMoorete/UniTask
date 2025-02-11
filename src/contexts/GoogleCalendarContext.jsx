@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from './AuthContext'
+import { showToast } from '../lib/toast'
 
 const GoogleCalendarContext = createContext({})
 
@@ -7,6 +8,8 @@ const SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/calendar.events'
 ]
+
+const TOKEN_REFRESH_INTERVAL = 50 * 60 * 1000 // 50 minutos
 
 export function GoogleCalendarProvider({ children }) {
   const { user } = useAuth()
@@ -28,9 +31,10 @@ export function GoogleCalendarProvider({ children }) {
   const [isInitialized, setIsInitialized] = useState(false)
   const [gapiInited, setGapiInited] = useState(false)
   const [error, setError] = useState(null)
-  const [accessToken, setAccessToken] = useState(() => 
-    localStorage.getItem('googleCalendarToken')
-  );
+  const [accessToken, setAccessToken] = useState(() => {
+    const savedToken = localStorage.getItem('googleCalendarToken')
+    return savedToken ? JSON.parse(savedToken).accessToken : null
+  })
 
   // Função para salvar o token após autenticação bem-sucedida
   const saveAccessToken = (token, refreshToken) => {
@@ -38,76 +42,103 @@ export function GoogleCalendarProvider({ children }) {
       accessToken: token,
       refreshToken: refreshToken,
       expiryDate: new Date(Date.now() + 3600 * 1000).toISOString(), // 1 hora
-    };
-    localStorage.setItem('googleCalendarToken', JSON.stringify(tokenData));
-    setAccessToken(token);
-  };
+      lastRefresh: new Date().toISOString()
+    }
+    localStorage.setItem('googleCalendarToken', JSON.stringify(tokenData))
+    setAccessToken(token)
+  }
 
-  // Função para limpar o token ao desconectar
+  // Função para limpar o token APENAS ao desconectar manualmente
   const clearAccessToken = () => {
-    localStorage.removeItem('googleCalendarToken');
-    localStorage.removeItem('visibleCalendars');
-    localStorage.removeItem('dashboardCalendars');
-    setAccessToken(null);
-    setIsAuthenticated(false);
-    setEvents([]);
-    setCalendars([]);
-  };
+    localStorage.removeItem('googleCalendarToken')
+    setAccessToken(null)
+    setIsAuthenticated(false)
+    setEvents([])
+    setCalendars([])
+    showToast.success('Desconectado do Google Calendar com sucesso!')
+  }
 
-  // Função para verificar e restaurar a sessão
-  const restoreSession = async () => {
+  // Função para verificar e restaurar a sessão com retry
+  const restoreSession = async (retryCount = 3) => {
     try {
-      const savedTokenData = localStorage.getItem('googleCalendarToken');
+      const savedTokenData = localStorage.getItem('googleCalendarToken')
       if (!savedTokenData) {
-        setLoading(false);
-        return false;
+        setLoading(false)
+        return false
       }
 
-      const { accessToken, refreshToken, expiryDate } = JSON.parse(savedTokenData);
-      const isExpired = new Date(expiryDate) <= new Date();
+      const { accessToken, refreshToken, expiryDate } = JSON.parse(savedTokenData)
+      const isExpired = new Date(expiryDate) <= new Date()
 
-      // Se o token expirou, tenta renovar usando o refresh token
       if (isExpired && refreshToken) {
-        const newAccessToken = await refreshAccessToken(refreshToken);
+        const newAccessToken = await refreshAccessToken(refreshToken)
         if (newAccessToken) {
-          saveAccessToken(newAccessToken, refreshToken);
-          window.gapi.client.setToken({ access_token: newAccessToken });
+          saveAccessToken(newAccessToken, refreshToken)
+          window.gapi.client.setToken({ access_token: newAccessToken })
+        } else if (retryCount > 0) {
+          // Tenta novamente após 1 segundo
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          return restoreSession(retryCount - 1)
         } else {
-          clearAccessToken();
-          setLoading(false);
-          return false;
+          return false
         }
       } else {
-        window.gapi.client.setToken({ access_token: accessToken });
+        window.gapi.client.setToken({ access_token: accessToken })
       }
 
-      // Inicializa o cliente GAPI se necessário
       if (!window.gapi?.client) {
-        await initializeGapiClient();
+        await initializeGapiClient()
       }
 
-      // Verifica se o token é válido
       try {
-        await window.gapi.client.calendar.calendarList.list({ maxResults: 1 });
-        setIsAuthenticated(true);
-        await fetchCalendars();
-        setLoading(false);
-        return true;
+        await window.gapi.client.calendar.calendarList.list({ maxResults: 1 })
+        setIsAuthenticated(true)
+        await fetchCalendars()
+        setLoading(false)
+        return true
       } catch (error) {
-        if (error.status === 401) {
-          clearAccessToken();
-          setLoading(false);
-          return false;
+        if (error.status === 401 && retryCount > 0) {
+          // Tenta renovar o token e tentar novamente
+          const newAccessToken = await refreshAccessToken(refreshToken)
+          if (newAccessToken) {
+            saveAccessToken(newAccessToken, refreshToken)
+            return restoreSession(retryCount - 1)
+          }
         }
-        throw error;
+        throw error
       }
     } catch (error) {
-      console.error('Erro ao restaurar sessão:', error);
-      clearAccessToken();
-      setLoading(false);
-      return false;
+      console.error('Erro ao restaurar sessão:', error)
+      if (retryCount > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        return restoreSession(retryCount - 1)
+      }
+      return false
     }
-  };
+  }
+
+  // Efeito para atualizar o token periodicamente
+  useEffect(() => {
+    let refreshInterval
+
+    if (isAuthenticated) {
+      refreshInterval = setInterval(async () => {
+        const tokenData = JSON.parse(localStorage.getItem('googleCalendarToken'))
+        if (tokenData?.refreshToken) {
+          const newAccessToken = await refreshAccessToken(tokenData.refreshToken)
+          if (newAccessToken) {
+            saveAccessToken(newAccessToken, tokenData.refreshToken)
+          }
+        }
+      }, TOKEN_REFRESH_INTERVAL)
+    }
+
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval)
+      }
+    }
+  }, [isAuthenticated])
 
   // Função para obter novo access token usando refresh token
   const refreshAccessToken = async (refreshToken) => {
@@ -350,17 +381,21 @@ export function GoogleCalendarProvider({ children }) {
   // Função de logout atualizada
   const handleSignOut = async () => {
     try {
-      const token = window.gapi.client.getToken()
-      if (token) {
-        await google.accounts.oauth2.revoke(token.access_token)
-        window.gapi.client.setToken('')
+      if (gapi?.client) {
+        const token = gapi.client.getToken()
+        if (token !== null) {
+          await fetch(`https://oauth2.googleapis.com/revoke?token=${token.access_token}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            }
+          })
+        }
       }
       clearAccessToken()
-      setIsAuthenticated(false)
-      setCalendars([])
-      setEvents([])
     } catch (error) {
       console.error('Erro ao desconectar:', error)
+      showToast.error('Erro ao desconectar do Google Calendar')
     }
   }
 

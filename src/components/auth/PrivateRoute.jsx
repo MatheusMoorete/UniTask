@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { Loading } from '../ui/loading'
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth()
@@ -7,12 +8,7 @@ const PrivateRoute = ({ children }) => {
 
   if (loading) {
     console.log("PrivateRoute - Carregando...")
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-        <p className="mt-4 text-lg text-muted-foreground">Carregando...</p>
-      </div>
-    )
+    return <Loading fullScreen message="Verificando autenticação..." />
   }
 
   if (!user) {
@@ -23,5 +19,7 @@ const PrivateRoute = ({ children }) => {
   console.log("PrivateRoute - Renderizando conteúdo protegido")
   return children
 }
+
+PrivateRoute.displayName = 'PrivateRoute'
 
 export default PrivateRoute

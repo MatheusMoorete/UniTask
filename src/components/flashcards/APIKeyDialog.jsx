@@ -5,7 +5,7 @@ import { Label } from '../ui/label'
 import { Input } from '../ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { useLocalStorage } from '../../hooks/useLocalStorage'
-import { toast } from 'sonner'
+import { showToast } from '../../lib/toast'
 
 export function APIKeyDialog({ open, onOpenChange }) {
   const [provider, setProvider] = useState('openai')
@@ -22,7 +22,7 @@ export function APIKeyDialog({ open, onOpenChange }) {
     e.preventDefault()
     
     if (!apiKey.trim()) {
-      toast.error('Insira uma chave API válida')
+      showToast.error('Insira uma chave API válida')
       return
     }
 
@@ -32,7 +32,7 @@ export function APIKeyDialog({ open, onOpenChange }) {
       [provider]: apiKey
     }))
 
-    toast.success('Chave API salva com sucesso!')
+    showToast.success('Chave API salva com sucesso!')
     onOpenChange(false)
   }
 

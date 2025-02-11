@@ -7,7 +7,7 @@ import { Textarea } from '../ui/textarea'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
 import { Loader2, Sparkles, Key } from 'lucide-react'
-import { toast } from 'sonner'
+import { showToast } from '../../lib/toast'
 import { useFlashcards } from '../../hooks/useFlashcards'
 import { useApiKey } from '../../hooks/useApiKey'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -25,23 +25,23 @@ export default function AICardGenerator({ open, onOpenChange, deckId }) {
   const handleSaveApiKey = async () => {
     try {
       await saveApiKey(selectedProvider, tempApiKey)
-      toast.success('Chave API salva com sucesso!')
+      showToast.success('Chave API salva com sucesso!')
       setShowApiKeyInput(false)
     } catch (error) {
-      toast.error('Erro ao salvar chave API')
+      showToast.error('Erro ao salvar chave API')
     }
   }
 
   const handleGenerateCards = async () => {
     const currentApiKey = apiKeys[selectedProvider]
     if (!currentApiKey) {
-      toast.error(`Configure sua chave API do ${selectedProvider === 'openai' ? 'OpenAI' : 'Deepseek'} primeiro`)
+      showToast.error(`Configure sua chave API do ${selectedProvider === 'openai' ? 'OpenAI' : 'Deepseek'} primeiro`)
       setShowApiKeyInput(true)
       return
     }
 
     if (!content.trim()) {
-      toast.error('Digite algum conteúdo para gerar os flashcards')
+      showToast.error('Digite algum conteúdo para gerar os flashcards')
       return
     }
 
@@ -68,12 +68,12 @@ export default function AICardGenerator({ open, onOpenChange, deckId }) {
         })
       }
 
-      toast.success(`${flashcards.length} flashcards gerados com sucesso!`)
+      showToast.success(`${flashcards.length} flashcards gerados com sucesso!`)
       onOpenChange(false)
       setContent('')
     } catch (error) {
       console.error('Erro ao gerar flashcards:', error)
-      toast.error('Erro ao gerar flashcards')
+      showToast.error('Erro ao gerar flashcards')
     } finally {
       setIsGenerating(false)
     }

@@ -18,7 +18,7 @@ import {
 import { cn } from "../../lib/utils"
 import { useAuth } from '../../contexts/AuthContext'
 
-export function TodoList() {
+function TodoList() {
   const { user } = useAuth()
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false)
@@ -545,4 +545,8 @@ export function TodoList() {
       />
     </div>
   )
-} 
+}
+
+TodoList.displayName = 'TodoList'
+
+export default TodoList 

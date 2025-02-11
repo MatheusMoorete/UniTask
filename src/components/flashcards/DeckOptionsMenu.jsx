@@ -22,7 +22,7 @@ import { Label } from "../ui/label"
 import { Input } from "../ui/input"
 import { Textarea } from "../ui/textarea"
 import { useDecks } from "../../hooks/useDecks"
-import { toast } from "sonner"
+import { showToast } from '../../lib/toast'
 
 export function DeckOptionsMenu({ deck, onDelete }) {
   const [showDeleteAlert, setShowDeleteAlert] = useState(false)
@@ -35,28 +35,28 @@ export function DeckOptionsMenu({ deck, onDelete }) {
     e.preventDefault()
     
     if (!name.trim()) {
-      toast.error('O nome do deck é obrigatório')
+      showToast.error('O nome do deck é obrigatório')
       return
     }
 
     try {
       await updateDeck(deck.id, { name, description })
-      toast.success('Deck atualizado com sucesso!')
+      showToast.success('Deck atualizado com sucesso!')
       setShowEditDialog(false)
     } catch (error) {
       console.error('Erro ao atualizar deck:', error)
-      toast.error('Erro ao atualizar deck')
+      showToast.error('Erro ao atualizar deck')
     }
   }
 
   const handleDelete = async () => {
     try {
       await deleteDeck(deck.id)
-      toast.success('Deck excluído com sucesso!')
+      showToast.success('Deck excluído com sucesso!')
       onDelete()
     } catch (error) {
       console.error('Erro ao excluir deck:', error)
-      toast.error('Erro ao excluir deck')
+      showToast.error('Erro ao excluir deck. Tente novamente.')
     }
   }
 

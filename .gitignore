@@ -47,5 +47,4 @@ client_secret*.json
 !.env.example
 .vercel
 
-# Cursor
-.cursorrules
+

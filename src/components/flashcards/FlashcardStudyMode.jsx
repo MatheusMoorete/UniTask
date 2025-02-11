@@ -8,7 +8,7 @@ import { useFlashcards } from '../../hooks/useFlashcards'
 import { ArrowLeft, Timer, Brain, Sparkles, BarChart3, Undo2 } from 'lucide-react'
 import { Card } from '../ui/card'
 import { cn } from '../../lib/utils'
-import { toast } from 'sonner'
+import { showToast } from '../../lib/toast'
 
 const KEYBOARD_SHORTCUTS = {
   SPACE: ' ',
@@ -51,7 +51,7 @@ function FlashcardStudyMode({ deck: deckProp, onExit }) {
   })
 
   useEffect(() => {
-    toast.info(
+    showToast.info(
       'Atalhos do teclado:\n' +
       'Espaço - Virar card\n' +
       '0-4 - Avaliar card\n' +
@@ -150,7 +150,7 @@ function FlashcardStudyMode({ deck: deckProp, onExit }) {
     } catch (err) {
       console.error('Erro ao processar resposta:', err)
       setError('Ocorreu um erro ao processar sua resposta. Tente novamente.')
-      toast.error('Erro ao processar resposta. Tente novamente.')
+      showToast.error('Erro ao processar resposta. Tente novamente.')
     } finally {
       setIsLoading(false)
     }

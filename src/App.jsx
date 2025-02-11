@@ -1,27 +1,16 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { Suspense } from 'react'
 import { AuthProvider } from './contexts/AuthContext'
 import { PomodoroProvider } from './contexts/PomodoroContext'
-import PrivateRoute from './components/auth/PrivateRoute'
-import RootLayout from './components/layout/RootLayout'
-import Login from './pages/auth/Login'
-import Signup from './pages/auth/Signup'
-import ResetPassword from './pages/auth/ResetPassword'
-import Dashboard from './pages/Dashboard'
-import Calendar from './pages/Calendar'
-import Pomodoro from './pages/Pomodoro'
-import Attendance from './pages/Attendance'
 import { GoogleCalendarProvider } from './contexts/GoogleCalendarContext'
-import Notebook from './pages/Notebook'
-import { CadernoVirtual } from './pages/CadernoVirtual'
 import { FirestoreProvider } from './contexts/FirestoreContext'
 import { BoardProvider } from './contexts/BoardContext'
-import StudyRoom from './pages/StudyRoom'
 import ErrorBoundary from './components/ErrorBoundary'
 import { Toaster } from 'sonner'
-import Flashcards from './pages/Flashcards'
-import Landing from './pages/Landing'
-import { useEffect } from 'react'
-import { TodoList } from './components/todo/TodoList'
+import { Loading } from './components/ui/loading'
+import PrivateRoute from './components/auth/PrivateRoute'
+import * as LazyRoutes from './routes/lazyRoutes'
+import { toastConfig } from './lib/toast'
 
 const defaultSettings = {
   focusTime: 25,
@@ -45,40 +34,136 @@ const logInfo = (message, data = {}) => {
   console.log(`[UniTask] ${message}`, safeData)
 }
 
+// Componente para envolver rotas com Suspense
+const SuspenseRoute = ({ children }) => {
+  return (
+    <Suspense fallback={<Loading fullScreen message="Carregando página..." />}>
+      {children}
+    </Suspense>
+  )
+}
+SuspenseRoute.displayName = 'SuspenseRoute'
+
+// Componente para envolver rotas protegidas
+const ProtectedRoute = ({ children }) => {
+  return (
+    <PrivateRoute>
+      <SuspenseRoute>{children}</SuspenseRoute>
+    </PrivateRoute>
+  )
+}
+ProtectedRoute.displayName = 'ProtectedRoute'
+
 function AppRoutes() {
-  const location = useLocation()
-
-  useEffect(() => {
-    logInfo('Route changed', { 
-      path: location.pathname,
-      search: location.search,
-      hash: location.hash
-    })
-  }, [location])
-
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/landing" element={<Landing />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route
+        path="/landing"
+        element={
+          <SuspenseRoute>
+            <LazyRoutes.Landing />
+          </SuspenseRoute>
+        }
+      />
+      <Route
+        path="/login"
+        element={
+          <SuspenseRoute>
+            <LazyRoutes.Login />
+          </SuspenseRoute>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <SuspenseRoute>
+            <LazyRoutes.Signup />
+          </SuspenseRoute>
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          <SuspenseRoute>
+            <LazyRoutes.ResetPassword />
+          </SuspenseRoute>
+        }
+      />
 
       {/* Protected Routes */}
-      <Route element={
-        <PrivateRoute>
-          <RootLayout />
-        </PrivateRoute>
-      }>
+      <Route
+        element={
+          <ProtectedRoute>
+            <LazyRoutes.RootLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="/" element={<Navigate to="/dashboard" />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/todo" element={<TodoList />} />
-        <Route path="/calendar" element={<Calendar />} />
-        <Route path="/pomodoro" element={<Pomodoro />} />
-        <Route path="/attendance" element={<Attendance />} />
-        <Route path="/caderno-virtual" element={<CadernoVirtual />} />
-        <Route path="/study-room" element={<StudyRoom />} />
-        <Route path="/flashcards" element={<Flashcards />} />
+        <Route
+          path="/dashboard"
+          element={
+            <SuspenseRoute>
+              <LazyRoutes.Dashboard />
+            </SuspenseRoute>
+          }
+        />
+        <Route
+          path="/todo"
+          element={
+            <SuspenseRoute>
+              <LazyRoutes.TodoList />
+            </SuspenseRoute>
+          }
+        />
+        <Route
+          path="/calendar"
+          element={
+            <SuspenseRoute>
+              <LazyRoutes.Calendar />
+            </SuspenseRoute>
+          }
+        />
+        <Route
+          path="/pomodoro"
+          element={
+            <SuspenseRoute>
+              <LazyRoutes.Pomodoro />
+            </SuspenseRoute>
+          }
+        />
+        <Route
+          path="/attendance"
+          element={
+            <SuspenseRoute>
+              <LazyRoutes.Attendance />
+            </SuspenseRoute>
+          }
+        />
+        <Route
+          path="/caderno-virtual"
+          element={
+            <SuspenseRoute>
+              <LazyRoutes.CadernoVirtual />
+            </SuspenseRoute>
+          }
+        />
+        <Route
+          path="/study-room"
+          element={
+            <SuspenseRoute>
+              <LazyRoutes.StudyRoom />
+            </SuspenseRoute>
+          }
+        />
+        <Route
+          path="/flashcards"
+          element={
+            <SuspenseRoute>
+              <LazyRoutes.Flashcards />
+            </SuspenseRoute>
+          }
+        />
       </Route>
 
       {/* Fallback Route */}
@@ -88,30 +173,18 @@ function AppRoutes() {
 }
 
 export default function App() {
-  useEffect(() => {
-    logInfo('App initialized', {
-      env: import.meta.env.MODE,
-      buildTime: import.meta.env.VITE_BUILD_TIME || 'unknown',
-      version: import.meta.env.VITE_VERSION || '1.0.0'
-    })
-  }, [])
-
   return (
     <ErrorBoundary>
       <AuthProvider>
         <FirestoreProvider>
-          <GoogleCalendarProvider>
-            <BoardProvider>
-              <PomodoroProvider defaultSettings={defaultSettings}>
-                <Toaster 
-                  position="top-center"
-                  expand={true}
-                  richColors
-                />
+          <PomodoroProvider>
+            <GoogleCalendarProvider>
+              <BoardProvider>
                 <AppRoutes />
-              </PomodoroProvider>
-            </BoardProvider>
-          </GoogleCalendarProvider>
+                <Toaster {...toastConfig} />
+              </BoardProvider>
+            </GoogleCalendarProvider>
+          </PomodoroProvider>
         </FirestoreProvider>
       </AuthProvider>
     </ErrorBoundary>

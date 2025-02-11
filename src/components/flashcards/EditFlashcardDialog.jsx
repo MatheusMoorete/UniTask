@@ -4,7 +4,7 @@ import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
 import { useFlashcards } from '../../hooks/useFlashcards'
-import { toast } from 'sonner'
+import { showToast } from '../../lib/toast'
 
 export function EditFlashcardDialog({ open, onOpenChange, flashcard }) {
   const [front, setFront] = useState('')
@@ -22,17 +22,17 @@ export function EditFlashcardDialog({ open, onOpenChange, flashcard }) {
     e.preventDefault()
     
     if (!front.trim() || !back.trim()) {
-      toast.error('Preencha todos os campos')
+      showToast('Preencha todos os campos')
       return
     }
 
     try {
       await updateFlashcard(flashcard.id, { front, back })
-      toast.success('Flashcard atualizado com sucesso!')
+      showToast('Flashcard atualizado com sucesso!')
       onOpenChange(false)
     } catch (error) {
       console.error('Erro ao atualizar flashcard:', error)
-      toast.error('Erro ao atualizar flashcard')
+      showToast('Erro ao atualizar flashcard')
     }
   }
 

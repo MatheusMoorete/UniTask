@@ -12,6 +12,7 @@ import { Label } from '../ui/label'
 import { format } from 'date-fns'
 import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
 import { capitalizeMonth } from '../../lib/date-utils'
+import { showToast } from '../../lib/toast'
 
 export function EditEventDialog({ event, onClose }) {
   const [editedEvent, setEditedEvent] = useState({
@@ -31,9 +32,11 @@ export function EditEventDialog({ event, onClose }) {
     setIsLoading(true)
     try {
       await updateEvent(event.id, editedEvent, event.calendarId)
+      showToast.success('Evento atualizado com sucesso!')
       onClose()
     } catch (error) {
       setError('Erro ao atualizar evento. Tente novamente.')
+      showToast.error('Erro ao atualizar evento. Tente novamente.')
     } finally {
       setIsLoading(false)
     }
@@ -47,9 +50,11 @@ export function EditEventDialog({ event, onClose }) {
 
       setIsLoading(true)
       await deleteEvent(event.id, event.calendarId)
+      showToast.success('Evento excluído com sucesso!')
       onClose()
     } catch (error) {
       setError(error.message || 'Erro ao excluir evento. Tente novamente.')
+      showToast.error('Erro ao excluir evento. Tente novamente.')
     } finally {
       setIsLoading(false)
     }

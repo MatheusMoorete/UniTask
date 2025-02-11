@@ -23,6 +23,7 @@ import {
 import { Plus, Loader2 } from 'lucide-react'
 import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
 import { createICSFile } from '../../utils/calendar'
+import { showToast } from '../../lib/toast'
 
 export function CreateEventDialog() {
   const { isAuthenticated, createEvent, calendars, isLoading: isGoogleLoading } = useGoogleCalendar()
@@ -47,6 +48,7 @@ export function CreateEventDialog() {
     if (!event.title) {
       console.log('Title validation failed')
       setFormError('Título é obrigatório')
+      showToast.error('O título do evento é obrigatório')
       setIsSubmitting(false)
       return
     }
@@ -54,6 +56,7 @@ export function CreateEventDialog() {
     if (isAuthenticated && !event.calendarId) {
       console.log('Calendar validation failed')
       setFormError('Por favor, selecione um calendário')
+      showToast.error('Selecione um calendário')
       setIsSubmitting(false)
       return
     }
@@ -76,6 +79,7 @@ export function CreateEventDialog() {
         }, event.calendarId)
 
         console.log('Event created successfully')
+        showToast.success('Evento criado com sucesso!')
         setIsOpen(false)
         setEvent({
           title: '',
@@ -89,6 +93,7 @@ export function CreateEventDialog() {
     } catch (error) {
       console.log('Error caught in handleSubmit:', error)
       setFormError('Erro ao criar evento')
+      showToast.error('Erro ao criar evento. Tente novamente.')
     } finally {
       setIsSubmitting(false)
     }

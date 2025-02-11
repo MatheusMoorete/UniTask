@@ -127,7 +127,7 @@ const FocusTime = () => {
   )
 }
 
-const Dashboard = () => {
+function Dashboard() {
   const { user } = useAuth()
   const [isEditingSemester, setIsEditingSemester] = useState(false)
   const [semester, setSemester] = useState('2º Semestre 2024')
@@ -264,5 +264,7 @@ const Dashboard = () => {
     </div>
   )
 }
+
+Dashboard.displayName = 'Dashboard'
 
 export default Dashboard 

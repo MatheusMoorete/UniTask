@@ -7,7 +7,7 @@ import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
 import { useFlashcards } from '../../hooks/useFlashcards'
-import { toast } from 'sonner'
+import { showToast } from '../../lib/toast'
 
 export function CreateFlashcardDialog({ open, onOpenChange, deckId }) {
   const [front, setFront] = useState('')
@@ -18,19 +18,19 @@ export function CreateFlashcardDialog({ open, onOpenChange, deckId }) {
     e.preventDefault()
     
     if (!front.trim() || !back.trim()) {
-      toast.error('Preencha todos os campos')
+      showToast.error('Preencha todos os campos')
       return
     }
 
     try {
       await createFlashcard({ front, back, deckId })
-      toast.success('Flashcard criado com sucesso!')
+      showToast.success('Flashcard criado com sucesso!')
       onOpenChange(false)
       setFront('')
       setBack('')
     } catch (error) {
       console.error('Erro ao criar flashcard:', error)
-      toast.error('Erro ao criar flashcard')
+      showToast.error('Erro ao criar flashcard. Tente novamente.')
     }
   }
 

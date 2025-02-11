@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { toast } from 'sonner'
+import { showToast } from '../../lib/toast'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -145,7 +145,7 @@ export function TaskDialog({
   const handleCreateTag = useCallback(async (e) => {
     e.preventDefault()
     if (!newTagName.trim()) {
-      queueMicrotask(() => toast.error('Digite um nome para a tag'))
+      queueMicrotask(() => showToast.error('Digite um nome para a tag'))
       return
     }
     try {
@@ -160,16 +160,16 @@ export function TaskDialog({
       setValue('tags', [...currentTags, newTag])
       setNewTagName('')
       setShowTagInput(false)
-      queueMicrotask(() => toast.success('Tag criada com sucesso'))
+      queueMicrotask(() => showToast.success('Tag criada com sucesso'))
     } catch (error) {
-      queueMicrotask(() => toast.error('Erro ao criar tag'))
+      queueMicrotask(() => showToast.error('Erro ao criar tag'))
       console.error('Error creating tag:', error)
     }
   }, [newTagName, onTagCreate, user?.uid, watch, setValue])
 
   const onSubmitForm = useCallback(async (data) => {
     if (!user?.uid) {
-      queueMicrotask(() => toast.error('Usuário não autenticado'))
+      queueMicrotask(() => showToast.error('Usuário não autenticado'))
       return
     }
 
@@ -199,10 +199,10 @@ export function TaskDialog({
       
       await onSubmit(cleanData)
       onOpenChange(false)
-      queueMicrotask(() => toast.success('Tarefa criada com sucesso'))
+      queueMicrotask(() => showToast.success('Tarefa criada com sucesso'))
     } catch (error) {
       console.error('Error saving task:', error)
-      queueMicrotask(() => toast.error('Erro ao salvar tarefa: ' + error.message))
+      queueMicrotask(() => showToast.error('Erro ao salvar tarefa: ' + error.message))
     } finally {
       setIsSubmitting(false)
     }
@@ -257,7 +257,7 @@ export function TaskDialog({
           cleanData.calendarEventId = calendarEvent.id
         } catch (error) {
           console.error('Erro ao criar evento no calendário:', error)
-          queueMicrotask(() => toast.error('Erro ao adicionar ao Google Calendar'))
+          queueMicrotask(() => showToast.error('Erro ao adicionar ao Google Calendar'))
           return
         }
       }
@@ -265,10 +265,10 @@ export function TaskDialog({
       await onSubmit(cleanData)
       setShowTimeDialog(false)
       onOpenChange(false)
-      queueMicrotask(() => toast.success('Tarefa criada e sincronizada com o Google Calendar'))
+      queueMicrotask(() => showToast.success('Tarefa criada e sincronizada com o Google Calendar'))
     } catch (error) {
       console.error('Error saving task:', error)
-      queueMicrotask(() => toast.error('Erro ao salvar tarefa: ' + error.message))
+      queueMicrotask(() => showToast.error('Erro ao salvar tarefa: ' + error.message))
     } finally {
       setIsSubmitting(false)
       setTaskDataToSubmit(null)

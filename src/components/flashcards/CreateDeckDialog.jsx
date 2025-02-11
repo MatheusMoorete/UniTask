@@ -7,7 +7,7 @@ import { Label } from '../ui/label'
 import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
 import { useDecks } from '../../hooks/useDecks'
-import { toast } from 'sonner'
+import { showToast } from '../../lib/toast'
 
 export function CreateDeckDialog({ open, onOpenChange }) {
   const [name, setName] = useState('')
@@ -18,7 +18,7 @@ export function CreateDeckDialog({ open, onOpenChange }) {
     e.preventDefault()
     
     if (!name.trim()) {
-      toast.error('O nome do deck é obrigatório')
+      showToast('O nome do deck é obrigatório')
       return
     }
 
@@ -30,13 +30,13 @@ export function CreateDeckDialog({ open, onOpenChange }) {
         dueCards: 0
       })
       
-      toast.success('Deck criado com sucesso!')
+      showToast('Deck criado com sucesso!')
       onOpenChange(false)
       setName('')
       setDescription('')
     } catch (error) {
       console.error('Erro ao criar deck:', error)
-      toast.error('Erro ao criar deck')
+      showToast('Erro ao criar deck')
     }
   }
 

@@ -8,7 +8,7 @@ import { useFlashcards } from '../../hooks/useFlashcards'
 import { useLocalStorage } from '../../hooks/useLocalStorage'
 import { APIKeyDialog } from './APIKeyDialog'
 import { Settings, AlertCircle } from 'lucide-react'
-import { toast } from 'sonner'
+import { showToast } from '../../lib/toast'
 import { Alert, AlertDescription } from '../ui/alert'
 import { generateFlashcards } from '../../services/flashcardService'
 
@@ -30,12 +30,12 @@ export function GenerateAIFlashcardsDialog({ open, onOpenChange, deckId }) {
     e.preventDefault()
     
     if (!content.trim()) {
-      toast.error('Insira o conteúdo do material de estudo')
+      showToast.error('Insira o conteúdo do material de estudo')
       return
     }
 
     if (!hasApiKey) {
-      toast.error('Configure sua chave API primeiro')
+      showToast.error('Configure sua chave API primeiro')
       setIsAPIKeyDialogOpen(true)
       return
     }
@@ -58,12 +58,12 @@ export function GenerateAIFlashcardsDialog({ open, onOpenChange, deckId }) {
         })
       }
 
-      toast.success(`${flashcards.length} flashcards gerados com sucesso!`)
+      showToast.success(`${flashcards.length} flashcards gerados com sucesso!`)
       onOpenChange(false)
       setContent('')
     } catch (error) {
       console.error('Erro ao gerar flashcards:', error)
-      toast.error(error.message || 'Erro ao gerar flashcards')
+      showToast.error(error.message || 'Erro ao gerar flashcards')
     } finally {
       setIsGenerating(false)
     }
