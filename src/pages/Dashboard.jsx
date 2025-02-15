@@ -3,35 +3,28 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import ProgressRing from '../components/ui/progress-ring'
 import { 
-  Calendar, 
   CheckCircle2, 
   AlertCircle, 
   Clock, 
   BookOpen, 
-  Brain,
   TrendingUp,
   Target,
-  Award,
   Pencil,
   Check
 } from 'lucide-react'
-import { useTasks } from '../hooks/useTasks'
-import { useSubjects } from '../hooks/useSubjects'
 import { usePomodoro } from '../hooks/usePomodoro'
-import { Link, useNavigate } from 'react-router-dom'
-import { cn } from '../lib/utils'
+import {useNavigate } from 'react-router-dom'
 import { Input } from '../components/ui/input'
-import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert'
-import UpcomingDeadlines from '../components/dashboard/UpcomingDeadlines'
-import { useAuth } from '../contexts/AuthContext'
 import { NextDeadlines } from '../components/dashboard/NextDeadlines'
 import { AttendanceWarning } from '@/components/dashboard/AttendanceWarning'
+import { useAuth } from '../contexts/AuthContext'
 import { useFirestore } from '../contexts/FirestoreContext'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const TaskProgress = () => {
   const [tasks, setTasks] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [ setLoading] = useState(true)
   const navigate = useNavigate()
   const { user } = useAuth()
   const { db } = useFirestore()
@@ -100,12 +93,16 @@ const TaskProgress = () => {
 }
 
 const FocusTime = () => {
-  const { loading, getTodayFocusTime, formatTime, getStreak } = usePomodoro()
+  const { getTodayFocusTime, formatTime, getStreak } = usePomodoro()
+  const navigate = useNavigate()
   const todayTime = getTodayFocusTime()
   const streak = getStreak()
 
   return (
-    <Card className="border-l-4 border-l-secondary shadow-md h-full">
+    <Card 
+      className="border-l-4 border-l-secondary shadow-md hover:bg-accent/10 cursor-pointer transition-colors h-full"
+      onClick={() => navigate('/pomodoro')}
+    >
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Clock className="h-4 w-4 text-secondary" />
@@ -136,7 +133,7 @@ function Dashboard() {
   const todayTime = getTodayFocusTime()
   const streak = getStreak()
   const [tasks, setTasks] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [setLoading] = useState(true)
   const { db } = useFirestore()
 
   // Fetch TodoList tasks
@@ -176,92 +173,143 @@ function Dashboard() {
     setIsEditingSemester(!isEditingSemester)
   }
 
+  // Animação para os elementos da página
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  }
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1
+    }
+  }
+
   return (
-    <div className="h-full p-4 md:p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <motion.div 
+      className="space-y-6 max-w-full p-2 sm:p-4"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Cabeçalho */}
+      <motion.div 
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+        variants={itemVariants}
+      >
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Acompanhe seu progresso acadêmico
+          <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Dashboard
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            Acompanhe seu progresso acadêmico e mantenha-se organizado
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm bg-accent/10 px-3 py-1.5 rounded-md">
-          <BookOpen className="h-4 w-4" />
+        <div className="flex items-center gap-2 bg-accent/10 px-4 py-2 rounded-lg">
+          <BookOpen className="h-5 w-5 text-primary" />
           {isEditingSemester ? (
             <div className="flex items-center gap-2">
               <Input
                 value={tempSemester}
                 onChange={(e) => setTempSemester(e.target.value)}
-                className="h-6 text-sm w-32"
+                className="h-8 text-sm"
               />
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleSemesterEdit}>
+              <Button size="sm" variant="ghost" onClick={handleSemesterEdit}>
                 <Check className="h-4 w-4" />
               </Button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <span>{semester}</span>
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleSemesterEdit}>
+              <span className="font-medium">{semester}</span>
+              <Button size="sm" variant="ghost" onClick={handleSemesterEdit}>
                 <Pencil className="h-4 w-4" />
               </Button>
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-        {/* Mobile Stats Cards - Visible only on small screens */}
-        <div className="grid grid-cols-2 gap-4 sm:hidden">
-          <Card className="border-l-4 border-l-secondary shadow-md">
-            <CardContent className="p-4">
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="h-4 w-4 text-secondary" />
-                  <span className="text-sm font-medium">Tempo Focado</span>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold">{formatTime(todayTime)}</p>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>{streak} dias seguidos</span>
+      <motion.div 
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4"
+        variants={itemVariants}
+      >
+        {/* Mobile Stats Cards */}
+        <AnimatePresence>
+          <motion.div 
+            className="grid grid-cols-2 gap-4 sm:hidden"
+            variants={itemVariants}
+          >
+            <Card className="border-l-4 border-l-secondary shadow-md">
+              <CardContent className="p-4">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="h-4 w-4 text-secondary" />
+                    <span className="text-sm font-medium">Tempo Focado</span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold">{formatTime(todayTime)}</p>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <TrendingUp className="h-3 w-3" />
+                      <span>{streak} dias seguidos</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-primary shadow-md">
-            <CardContent className="p-4">
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2 mb-3">
-                  <Target className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">Tarefas</span>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-primary shadow-md">
+              <CardContent className="p-4">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Target className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Tarefas</span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold">{pendingTasks}</p>
+                    <p className="text-xs text-muted-foreground">pendentes hoje</p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold">{pendingTasks}</p>
-                  <p className="text-xs text-muted-foreground">pendentes hoje</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </AnimatePresence>
 
-        {/* Desktop Cards - Hidden on mobile, visible on sm and up */}
-        <div className="hidden sm:block h-full">
+        {/* Desktop Cards */}
+        <motion.div 
+          className="hidden sm:block h-full"
+          variants={itemVariants}
+        >
           <TaskProgress />
-        </div>
-        <div className="hidden sm:block h-full">
+        </motion.div>
+        <motion.div 
+          className="hidden sm:block h-full"
+          variants={itemVariants}
+        >
           <FocusTime />
-        </div>
-        <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+        </motion.div>
+
+        {/* Próximos Prazos e Avisos */}
+        <motion.div 
+          className="col-span-1 sm:col-span-2 lg:col-span-1"
+          variants={itemVariants}
+        >
           <NextDeadlines />
-        </div>
-        <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+        </motion.div>
+        <motion.div 
+          className="col-span-1 sm:col-span-2 lg:col-span-1"
+          variants={itemVariants}
+        >
           <AttendanceWarning />
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }
 
