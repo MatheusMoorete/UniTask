@@ -6,6 +6,18 @@ import { differenceInDays } from 'date-fns'
 import { useStudyRoom } from '../../hooks/useStudyRoom'
 import { motion } from 'framer-motion'
 import { Calendar, Brain, Target, Clock } from 'lucide-react'
+import PropTypes from 'prop-types'
+
+StudyStats.propTypes = {
+  filteredTopics: PropTypes.arrayOf(PropTypes.shape({
+    title: PropTypes.string.isRequired,
+    examDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    topics: PropTypes.arrayOf(PropTypes.shape({
+      completed: PropTypes.bool,
+      needsRevision: PropTypes.bool
+    }))
+  })).isRequired
+}
 
 export function StudyStats({ filteredTopics }) {
   const { topics: allTopics } = useStudyRoom()

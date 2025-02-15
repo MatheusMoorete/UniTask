@@ -1,73 +1,55 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { PrivateRoute } from '../PrivateRoute'
-import { useAuth } from '@/contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
+import { PrivateRoute } from '../../components/PrivateRoute'
+import { useAuth } from '../../contexts/AuthContext'
 
-// Mock dos hooks
-vi.mock('@/contexts/AuthContext')
-vi.mock('react-router-dom', () => ({
-  useNavigate: vi.fn()
-}))
-
-// Mock do componente Loading
-vi.mock('@/components/ui/loading', () => ({
-  Loading: () => <div role="progressbar">Loading...</div>
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: vi.fn(),
 }))
 
 describe('PrivateRoute', () => {
-  const mockNavigate = vi.fn()
-
-  beforeEach(() => {
-    vi.clearAllMocks()
-    useNavigate.mockReturnValue(mockNavigate)
-  })
-
-  it('deve renderizar o Loading quando está carregando', () => {
-    useAuth.mockReturnValue({
-      user: null,
-      loading: true
-    })
+  it('deve mostrar loading quando está carregando', () => {
+    useAuth.mockReturnValue({ loading: true, user: null })
 
     render(
-      <PrivateRoute>
-        <div>Conteúdo protegido</div>
-      </PrivateRoute>
+      <MemoryRouter>
+        <PrivateRoute>
+          <div>Conteúdo protegido</div>
+        </PrivateRoute>
+      </MemoryRouter>
     )
 
-    expect(screen.getByRole('progressbar')).toBeInTheDocument()
-    expect(screen.queryByText('Conteúdo protegido')).not.toBeInTheDocument()
+    const loadingElement = screen.getByTestId('loading-spinner')
+    expect(loadingElement).toBeInTheDocument()
+    expect(loadingElement).toHaveClass('animate-spin')
   })
 
-  it('deve redirecionar para login quando não há usuário autenticado', () => {
-    useAuth.mockReturnValue({
-      user: null,
-      loading: false
-    })
+  it('deve redirecionar para login quando não há usuário', () => {
+    useAuth.mockReturnValue({ loading: false, user: null })
 
-    render(
-      <PrivateRoute>
-        <div>Conteúdo protegido</div>
-      </PrivateRoute>
+    const { container } = render(
+      <MemoryRouter>
+        <PrivateRoute>
+          <div>Conteúdo protegido</div>
+        </PrivateRoute>
+      </MemoryRouter>
     )
 
-    expect(mockNavigate).toHaveBeenCalledWith('/login')
-    expect(screen.queryByText('Conteúdo protegido')).not.toBeInTheDocument()
+    expect(container.innerHTML).not.toContain('Conteúdo protegido')
   })
 
   it('deve renderizar o conteúdo quando há usuário autenticado', () => {
-    useAuth.mockReturnValue({
-      user: { id: '1', email: 'test@example.com' },
-      loading: false
-    })
+    useAuth.mockReturnValue({ loading: false, user: { id: '1', name: 'Test User' } })
 
     render(
-      <PrivateRoute>
-        <div>Conteúdo protegido</div>
-      </PrivateRoute>
+      <MemoryRouter>
+        <PrivateRoute>
+          <div>Conteúdo protegido</div>
+        </PrivateRoute>
+      </MemoryRouter>
     )
 
     expect(screen.getByText('Conteúdo protegido')).toBeInTheDocument()
-    expect(mockNavigate).not.toHaveBeenCalled()
   })
 }) 

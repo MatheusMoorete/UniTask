@@ -1,95 +1,87 @@
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import PomodoroTimer from '../PomodoroTimer'
-import { useGlobalPomodoro } from '@/contexts/PomodoroContext'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { PomodoroTimer } from '../../../components/pomodoro/PomodoroTimer'
+import { usePomodoro } from '../../../hooks/usePomodoro'
+import { AuthProvider } from '../../../__mocks__/AuthContext'
 
-// Mock do contexto
-vi.mock('@/contexts/PomodoroContext')
+vi.mock('../../../hooks/usePomodoro')
+vi.mock('use-sound', () => ({
+  default: () => [vi.fn(), { stop: vi.fn() }]
+}))
+
+const mockPomodoro = {
+  isRunning: false,
+  isPaused: false,
+  mode: 'focus',
+  timeLeft: 1500,
+  progress: 0,
+  sessionCount: 0,
+  startTimer: vi.fn(),
+  pauseTimer: vi.fn(),
+  resetTimer: vi.fn(),
+  skipBreak: vi.fn()
+}
+
+const renderTimer = () => {
+  return render(
+    <AuthProvider>
+      <PomodoroTimer />
+    </AuthProvider>
+  )
+}
 
 describe('PomodoroTimer', () => {
-  const mockToggleTimer = vi.fn()
-  const mockResetTimer = vi.fn()
-
   beforeEach(() => {
     vi.clearAllMocks()
-    useGlobalPomodoro.mockReturnValue({
-      timeLeft: 1500, // 25 minutos em segundos
-      isRunning: false,
-      mode: 'focus',
-      sessionsCompleted: 0,
-      toggleTimer: mockToggleTimer,
-      resetTimer: mockResetTimer
-    })
+    usePomodoro.mockReturnValue(mockPomodoro)
   })
 
-  it('deve renderizar o timer corretamente', () => {
-    render(<PomodoroTimer />)
-    
+  it('deve mostrar o tempo restante formatado', () => {
+    renderTimer()
     expect(screen.getByText('25:00')).toBeInTheDocument()
-    expect(screen.getByText('Tempo de Foco')).toBeInTheDocument()
-    expect(screen.getByText('Sessões completadas: 0')).toBeInTheDocument()
   })
 
-  it('deve alternar entre iniciar e pausar', () => {
-    render(<PomodoroTimer />)
-    
-    const button = screen.getByText('Iniciar')
-    fireEvent.click(button)
-    expect(mockToggleTimer).toHaveBeenCalled()
-    
-    // Simula timer rodando
-    useGlobalPomodoro.mockReturnValue({
-      timeLeft: 1500,
-      isRunning: true,
-      mode: 'focus',
-      sessionsCompleted: 0,
-      toggleTimer: mockToggleTimer,
-      resetTimer: mockResetTimer
-    })
-    
-    render(<PomodoroTimer />)
-    expect(screen.getByText('Pausar')).toBeInTheDocument()
+  it('deve iniciar o timer ao clicar no botão de play', () => {
+    renderTimer()
+    fireEvent.click(screen.getByLabelText('Iniciar'))
+    expect(mockPomodoro.startTimer).toHaveBeenCalled()
   })
 
-  it('deve resetar o timer', () => {
-    render(<PomodoroTimer />)
-    
-    const resetButton = screen.getByText('Resetar')
-    fireEvent.click(resetButton)
-    expect(mockResetTimer).toHaveBeenCalled()
+  it('deve pausar o timer ao clicar no botão de pause', () => {
+    usePomodoro.mockReturnValue({ ...mockPomodoro, isRunning: true })
+    renderTimer()
+    fireEvent.click(screen.getByLabelText('Pausar'))
+    expect(mockPomodoro.pauseTimer).toHaveBeenCalled()
   })
 
-  it('deve mostrar o modo de pausa curta', () => {
-    useGlobalPomodoro.mockReturnValue({
-      timeLeft: 300, // 5 minutos em segundos
-      isRunning: false,
-      mode: 'shortBreak',
-      sessionsCompleted: 1,
-      toggleTimer: mockToggleTimer,
-      resetTimer: mockResetTimer
-    })
-    
-    render(<PomodoroTimer />)
-    
-    expect(screen.getByText('05:00')).toBeInTheDocument()
-    expect(screen.getByText('Pausa Curta')).toBeInTheDocument()
-    expect(screen.getByText('Sessões completadas: 1')).toBeInTheDocument()
+  it('deve resetar o timer ao clicar no botão de reset', () => {
+    renderTimer()
+    fireEvent.click(screen.getByLabelText('Resetar'))
+    expect(mockPomodoro.resetTimer).toHaveBeenCalled()
   })
 
-  it('deve mostrar o modo de pausa longa', () => {
-    useGlobalPomodoro.mockReturnValue({
-      timeLeft: 900, // 15 minutos em segundos
-      isRunning: false,
-      mode: 'longBreak',
-      sessionsCompleted: 4,
-      toggleTimer: mockToggleTimer,
-      resetTimer: mockResetTimer
-    })
-    
-    render(<PomodoroTimer />)
-    
-    expect(screen.getByText('15:00')).toBeInTheDocument()
-    expect(screen.getByText('Pausa Longa')).toBeInTheDocument()
-    expect(screen.getByText('Sessões completadas: 4')).toBeInTheDocument()
+  it('deve mostrar o modo atual', () => {
+    renderTimer()
+    expect(screen.getByText('Foco')).toBeInTheDocument()
+  })
+
+  it('deve mostrar o progresso do timer', () => {
+    usePomodoro.mockReturnValue({ ...mockPomodoro, progress: 50 })
+    renderTimer()
+    const progressCircle = screen.getByTestId('progress-circle')
+    expect(progressCircle).toHaveAttribute('stroke-dashoffset', expect.any(String))
+  })
+
+  it('deve mostrar o contador de sessões', () => {
+    usePomodoro.mockReturnValue({ ...mockPomodoro, sessionCount: 3 })
+    renderTimer()
+    expect(screen.getByText('3')).toBeInTheDocument()
+  })
+
+  it('deve permitir pular o intervalo', () => {
+    usePomodoro.mockReturnValue({ ...mockPomodoro, mode: 'break' })
+    renderTimer()
+    fireEvent.click(screen.getByText('Pular'))
+    expect(mockPomodoro.skipBreak).toHaveBeenCalled()
   })
 }) 

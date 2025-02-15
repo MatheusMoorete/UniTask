@@ -18,9 +18,35 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
       
-      // Adicione uma regra específica para os dados do Google Calendar
+      // Regras para Google Calendar
       match /googleCalendar/{document=**} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Nova regra para pomodoro_sessions como subcoleção
+      match /pomodoro_sessions/{sessionId} {
+        function isValidPomodoroSession() {
+          let incoming = request.resource.data;
+          return incoming.type in ['focus', 'shortBreak', 'longBreak']
+            && incoming.duration is number
+            && (incoming.startedAt is timestamp || incoming.startedAt == null)
+            && (incoming.completedAt is timestamp || incoming.completedAt == null)
+            && (incoming.settings is map || incoming.settings == null)
+            && incoming.userId == userId;  // Garante que o userId corresponde ao documento pai
+        }
+
+        allow read: if request.auth != null && request.auth.uid == userId;
+        
+        allow create: if request.auth != null 
+          && request.auth.uid == userId
+          && isValidPomodoroSession();
+          
+        allow update: if request.auth != null 
+          && request.auth.uid == userId
+          && isValidPomodoroSession();
+          
+        allow delete: if request.auth != null 
+          && request.auth.uid == userId;
       }
     }
     
@@ -70,12 +96,6 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid;
     }
     
-    match /pomodoro_sessions/{sessionId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
-    }
-    
     match /settings/{userId} {
       function isValidSettings() {
         let incoming = request.resource.data;
@@ -88,8 +108,8 @@ service cloud.firestore {
           && incoming.pomodoroSettings.sessionsUntilLongBreak is number;
       }
 
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId) && isValidSettings();
+      allow read: if request.auth.uid == userId;
+      allow write: if request.auth.uid == userId && isValidSettings();
     }
     
     match /notes/{noteId} {
@@ -220,15 +240,13 @@ service cloud.firestore {
       allow update: if isAuthenticated() 
         && resource.data.userId == request.auth.uid
         && (
-          // Permite atualização parcial para reordenação
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['position', 'updatedAt', 'title'])
-          || isValidColumn() // Ou validação completa para outras atualizações
+          || isValidColumn()
         );
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
-    // Regras para coleção de materiais
     match /materiais/{materialId} {
       function isValidMaterial() {
         let incoming = request.resource.data;
@@ -256,7 +274,6 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid;
     }
 
-    // Regras para coleção de matérias
     match /materias/{materiaId} {
       function isValidMateria() {
         let incoming = request.resource.data;
@@ -281,7 +298,6 @@ service cloud.firestore {
         request.auth.uid == resource.data.userId;
     }
 
-    // Regras para coleção de decks
     match /decks/{deckId} {
       function isValidDeck() {
         let incoming = request.resource.data;
@@ -305,7 +321,6 @@ service cloud.firestore {
       );
     }
 
-    // Regras para coleção de flashcards
     match /flashcards/{flashcardId} {
       function isValidFlashcard() {
         let incoming = request.resource.data;
@@ -323,7 +338,7 @@ service cloud.firestore {
       }
 
       allow read: if isAuthenticated() && (
-        true // Permite leitura de qualquer flashcard para usuários autenticados
+        true
       );
       
       allow create: if isAuthenticated() 
@@ -337,17 +352,15 @@ service cloud.firestore {
       allow update: if isAuthenticated() 
         && resource.data.userId == request.auth.uid
         && (
-          // Permite atualização parcial para repetitionData
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['repetitionData', 'updatedAt'])
-          // Permite atualização do conteúdo do flashcard
           || request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['front', 'back', 'updatedAt'])
-          || isValidFlashcard() // Ou validação completa para outras atualizações
+          || isValidFlashcard()
         );
       
       allow delete: if isAuthenticated() && 
         resource.data.userId == request.auth.uid;
     }
   }
-} 
+}

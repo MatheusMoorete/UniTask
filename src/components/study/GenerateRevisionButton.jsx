@@ -18,6 +18,17 @@ import {
   DialogDescription,
 } from '../ui/dialog'
 import { useState } from 'react'
+import PropTypes from 'prop-types'
+
+GenerateRevisionButton.propTypes = {
+  topic: PropTypes.shape({
+    examDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    subtopics: PropTypes.arrayOf(PropTypes.shape({
+      needsRevision: PropTypes.bool
+    }))
+  }).isRequired,
+  id: PropTypes.string
+}
 
 export function GenerateRevisionButton({ topic, id }) {
   const { generateRevisionSchedule, isGenerating } = useStudyRevisions()

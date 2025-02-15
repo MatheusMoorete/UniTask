@@ -1,54 +1,55 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import { NotificationButton } from '../NotificationButton'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
+import { NotificationButton } from '../../components/NotificationButton'
+
+vi.mock('../../components/ui/use-toast', () => ({
+  useToast: () => ({
+    toast: vi.fn(),
+  }),
+}))
 
 describe('NotificationButton', () => {
-  it('deve renderizar o botão de notificações', () => {
-    render(<NotificationButton />)
-    const button = screen.getByRole('button')
-    expect(button).toBeInTheDocument()
+  const originalNotification = window.Notification
+
+  beforeEach(() => {
+    window.Notification = {
+      permission: 'default',
+      requestPermission: vi.fn(),
+    }
   })
 
-  it('deve mostrar o popover ao clicar no botão', () => {
-    render(<NotificationButton />)
-    
-    // Verifica se o conteúdo não está visível inicialmente
-    expect(screen.queryByText('Ferramenta em desenvolvimento')).not.toBeInTheDocument()
-    
-    // Clica no botão
-    const button = screen.getByRole('button')
-    fireEvent.click(button)
-    
-    // Verifica se o conteúdo está visível
-    expect(screen.getByText('Ferramenta em desenvolvimento')).toBeInTheDocument()
-    expect(screen.getByText(/Em breve você poderá receber notificações importantes aqui/)).toBeInTheDocument()
+  afterEach(() => {
+    window.Notification = originalNotification
   })
 
-  it('deve fechar o popover ao clicar novamente', () => {
+  it('deve renderizar o botão com ícone de notificação desativada inicialmente', () => {
     render(<NotificationButton />)
-    
-    // Abre o popover
-    const button = screen.getByRole('button')
-    fireEvent.click(button)
-    expect(screen.getByText('Ferramenta em desenvolvimento')).toBeInTheDocument()
-    
-    // Fecha o popover
-    fireEvent.click(button)
-    expect(screen.queryByText('Ferramenta em desenvolvimento')).not.toBeInTheDocument()
+    expect(screen.getByRole('button')).toHaveAttribute('title', 'Ativar notificações')
   })
 
-  it('deve ter o texto correto no popover', () => {
+  it('deve solicitar permissão quando clicado', async () => {
+    window.Notification.requestPermission.mockResolvedValue('granted')
     render(<NotificationButton />)
     
-    // Abre o popover
-    const button = screen.getByRole('button')
-    fireEvent.click(button)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button'))
+    })
     
-    // Verifica o conteúdo
-    const title = screen.getByText('Ferramenta em desenvolvimento')
-    const description = screen.getByText(/Em breve você poderá receber notificações importantes aqui/)
+    expect(window.Notification.requestPermission).toHaveBeenCalled()
+  })
+
+  it('deve mostrar ícone de notificação ativada quando permissão é concedida', async () => {
+    window.Notification.permission = 'granted'
+    render(<NotificationButton />)
     
-    expect(title).toBeInTheDocument()
-    expect(description).toBeInTheDocument()
+    expect(screen.getByRole('button')).toHaveAttribute('title', 'Notificações ativadas')
+  })
+
+  it('deve desabilitar o botão quando permissão é negada', () => {
+    window.Notification.permission = 'denied'
+    render(<NotificationButton />)
+    
+    expect(screen.getByRole('button')).toBeDisabled()
+    expect(screen.getByRole('button')).toHaveAttribute('title', 'Notificações bloqueadas')
   })
 }) 

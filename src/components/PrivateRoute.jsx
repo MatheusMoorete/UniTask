@@ -1,21 +1,28 @@
-import React, { useEffect } from 'react'
+import { Navigate } from 'react-router-dom'
+import PropTypes from 'prop-types'
 import { useAuth } from '../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
-import { Loading } from '@/components/ui/loading'
 
 export function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/login')
-    }
-  }, [user, loading, navigate])
 
   if (loading) {
-    return <Loading />
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div 
+          data-testid="loading-spinner"
+          className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"
+        ></div>
+      </div>
+    )
   }
 
-  return user ? children : null
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  return children
+}
+
+PrivateRoute.propTypes = {
+  children: PropTypes.node.isRequired,
 } 

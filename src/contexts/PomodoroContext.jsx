@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { usePomodoro } from '../hooks/usePomodoro'
 import { useSound } from '../hooks/useSound'
-import { useFirestore } from './FirestoreContext'
+import PropTypes from 'prop-types'
 
 const PomodoroContext = createContext({})
 
@@ -12,7 +12,10 @@ const defaultSettings = {
   shortBreakTime: 5,
   longBreakTime: 15,
   sessionsUntilLongBreak: 4,
-  soundEnabled: true
+  soundEnabled: true,
+  notificationsEnabled: true,
+  dndEnabled: false,
+  volume: 50
 }
 
 // Função para carregar o estado inicial do localStorage
@@ -39,24 +42,26 @@ const loadInitialState = () => {
   }
 }
 
+PomodoroProvider.propTypes = {
+  children: PropTypes.node.isRequired
+}
+
 export function PomodoroProvider({ children }) {
-  const { db } = useFirestore()
+  const { addSession } = usePomodoro()
   const initialState = loadInitialState()
   const [timeLeft, setTimeLeft] = useState(initialState.timeLeft)
   const [isRunning, setIsRunning] = useState(initialState.isRunning)
   const [mode, setMode] = useState(initialState.mode)
   const [sessionsCompleted, setSessionsCompleted] = useState(initialState.sessionsCompleted)
   const [startTime, setStartTime] = useState(initialState.startTime)
-  const [lastTickTime, setLastTickTime] = useState(null)
   const [settings, setSettings] = useState(initialState.settings || defaultSettings)
+  const [worker, setWorker] = useState(null)
   
-  const { addSession } = usePomodoro()
-
   // Inicializa os sons com o caminho correto e configurações de tempo
   const { play: playAlarm } = useSound(
     '/public/sounds/alarmclock-bell-ringing-clear-windingdown-000212_0029s3_d-095-099-031-042-35592.mp3', 
     { 
-      volume: 0.7,
+      volume: settings.volume / 100,
       startTime: 3,
       duration: 2
     }
@@ -64,7 +69,7 @@ export function PomodoroProvider({ children }) {
   const { play: playBreak } = useSound(
     '/public/sounds/alarmclock-bell-ringing-clear-windingdown-000212_0029s3_d-095-099-031-042-35592.mp3', 
     { 
-      volume: 0.7,
+      volume: settings.volume / 100,
       startTime: 3,
       duration: 2
     }
@@ -84,6 +89,108 @@ export function PomodoroProvider({ children }) {
     }
   }
 
+  // Inicializa o Web Worker
+  useEffect(() => {
+    const timerWorker = new Worker(new URL('../workers/timer.worker.js', import.meta.url))
+    
+    timerWorker.onmessage = (e) => {
+      const { type, timeLeft: newTimeLeft } = e.data
+      
+      if (type === 'tick') {
+        setTimeLeft(newTimeLeft)
+      } else if (type === 'complete') {
+        handleTimerComplete()
+      }
+    }
+
+    setWorker(timerWorker)
+
+    return () => {
+      timerWorker.terminate()
+    }
+  }, [])
+
+  // Função para lidar com a conclusão do timer
+  const handleTimerComplete = async () => {
+    // Toca o som apropriado apenas se estiver habilitado
+    if (settings.soundEnabled) {
+      if (mode === 'focus') {
+        playBreak()
+      } else {
+        playAlarm()
+      }
+    }
+
+    // Envia notificação se habilitado
+    if (settings.notificationsEnabled && "Notification" in window) {
+      let title, body
+
+      switch (mode) {
+        case 'focus':
+          title = 'Tempo de foco concluído!'
+          body = 'Hora de fazer uma pausa!'
+          break
+        case 'shortBreak':
+          title = 'Pausa curta concluída!'
+          body = 'Vamos voltar ao foco?'
+          break
+        case 'longBreak':
+          title = 'Pausa longa concluída!'
+          body = 'Descansou bem? Hora de voltar aos estudos!'
+          break
+        default:
+          title = 'Sessão concluída!'
+          body = 'Hora de continuar!'
+      }
+      
+      try {
+        if (Notification.permission === "granted") {
+          new Notification(title, {
+            body,
+            icon: '/favicon.ico',
+            silent: !settings.soundEnabled
+          })
+        }
+      } catch (error) {
+        console.error('Erro ao enviar notificação:', error)
+      }
+    }
+    
+    // Salva a sessão completada no Firestore
+    const sessionDuration = mode === 'focus' 
+      ? settings.focusTime * 60 
+      : mode === 'shortBreak' 
+        ? settings.shortBreakTime * 60 
+        : settings.longBreakTime * 60
+
+    await addSession({
+      type: mode,
+      duration: sessionDuration,
+      startedAt: startTime,
+      completedAt: new Date(),
+      settings: { ...settings }
+    })
+    
+    // Switch modes
+    if (mode === 'focus') {
+      const newSessions = sessionsCompleted + 1
+      setSessionsCompleted(newSessions)
+      
+      if (newSessions % settings.sessionsUntilLongBreak === 0) {
+        setMode('longBreak')
+        setTimeLeft(settings.longBreakTime * 60)
+      } else {
+        setMode('shortBreak')
+        setTimeLeft(settings.shortBreakTime * 60)
+      }
+    } else {
+      setMode('focus')
+      setTimeLeft(settings.focusTime * 60)
+    }
+    setIsRunning(false)
+    setStartTime(null)
+  }
+
   // Salva o estado no localStorage sempre que houver mudanças
   useEffect(() => {
     const state = {
@@ -97,101 +204,37 @@ export function PomodoroProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [timeLeft, isRunning, mode, sessionsCompleted, startTime, settings])
 
+  // Controla o timer através do Web Worker
   useEffect(() => {
-    let animationFrameId
-
-    const updateTimer = () => {
-      if (isRunning && timeLeft > 0) {
-        const now = Date.now()
-        
-        if (!lastTickTime) {
-          setLastTickTime(now)
-        } else {
-          const deltaTime = Math.floor((now - lastTickTime) / 1000)
-          
-          if (deltaTime >= 1) {
-            const newTimeLeft = Math.max(0, timeLeft - deltaTime)
-            setTimeLeft(newTimeLeft)
-            setLastTickTime(now)
-          }
-        }
-
-        animationFrameId = requestAnimationFrame(updateTimer)
-      } else if (timeLeft === 0 && isRunning) {
-        // Toca o som apropriado apenas se estiver habilitado
-        if (settings.soundEnabled) {
-          if (mode === 'focus') {
-            playBreak()
-          } else {
-            playAlarm()
-          }
-        }
-        
-        // Salva a sessão completada no Firestore
-        const sessionDuration = mode === 'focus' 
-          ? settings.focusTime * 60 
-          : mode === 'shortBreak' 
-            ? settings.shortBreakTime * 60 
-            : settings.longBreakTime * 60
-
-        addSession({
-          type: mode,
-          duration: sessionDuration,
-          startedAt: startTime,
-          completedAt: new Date(),
-          settings: { ...settings }
-        })
-        
-        // Switch modes
-        if (mode === 'focus') {
-          const newSessions = sessionsCompleted + 1
-          setSessionsCompleted(newSessions)
-          
-          if (newSessions % settings.sessionsUntilLongBreak === 0) {
-            setMode('longBreak')
-            setTimeLeft(settings.longBreakTime * 60)
-          } else {
-            setMode('shortBreak')
-            setTimeLeft(settings.shortBreakTime * 60)
-          }
-        } else {
-          setMode('focus')
-          setTimeLeft(settings.focusTime * 60)
-        }
-        setIsRunning(false)
-        setStartTime(null)
-        setLastTickTime(null)
-      }
-    }
+    if (!worker) return
 
     if (isRunning) {
-      animationFrameId = requestAnimationFrame(updateTimer)
+      worker.postMessage({
+        type: 'start',
+        timeLeft,
+        interval: 1000
+      })
+    } else {
+      worker.postMessage({ type: 'stop' })
     }
-
-    return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId)
-      }
-    }
-  }, [isRunning, timeLeft, mode, sessionsCompleted, settings, addSession, startTime, playAlarm, playBreak, lastTickTime])
+  }, [isRunning, worker])
 
   const toggleTimer = () => {
     if (!isRunning) {
       setStartTime(new Date())
-      setLastTickTime(Date.now())
-    } else {
-      setLastTickTime(null)
     }
     setIsRunning(!isRunning)
   }
 
   const resetTimer = () => {
+    if (worker) {
+      worker.postMessage({ type: 'stop' })
+    }
     setIsRunning(false)
     setMode('focus')
     setTimeLeft(settings.focusTime * 60)
     setSessionsCompleted(0)
     setStartTime(null)
-    setLastTickTime(null)
   }
 
   const updateSettings = (newSettings) => {
@@ -207,12 +250,6 @@ export function PomodoroProvider({ children }) {
     }
   }
 
-  // Função para limpar o estado salvo (útil para debugging ou reset manual)
-  const clearSavedState = () => {
-    localStorage.removeItem(STORAGE_KEY)
-    resetTimer()
-  }
-
   return (
     <PomodoroContext.Provider
       value={{
@@ -224,7 +261,6 @@ export function PomodoroProvider({ children }) {
         toggleTimer,
         resetTimer,
         updateSettings,
-        clearSavedState,
         totalTime: getTotalTime()
       }}
     >

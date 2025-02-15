@@ -1,139 +1,144 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { PomodoroSettings } from '../PomodoroSettings'
-import { useGlobalPomodoro } from '@/contexts/PomodoroContext'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { vi, describe, it, expect, beforeEach } from 'vitest'
+import PomodoroSettings from '../../../components/pomodoro/PomodoroSettings'
+import { PomodoroProvider } from '../../../contexts/PomodoroContext'
+import { AuthProvider } from '../../../__mocks__/AuthContext'
 
-// Mock do contexto
-vi.mock('@/contexts/PomodoroContext')
-
-// Mock do ResizeObserver
-class ResizeObserverMock {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-global.ResizeObserver = ResizeObserverMock
-
-const defaultSettings = {
-  focusTime: 25,
-  shortBreakTime: 5,
-  longBreakTime: 15,
-  sessionsUntilLongBreak: 4,
-  soundEnabled: true
+const renderSettings = () => {
+  return render(
+    <AuthProvider>
+      <PomodoroProvider>
+        <PomodoroSettings />
+      </PomodoroProvider>
+    </AuthProvider>
+  )
 }
 
 describe('PomodoroSettings', () => {
-  const mockUpdateSettings = vi.fn()
-
   beforeEach(() => {
     vi.clearAllMocks()
-    useGlobalPomodoro.mockReturnValue({
-      settings: defaultSettings,
-      updateSettings: mockUpdateSettings
+    localStorage.clear()
+  })
+
+  describe('Renderização Inicial', () => {
+    it('deve mostrar o botão de configurações', () => {
+      renderSettings()
+      expect(screen.getByLabelText('Configurações')).toBeInTheDocument()
+    })
+
+    it('deve abrir o diálogo ao clicar no botão', () => {
+      renderSettings()
+      const settingsButton = screen.getByLabelText('Configurações')
+      fireEvent.click(settingsButton)
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
     })
   })
 
-  it('deve renderizar o botão de configurações', () => {
-    render(<PomodoroSettings />)
-    const button = screen.getByRole('button')
-    expect(button).toBeInTheDocument()
-  })
+  describe('Configurações de Tempo', () => {
+    beforeEach(() => {
+      renderSettings()
+      const settingsButton = screen.getByLabelText('Configurações')
+      fireEvent.click(settingsButton)
+    })
 
-  it('deve abrir o diálogo ao clicar no botão', async () => {
-    render(<PomodoroSettings />)
-    
-    const button = screen.getByRole('button')
-    fireEvent.click(button)
-    
-    await waitFor(() => {
-      expect(screen.getByText('Configurações do Timer')).toBeInTheDocument()
+    it('deve permitir ajustar o tempo de foco', () => {
+      const input = screen.getByLabelText('Tempo de Foco (minutos)')
+      fireEvent.change(input, { target: { value: '30' } })
+      expect(input.value).toBe('30')
+    })
+
+    it('deve permitir ajustar o tempo de pausa curta', () => {
+      const input = screen.getByLabelText('Tempo de Pausa Curta (minutos)')
+      fireEvent.change(input, { target: { value: '10' } })
+      expect(input.value).toBe('10')
+    })
+
+    it('deve permitir ajustar o tempo de pausa longa', () => {
+      const input = screen.getByLabelText('Tempo de Pausa Longa (minutos)')
+      fireEvent.change(input, { target: { value: '20' } })
+      expect(input.value).toBe('20')
+    })
+
+    it('deve permitir ajustar o número de sessões até a pausa longa', () => {
+      const input = screen.getByLabelText('Sessões até Pausa Longa')
+      fireEvent.change(input, { target: { value: '5' } })
+      expect(input.value).toBe('5')
     })
   })
 
-  it('deve mostrar os valores atuais das configurações', async () => {
-    render(<PomodoroSettings />)
-    
-    fireEvent.click(screen.getByRole('button'))
-    
-    await waitFor(() => {
-      expect(screen.getByLabelText('Tempo de Foco (minutos)')).toHaveValue(25)
-      expect(screen.getByLabelText('Pausa Curta (minutos)')).toHaveValue(5)
-      expect(screen.getByLabelText('Pausa Longa (minutos)')).toHaveValue(15)
-      expect(screen.getByLabelText('Sessões até Pausa Longa')).toHaveValue(4)
+  describe('Configurações de Som e Notificações', () => {
+    beforeEach(() => {
+      renderSettings()
+      const settingsButton = screen.getByLabelText('Configurações')
+      fireEvent.click(settingsButton)
+    })
+
+    it('deve permitir ativar/desativar sons', () => {
+      const toggle = screen.getByRole('switch', { name: /sons/i })
+      fireEvent.click(toggle)
+      expect(toggle).toBeChecked()
+    })
+
+    it('deve permitir ajustar o volume', () => {
+      const slider = screen.getByRole('slider', { name: /volume/i })
+      fireEvent.change(slider, { target: { value: '80' } })
+      expect(slider.value).toBe('80')
+    })
+
+    it('deve permitir ativar/desativar notificações', () => {
+      const toggle = screen.getByRole('switch', { name: /notificações/i })
+      fireEvent.click(toggle)
+      expect(toggle).toBeChecked()
+    })
+
+    it('deve permitir ativar/desativar modo não perturbe', () => {
+      const toggle = screen.getByRole('switch', { name: /não perturbe/i })
+      fireEvent.click(toggle)
+      expect(toggle).toBeChecked()
     })
   })
 
-  it('deve atualizar os valores ao editar os inputs', async () => {
-    render(<PomodoroSettings />)
-    
-    fireEvent.click(screen.getByRole('button'))
-    
-    await waitFor(() => {
+  describe('Validação de Entrada', () => {
+    beforeEach(() => {
+      renderSettings()
+      const settingsButton = screen.getByLabelText('Configurações')
+      fireEvent.click(settingsButton)
+    })
+
+    it('deve impedir valores negativos', () => {
+      const input = screen.getByLabelText('Tempo de Foco (minutos)')
+      fireEvent.change(input, { target: { value: '-5' } })
+      expect(input.value).toBe('1')
+    })
+
+    it('deve impedir valores muito altos', () => {
+      const input = screen.getByLabelText('Tempo de Foco (minutos)')
+      fireEvent.change(input, { target: { value: '120' } })
+      expect(input.value).toBe('60')
+    })
+  })
+
+  describe('Persistência', () => {
+    it('deve manter as configurações após fechar e reabrir', () => {
+      renderSettings()
+
+      // Abre as configurações
+      const settingsButton = screen.getByLabelText('Configurações')
+      fireEvent.click(settingsButton)
+
+      // Altera algumas configurações
       const focusInput = screen.getByLabelText('Tempo de Foco (minutos)')
       fireEvent.change(focusInput, { target: { value: '30' } })
-      expect(focusInput).toHaveValue(30)
-    })
-  })
 
-  it('deve salvar as configurações ao submeter o formulário', async () => {
-    render(<PomodoroSettings />)
-    
-    fireEvent.click(screen.getByRole('button'))
-    
-    await waitFor(async () => {
-      const focusInput = screen.getByLabelText('Tempo de Foco (minutos)')
-      fireEvent.change(focusInput, { target: { value: '30' } })
-      
-      const form = screen.getByTestId('settings-form')
-      fireEvent.submit(form)
-      
-      expect(mockUpdateSettings).toHaveBeenCalledWith({
-        ...defaultSettings,
-        focusTime: 30
-      })
-    })
-  })
+      // Fecha o diálogo
+      const closeButton = screen.getByRole('button', { name: /fechar/i })
+      fireEvent.click(closeButton)
 
-  it('deve alternar o som de notificação', async () => {
-    render(<PomodoroSettings />)
-    
-    fireEvent.click(screen.getByRole('button'))
-    
-    await waitFor(() => {
-      const soundSwitch = screen.getByRole('switch')
-      expect(soundSwitch).toBeChecked()
-      
-      fireEvent.click(soundSwitch)
-      expect(soundSwitch).not.toBeChecked()
-    })
-  })
+      // Reabre o diálogo
+      fireEvent.click(settingsButton)
 
-  it('deve validar os valores mínimos e máximos', async () => {
-    render(<PomodoroSettings />)
-    
-    fireEvent.click(screen.getByRole('button'))
-    
-    await waitFor(() => {
-      const focusInput = screen.getByLabelText('Tempo de Foco (minutos)')
-      
-      // Testa valor mínimo
-      fireEvent.change(focusInput, { target: { value: '0' } })
-      expect(focusInput).toHaveAttribute('min', '1')
-      
-      // Testa valor máximo
-      fireEvent.change(focusInput, { target: { value: '61' } })
-      expect(focusInput).toHaveAttribute('max', '60')
+      // Verifica se as configurações foram mantidas
+      expect(screen.getByLabelText('Tempo de Foco (minutos)').value).toBe('30')
     })
-  })
-
-  it('não deve renderizar nada se settings for null', () => {
-    useGlobalPomodoro.mockReturnValue({
-      settings: null,
-      updateSettings: mockUpdateSettings
-    })
-    
-    const { container } = render(<PomodoroSettings />)
-    expect(container).toBeEmptyDOMElement()
   })
 }) 

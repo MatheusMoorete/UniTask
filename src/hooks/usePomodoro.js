@@ -1,311 +1,355 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useFirestore } from '../contexts/FirestoreContext'
+import { useTimeFilter } from '../contexts/TimeFilterContext'
 import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
   collection,
   query,
-  where,
   addDoc,
   onSnapshot,
   serverTimestamp,
   Timestamp,
-  orderBy,
-  limit
+  orderBy
 } from 'firebase/firestore'
+
+const STORAGE_KEY = 'pomodoro_sessions'
 
 export function usePomodoro() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
-  const { user } = useAuth()
+  const auth = useAuth()
   const { db } = useFirestore()
+  const { timeFilter } = useTimeFilter()
 
-  // Carrega as sessões do Firestore
+  const user = auth?.user
+
+  // Carregar dados do localStorage e Firestore
   useEffect(() => {
-    if (!user) {
-      setSessions([])
+    if (!user?.uid) return
+
+    // Carregar dados do localStorage primeiro
+    const localSessions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+    setSessions(localSessions)
+
+    // Referência para a coleção de sessões do usuário
+    const sessionsRef = collection(db, 'users', user.uid, 'pomodoro_sessions')
+    const sessionsQuery = query(
+      sessionsRef,
+      orderBy('startedAt', 'desc')
+    )
+
+    // Ouvir mudanças no Firestore
+    const unsubscribe = onSnapshot(sessionsQuery, (snapshot) => {
+      const firestoreSessions = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        startedAt: doc.data().startedAt?.toDate(),
+        completedAt: doc.data().completedAt?.toDate()
+      }))
+
+      // Mesclar dados do Firestore com localStorage
+      const mergedSessions = [...firestoreSessions]
+      
+      // Atualizar localStorage e state
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedSessions))
+      setSessions(mergedSessions)
       setLoading(false)
-      return
-    }
+    })
 
-    try {
-      // Query ordenada por data de criação, limitada aos últimos 6 meses
-      const sixMonthsAgo = new Date()
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-
-      const q = query(
-        collection(db, 'pomodoro_sessions'),
-        where('userId', '==', user.uid),
-        where('createdAt', '>=', Timestamp.fromDate(sixMonthsAgo)),
-        orderBy('createdAt', 'desc')
-      )
-
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const sessionsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate(),
-          startedAt: doc.data().startedAt?.toDate(),
-          completedAt: doc.data().completedAt?.toDate()
-        }))
-        setSessions(sessionsData)
-        setLoading(false)
-      })
-
-      return () => unsubscribe()
-    } catch (error) {
-      console.error('Erro ao carregar sessões:', error)
-      setLoading(false)
-    }
+    return () => unsubscribe()
   }, [user, db])
 
-  // Adiciona uma nova sessão ao Firestore
+  // Adicionar nova sessão
   const addSession = async (sessionData) => {
-    if (!user) return
+    if (!user?.uid) return
 
     try {
-      await addDoc(collection(db, 'pomodoro_sessions'), {
+      const sessionsRef = collection(db, 'users', user.uid, 'pomodoro_sessions')
+      const newSession = {
         ...sessionData,
         userId: user.uid,
         createdAt: serverTimestamp(),
         startedAt: Timestamp.fromDate(sessionData.startedAt),
         completedAt: Timestamp.fromDate(sessionData.completedAt)
-      })
+      }
+
+      // Adicionar ao Firestore
+      const docRef = await addDoc(sessionsRef, newSession)
+      const sessionWithId = { ...newSession, id: docRef.id }
+
+      // Atualizar localStorage
+      const updatedSessions = [sessionWithId, ...sessions]
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSessions))
+      setSessions(updatedSessions)
+
+      return docRef.id
     } catch (error) {
       console.error('Erro ao adicionar sessão:', error)
       throw error
     }
   }
 
-  // Calcula o tempo total focado
+  // Funções auxiliares
+  const getFilteredSessions = () => {
+    const now = new Date()
+    let startDate = new Date()
+
+    switch (timeFilter) {
+      case 'week':
+        startDate.setDate(now.getDate() - 7)
+        break
+      case 'month':
+        startDate.setMonth(now.getMonth() - 1)
+        break
+      case 'semester':
+        startDate.setMonth(now.getMonth() - 6)
+        break
+      default:
+        startDate.setDate(now.getDate() - 7)
+    }
+
+    return sessions.filter(session => 
+      session.completedAt >= startDate && 
+      session.completedAt <= now
+    )
+  }
+
+  // Funções de cálculo de estatísticas
   const getTotalFocusTime = () => {
-    return sessions
-      .filter(session => session.type === 'focus')
-      .reduce((total, session) => total + (session.duration || 0), 0)
+    const filteredSessions = getFilteredSessions()
+    return filteredSessions.reduce((total, session) => {
+      if (session.type === 'focus' && session.duration) {
+        return total + session.duration
+      }
+      return total
+    }, 0)
   }
 
-  // Calcula o tempo total focado na semana atual
-  const getWeeklyFocusTime = () => {
-    const now = new Date()
-    const startOfWeek = new Date(now)
-    startOfWeek.setHours(0, 0, 0, 0)
-    startOfWeek.setDate(now.getDate() - now.getDay())
-
-    return sessions
-      .filter(session => 
-        session.type === 'focus' &&
-        session.createdAt >= startOfWeek
-      )
-      .reduce((total, session) => total + (session.duration || 0), 0)
-  }
-
-  // Calcula o tempo focado hoje
-  const getTodayFocusTime = () => {
-    const now = new Date()
-    const startOfDay = new Date(now)
-    startOfDay.setHours(0, 0, 0, 0)
-
-    return sessions
-      .filter(session => 
-        session.type === 'focus' &&
-        session.createdAt >= startOfDay
-      )
-      .reduce((total, session) => total + (session.duration || 0), 0)
-  }
-
-  // Retorna o número de dias únicos em que o usuário estudou
   const getAccessDays = () => {
+    const filteredSessions = getFilteredSessions()
     const uniqueDays = new Set(
-      sessions
-        .filter(session => session.type === 'focus')
-        .map(session => {
-          const date = session.createdAt
-          return date ? date.toDateString() : null
-        })
-        .filter(Boolean)
+      filteredSessions.map(session => 
+        new Date(session.completedAt).toDateString()
+      )
     )
     return uniqueDays.size
   }
 
-  // Calcula a sequência atual de dias estudando
   const getStreak = () => {
+    if (sessions.length === 0) return 0
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    
+    let currentStreak = 0
+    let date = today
 
-    const studyDays = new Set(
-      sessions
-        .filter(session => session.type === 'focus')
-        .map(session => session.createdAt?.toDateString())
-        .filter(Boolean)
+    while (true) {
+      const hasSessionOnDay = sessions.some(session => {
+        const sessionDate = new Date(session.completedAt)
+        sessionDate.setHours(0, 0, 0, 0)
+        return sessionDate.getTime() === date.getTime()
+      })
+
+      if (!hasSessionOnDay) break
+      
+      currentStreak++
+      date = new Date(date.getTime() - 24 * 60 * 60 * 1000)
+    }
+
+    return currentStreak
+  }
+
+  const getDailyAverage = () => {
+    const filteredSessions = getFilteredSessions()
+    const totalTime = filteredSessions.reduce((total, session) => {
+      if (session.type === 'focus' && session.duration) {
+        return total + session.duration
+      }
+      return total
+    }, 0)
+
+    const uniqueDays = new Set(
+      filteredSessions.map(session => 
+        new Date(session.completedAt).toDateString()
+      )
     )
 
-    let streak = 0
-    let currentDate = new Date(today)
-
-    while (studyDays.has(currentDate.toDateString())) {
-      streak++
-      currentDate.setDate(currentDate.getDate() - 1)
-    }
-
-    return streak
+    return uniqueDays.size > 0 ? totalTime / uniqueDays.size : 0
   }
 
-  // Gera dados para o gráfico semanal
-  const getWeeklyChartData = () => {
-    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+  const getProductivityTrend = () => {
     const now = new Date()
-    const startOfWeek = new Date(now)
-    startOfWeek.setHours(0, 0, 0, 0)
-    startOfWeek.setDate(now.getDate() - now.getDay())
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
 
-    return days.map((day, index) => {
-      const date = new Date(startOfWeek)
-      date.setDate(startOfWeek.getDate() + index)
-      const nextDate = new Date(date)
-      nextDate.setDate(date.getDate() + 1)
-
-      const hours = sessions
-        .filter(session => 
-          session.type === 'focus' &&
-          session.createdAt >= date &&
-          session.createdAt < nextDate
-        )
-        .reduce((total, session) => total + (session.duration || 0), 0) / 3600
-
-      return {
-        name: day,
-        hours: Number(hours.toFixed(1))
+    const currentWeekTime = sessions.reduce((total, session) => {
+      if (
+        session.type === 'focus' &&
+        session.completedAt >= oneWeekAgo &&
+        session.completedAt <= now
+      ) {
+        return total + session.duration
       }
-    })
+      return total
+    }, 0)
+
+    const previousWeekTime = sessions.reduce((total, session) => {
+      if (
+        session.type === 'focus' &&
+        session.completedAt >= twoWeeksAgo &&
+        session.completedAt < oneWeekAgo
+      ) {
+        return total + session.duration
+      }
+      return total
+    }, 0)
+
+    if (previousWeekTime === 0) return 0
+    return Math.round(((currentWeekTime - previousWeekTime) / previousWeekTime) * 100)
   }
 
-  // Gera dados para o gráfico mensal
-  const getMonthlyChartData = () => {
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    const days = []
+  const getDistributionData = () => {
+    const filteredSessions = getFilteredSessions()
+    const focusTime = filteredSessions.reduce((total, session) => {
+      if (session.type === 'focus') return total + session.duration
+      return total
+    }, 0)
 
-    for (let date = new Date(startOfMonth); date <= endOfMonth; date.setDate(date.getDate() + 1)) {
+    const shortBreakTime = filteredSessions.reduce((total, session) => {
+      if (session.type === 'shortBreak') return total + session.duration
+      return total
+    }, 0)
+
+    const longBreakTime = filteredSessions.reduce((total, session) => {
+      if (session.type === 'longBreak') return total + session.duration
+      return total
+    }, 0)
+
+    return [
+      { name: 'Foco', value: Math.round(focusTime / 60) },
+      { name: 'Pausa Curta', value: Math.round(shortBreakTime / 60) },
+      { name: 'Pausa Longa', value: Math.round(longBreakTime / 60) }
+    ]
+  }
+
+  const getWeeklyChartData = () => {
+    const data = []
+    const today = new Date()
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(today.getDate() - i)
+      date.setHours(0, 0, 0, 0)
+      
       const nextDate = new Date(date)
       nextDate.setDate(date.getDate() + 1)
 
-      const hours = sessions
-        .filter(session => 
+      const hoursOnDay = sessions.reduce((total, session) => {
+        if (
           session.type === 'focus' &&
-          session.createdAt >= date &&
-          session.createdAt < nextDate
-        )
-        .reduce((total, session) => total + (session.duration || 0), 0) / 3600
+          session.completedAt >= date &&
+          session.completedAt < nextDate
+        ) {
+          return total + (session.duration / 3600)
+        }
+        return total
+      }, 0)
 
-      days.push({
-        name: date.getDate(),
-        hours: Number(hours.toFixed(1))
+      data.push({
+        name: date.toLocaleDateString('pt-BR', { weekday: 'short' }),
+        hours: Number(hoursOnDay.toFixed(1))
       })
     }
 
-    return days
+    return data
   }
 
-  // Gera dados para o gráfico semestral
+  const getMonthlyChartData = () => {
+    const data = []
+    const today = new Date()
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+    
+    for (let i = 0; i < daysInMonth; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth(), i + 1)
+      date.setHours(0, 0, 0, 0)
+      
+      const nextDate = new Date(date)
+      nextDate.setDate(date.getDate() + 1)
+
+      const hoursOnDay = sessions.reduce((total, session) => {
+        if (
+          session.type === 'focus' &&
+          session.completedAt >= date &&
+          session.completedAt < nextDate
+        ) {
+          return total + (session.duration / 3600)
+        }
+        return total
+      }, 0)
+
+      data.push({
+        name: date.getDate().toString(),
+        hours: Number(hoursOnDay.toFixed(1))
+      })
+    }
+
+    return data
+  }
+
   const getSemesterChartData = () => {
-    const now = new Date()
-    const months = []
-    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-
-    // Considera os últimos 6 meses
+    const data = []
+    const today = new Date()
+    
     for (let i = 5; i >= 0; i--) {
-      const month = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const nextMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1)
+      const monthStart = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() - i + 1, 0)
+      monthStart.setHours(0, 0, 0, 0)
+      monthEnd.setHours(23, 59, 59, 999)
 
-      const hours = sessions
-        .filter(session => 
+      const hoursInMonth = sessions.reduce((total, session) => {
+        if (
           session.type === 'focus' &&
-          session.createdAt >= month &&
-          session.createdAt < nextMonth
-        )
-        .reduce((total, session) => total + (session.duration || 0), 0) / 3600
+          session.completedAt >= monthStart &&
+          session.completedAt <= monthEnd
+        ) {
+          return total + (session.duration / 3600)
+        }
+        return total
+      }, 0)
 
-      months.push({
-        name: monthNames[month.getMonth()],
-        hours: Number(hours.toFixed(1))
+      data.push({
+        name: monthStart.toLocaleDateString('pt-BR', { month: 'short' }),
+        hours: Number(hoursInMonth.toFixed(1))
       })
     }
 
-    return months
+    return data
   }
 
-  // Formata o tempo em horas e minutos
+  const getTodayFocusTime = () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    return sessions.reduce((total, session) => {
+      const sessionDate = new Date(session.completedAt)
+      sessionDate.setHours(0, 0, 0, 0)
+      
+      if (session.type === 'focus' && sessionDate.getTime() === today.getTime()) {
+        return total + (session.duration || 0)
+      }
+      return total
+    }, 0)
+  }
+
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
     
     if (hours > 0) {
-      return `${hours}h${minutes > 0 ? ` ${minutes}min` : ''}`
+      return `${hours}h ${minutes}m`
     }
-    return `${minutes}min`
-  }
-
-  // Calcula a média diária de tempo focado
-  const getDailyAverage = () => {
-    const totalTime = getTotalFocusTime()
-    const days = getAccessDays()
-    return days > 0 ? Math.round(totalTime / days) : 0
-  }
-
-  // Calcula a tendência de produtividade em relação à semana anterior
-  const getProductivityTrend = () => {
-    const now = new Date()
-    const startOfCurrentWeek = new Date(now)
-    startOfCurrentWeek.setHours(0, 0, 0, 0)
-    startOfCurrentWeek.setDate(now.getDate() - now.getDay())
-
-    const startOfLastWeek = new Date(startOfCurrentWeek)
-    startOfLastWeek.setDate(startOfCurrentWeek.getDate() - 7)
-
-    const currentWeekTime = sessions
-      .filter(session => 
-        session.type === 'focus' &&
-        session.createdAt >= startOfCurrentWeek
-      )
-      .reduce((total, session) => total + (session.duration || 0), 0)
-
-    const lastWeekTime = sessions
-      .filter(session => 
-        session.type === 'focus' &&
-        session.createdAt >= startOfLastWeek &&
-        session.createdAt < startOfCurrentWeek
-      )
-      .reduce((total, session) => total + (session.duration || 0), 0)
-
-    if (lastWeekTime === 0) return currentWeekTime > 0 ? 100 : 0
-    
-    const trend = ((currentWeekTime - lastWeekTime) / lastWeekTime) * 100
-    return Math.round(trend)
-  }
-
-  // Gera dados para o gráfico de distribuição
-  const getDistributionData = () => {
-    const focusTime = sessions
-      .filter(session => session.type === 'focus')
-      .reduce((total, session) => total + (session.duration || 0), 0) / 60
-
-    const shortBreakTime = sessions
-      .filter(session => session.type === 'shortBreak')
-      .reduce((total, session) => total + (session.duration || 0), 0) / 60
-
-    const longBreakTime = sessions
-      .filter(session => session.type === 'longBreak')
-      .reduce((total, session) => total + (session.duration || 0), 0) / 60
-
-    return [
-      { name: 'Foco', value: Math.round(focusTime) },
-      { name: 'Pausa Curta', value: Math.round(shortBreakTime) },
-      { name: 'Pausa Longa', value: Math.round(longBreakTime) }
-    ]
+    return `${minutes}m`
   }
 
   return {
@@ -313,16 +357,13 @@ export function usePomodoro() {
     loading,
     addSession,
     getTotalFocusTime,
-    getWeeklyFocusTime,
-    getTodayFocusTime,
     getAccessDays,
     getStreak,
-    getWeeklyChartData,
-    getMonthlyChartData,
-    getSemesterChartData,
     getDailyAverage,
     getProductivityTrend,
     getDistributionData,
+    getWeeklyChartData,
+    getTodayFocusTime,
     formatTime
   }
 } 

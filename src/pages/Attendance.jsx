@@ -71,7 +71,7 @@ export default function Attendance() {
           description: `A matéria "${data.name}" foi atualizada com sucesso.`,
           variant: "default",
         })
-      } else {
+    } else {
         await addSubject(data)
         toast({
           title: "Matéria criada",
@@ -131,8 +131,8 @@ export default function Attendance() {
           className="w-full sm:w-auto"
         >
           <Plus className="h-5 w-5 mr-2" />
-          Nova Matéria
-        </Button>
+              Nova Matéria
+            </Button>
       </motion.div>
 
       {/* Filtros e Controles */}
@@ -144,13 +144,13 @@ export default function Attendance() {
       >
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
+                        <Input
             placeholder="Buscar matérias..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-8 h-10"
-          />
-        </div>
+                  />
+                </div>
 
         <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-4">
           <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -193,7 +193,7 @@ export default function Attendance() {
               className="h-10 w-10"
             >
               <LayoutList className="h-4 w-4" />
-            </Button>
+                </Button>
           </div>
         </div>
       </motion.div>

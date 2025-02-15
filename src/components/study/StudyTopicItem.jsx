@@ -6,6 +6,18 @@ import { Button } from '../ui/button'
 import { Progress } from '../ui/progress'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import PropTypes from 'prop-types'
+
+StudyTopicItem.propTypes = {
+  topic: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    title: PropTypes.string.isRequired,
+    subject: PropTypes.string,
+    description: PropTypes.string,
+    examDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    progress: PropTypes.number.isRequired
+  }).isRequired
+}
 
 export function StudyTopicItem({ topic }) {
   const {

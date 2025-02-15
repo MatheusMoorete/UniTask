@@ -2,9 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { Brain, Calendar, Flame, Target, Clock, TrendingUp } from 'lucide-react'
 import { usePomodoro } from '../../hooks/usePomodoro'
+import { useTimeFilter } from '../../contexts/TimeFilterContext'
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -16,6 +15,7 @@ import {
   Pie,
   Cell
 } from 'recharts'
+import PropTypes from 'prop-types'
 
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1']
 
@@ -44,6 +44,14 @@ const StatCard = ({ icon: Icon, title, value, description, trend }) => (
     </CardContent>
   </Card>
 )
+
+StatCard.propTypes = {
+  icon: PropTypes.elementType.isRequired,
+  title: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  description: PropTypes.string,
+  trend: PropTypes.number
+}
 
 const TimeChart = ({ data, dataKey = "hours" }) => (
   <div className="h-[300px] w-full">
@@ -78,6 +86,14 @@ const TimeChart = ({ data, dataKey = "hours" }) => (
   </div>
 )
 
+TimeChart.propTypes = {
+  data: PropTypes.arrayOf(PropTypes.shape({
+    name: PropTypes.string.isRequired,
+    hours: PropTypes.number.isRequired
+  })).isRequired,
+  dataKey: PropTypes.string
+}
+
 const DistributionChart = ({ data }) => (
   <div className="h-[300px] w-full">
     <ResponsiveContainer width="100%" height="100%">
@@ -108,7 +124,15 @@ const DistributionChart = ({ data }) => (
   </div>
 )
 
+DistributionChart.propTypes = {
+  data: PropTypes.arrayOf(PropTypes.shape({
+    name: PropTypes.string.isRequired,
+    value: PropTypes.number.isRequired
+  })).isRequired
+}
+
 const PomodoroReport = () => {
+  const { timeFilter } = useTimeFilter()
   const {
     getTotalFocusTime,
     getAccessDays,
@@ -128,6 +152,19 @@ const PomodoroReport = () => {
   const dailyAverage = getDailyAverage()
   const productivityTrend = getProductivityTrend()
   const distributionData = getDistributionData()
+
+  const getChartData = () => {
+    switch (timeFilter) {
+      case 'week':
+        return getWeeklyChartData()
+      case 'month':
+        return getMonthlyChartData()
+      case 'semester':
+        return getSemesterChartData()
+      default:
+        return getWeeklyChartData()
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -174,27 +211,12 @@ const PomodoroReport = () => {
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Análise de Tempo Focado</CardTitle>
+            <CardTitle>
+              Análise de Tempo Focado - {timeFilter === 'week' ? 'Semana' : timeFilter === 'month' ? 'Mês' : 'Semestre'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="week" className="w-full">
-              <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="week">Semana</TabsTrigger>
-                <TabsTrigger value="month">Mês</TabsTrigger>
-                <TabsTrigger value="semester">Semestre</TabsTrigger>
-              </TabsList>
-              <div className="mt-4">
-                <TabsContent value="week">
-                  <TimeChart data={getWeeklyChartData()} />
-                </TabsContent>
-                <TabsContent value="month">
-                  <TimeChart data={getMonthlyChartData()} />
-                </TabsContent>
-                <TabsContent value="semester">
-                  <TimeChart data={getSemesterChartData()} />
-                </TabsContent>
-              </div>
-            </Tabs>
+            <TimeChart data={getChartData()} />
           </CardContent>
         </Card>
 
@@ -222,6 +244,10 @@ const PomodoroReport = () => {
       </div>
     </div>
   )
+}
+
+PomodoroReport.propTypes = {
+  // Adicione aqui se houver props
 }
 
 export default PomodoroReport 

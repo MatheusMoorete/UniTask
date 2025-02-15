@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { PomodoroProvider } from './contexts/PomodoroContext'
 import { GoogleCalendarProvider } from './contexts/GoogleCalendarContext'
 import { FirestoreProvider } from './contexts/FirestoreContext'
+import { TimeFilterProvider } from './contexts/TimeFilterContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import { Toaster } from 'sonner'
 import { Loading } from './components/ui/loading'
@@ -176,12 +177,14 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <FirestoreProvider>
-          <PomodoroProvider>
-            <GoogleCalendarProvider>
-              <AppRoutes />
-              <Toaster {...toastConfig} />
-            </GoogleCalendarProvider>
-          </PomodoroProvider>
+          <TimeFilterProvider>
+            <PomodoroProvider>
+              <GoogleCalendarProvider>
+                <AppRoutes />
+                <Toaster {...toastConfig} />
+              </GoogleCalendarProvider>
+            </PomodoroProvider>
+          </TimeFilterProvider>
         </FirestoreProvider>
       </AuthProvider>
     </ErrorBoundary>

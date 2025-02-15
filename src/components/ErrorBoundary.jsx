@@ -1,24 +1,21 @@
-import React from 'react'
+import { Component } from 'react'
+import PropTypes from 'prop-types'
 import { AlertTriangle } from 'lucide-react'
 import { Button } from './ui/button'
 import { cn } from '../lib/utils'
 
-class ErrorBoundary extends React.Component {
+class ErrorBoundary extends Component {
   constructor(props) {
     super(props)
-    this.state = { hasError: false, error: null, errorInfo: null }
+    this.state = { hasError: false, error: null }
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true }
+    return { hasError: true, error }
   }
 
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo)
-    this.setState({
-      error: error,
-      errorInfo: errorInfo
-    })
 
     // Log para serviço de monitoramento (se existir)
     if (process.env.NODE_ENV === 'production') {
@@ -53,16 +50,15 @@ class ErrorBoundary extends React.Component {
               )}>
                 <code className="text-xs">
                   {this.state.error.toString()}
-                  {this.state.errorInfo && this.state.errorInfo.componentStack}
                 </code>
               </pre>
             )}
             <div className="flex gap-4 justify-center">
               <Button
                 variant="outline"
-                onClick={() => window.history.back()}
+                onClick={() => this.setState({ hasError: false, error: null })}
               >
-                Voltar
+                Tentar Novamente
               </Button>
               <Button
                 variant="default"
@@ -78,6 +74,10 @@ class ErrorBoundary extends React.Component {
 
     return this.props.children
   }
+}
+
+ErrorBoundary.propTypes = {
+  children: PropTypes.node.isRequired,
 }
 
 export default ErrorBoundary

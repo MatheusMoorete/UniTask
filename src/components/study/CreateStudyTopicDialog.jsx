@@ -12,6 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog'
+import PropTypes from 'prop-types'
+
+CreateStudyTopicDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onOpenChange: PropTypes.func.isRequired,
+  topicToEdit: PropTypes.object,
+  mode: PropTypes.oneOf(['create', 'edit'])
+}
 
 export function CreateStudyTopicDialog({ open, onOpenChange, topicToEdit, mode = "create" }) {
   const { createTopic, updateTopic } = useStudyRoom()
