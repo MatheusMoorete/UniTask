@@ -46,6 +46,7 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog"
 import { cn } from '../../lib/utils'
+import { addTaskToCalendar } from '../../lib/googleCalendar'
 
 const PRIORITY_OPTIONS = [
   { value: 'P1', label: 'P1 - Alta' },
@@ -522,25 +523,23 @@ export function CreateTaskDialog({
 
   const handleSubmitForms = async () => {
     if (!user?.uid) {
-      queueMicrotask(() => showToast.error('Usuário não autenticado'))
+      showToast.error('Usuário não autenticado')
       return
     }
 
     try {
       setIsSubmitting(true)
 
-      // Combinar dados dos dois formulários
       const stepOneData = stepOneForm.getValues()
       const stepTwoData = stepTwoForm.getValues()
 
-      // Criar data com horário
-      const taskDate = new Date(stepOneData.date)
-      if (stepOneData.time) {
-        const [hours, minutes] = stepOneData.time.split(':')
-        taskDate.setHours(parseInt(hours), parseInt(minutes), 0)
-      } else {
-        taskDate.setHours(0, 0, 0)
-      }
+      const taskDate = new Date(
+        stepOneData.date.getFullYear(),
+        stepOneData.date.getMonth(),
+        stepOneData.date.getDate(),
+        stepOneData.time ? parseInt(stepOneData.time.split(':')[0]) : 0,
+        stepOneData.time ? parseInt(stepOneData.time.split(':')[1]) : 0
+      )
 
       const taskData = {
         title: stepOneData.title.trim(),
@@ -558,44 +557,30 @@ export function CreateTaskDialog({
         updatedAt: new Date()
       }
 
-      // Criar evento no Google Calendar se necessário
-      if (stepTwoData.addToCalendar && isAuthenticated && calendars.length > 0) {
+      // Se addToCalendar estiver ativado, criar a task no Google Calendar
+      if (stepTwoData.addToCalendar) {
         try {
-          const endDate = new Date(taskDate)
-          endDate.setHours(taskDate.getHours() + 1)
-
-          const eventData = {
-            summary: taskData.title,
-            description: taskData.description || '',
-            location: taskData.location || '',
-            start: {
-              dateTime: taskDate.toISOString(),
-              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-            },
-            end: {
-              dateTime: endDate.toISOString(),
-              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-            }
-          }
-
-          await createEvent(eventData, calendars[0].id)
-          queueMicrotask(() => showToast.success('Evento adicionado ao Google Calendar'))
+          await addTaskToCalendar({
+            title: taskData.title,
+            description: taskData.description,
+            date: taskDate
+          })
+          showToast.success('Task adicionada ao Google Calendar')
         } catch (error) {
-          console.error('Erro ao criar evento no Google Calendar:', error)
-          queueMicrotask(() => showToast.error('Erro ao adicionar evento ao Google Calendar'))
+          console.error('Erro ao adicionar task ao Google Calendar:', error)
+          showToast.error('Erro ao sincronizar com o Google Calendar')
         }
       }
 
-      // Salvar tarefa
       await onSubmit(taskData)
       onOpenChange(false)
       setCurrentStep(1)
       stepOneForm.reset()
       stepTwoForm.reset()
-      queueMicrotask(() => showToast.success('Tarefa criada com sucesso'))
+      showToast.success('Tarefa criada com sucesso!')
     } catch (error) {
-      console.error('Error saving task:', error)
-      queueMicrotask(() => showToast.error('Erro ao salvar tarefa: ' + error.message))
+      console.error('Erro ao criar tarefa:', error)
+      showToast.error('Erro ao criar tarefa')
     } finally {
       setIsSubmitting(false)
     }

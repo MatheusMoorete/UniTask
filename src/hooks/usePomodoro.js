@@ -249,6 +249,65 @@ export function usePomodoro() {
     return `${minutes}min`
   }
 
+  // Calcula a média diária de tempo focado
+  const getDailyAverage = () => {
+    const totalTime = getTotalFocusTime()
+    const days = getAccessDays()
+    return days > 0 ? Math.round(totalTime / days) : 0
+  }
+
+  // Calcula a tendência de produtividade em relação à semana anterior
+  const getProductivityTrend = () => {
+    const now = new Date()
+    const startOfCurrentWeek = new Date(now)
+    startOfCurrentWeek.setHours(0, 0, 0, 0)
+    startOfCurrentWeek.setDate(now.getDate() - now.getDay())
+
+    const startOfLastWeek = new Date(startOfCurrentWeek)
+    startOfLastWeek.setDate(startOfCurrentWeek.getDate() - 7)
+
+    const currentWeekTime = sessions
+      .filter(session => 
+        session.type === 'focus' &&
+        session.createdAt >= startOfCurrentWeek
+      )
+      .reduce((total, session) => total + (session.duration || 0), 0)
+
+    const lastWeekTime = sessions
+      .filter(session => 
+        session.type === 'focus' &&
+        session.createdAt >= startOfLastWeek &&
+        session.createdAt < startOfCurrentWeek
+      )
+      .reduce((total, session) => total + (session.duration || 0), 0)
+
+    if (lastWeekTime === 0) return currentWeekTime > 0 ? 100 : 0
+    
+    const trend = ((currentWeekTime - lastWeekTime) / lastWeekTime) * 100
+    return Math.round(trend)
+  }
+
+  // Gera dados para o gráfico de distribuição
+  const getDistributionData = () => {
+    const focusTime = sessions
+      .filter(session => session.type === 'focus')
+      .reduce((total, session) => total + (session.duration || 0), 0) / 60
+
+    const shortBreakTime = sessions
+      .filter(session => session.type === 'shortBreak')
+      .reduce((total, session) => total + (session.duration || 0), 0) / 60
+
+    const longBreakTime = sessions
+      .filter(session => session.type === 'longBreak')
+      .reduce((total, session) => total + (session.duration || 0), 0) / 60
+
+    return [
+      { name: 'Foco', value: Math.round(focusTime) },
+      { name: 'Pausa Curta', value: Math.round(shortBreakTime) },
+      { name: 'Pausa Longa', value: Math.round(longBreakTime) }
+    ]
+  }
+
   return {
     sessions,
     loading,
@@ -261,6 +320,9 @@ export function usePomodoro() {
     getWeeklyChartData,
     getMonthlyChartData,
     getSemesterChartData,
+    getDailyAverage,
+    getProductivityTrend,
+    getDistributionData,
     formatTime
   }
 } 

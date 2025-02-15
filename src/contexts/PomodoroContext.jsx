@@ -47,6 +47,7 @@ export function PomodoroProvider({ children }) {
   const [mode, setMode] = useState(initialState.mode)
   const [sessionsCompleted, setSessionsCompleted] = useState(initialState.sessionsCompleted)
   const [startTime, setStartTime] = useState(initialState.startTime)
+  const [lastTickTime, setLastTickTime] = useState(null)
   const [settings, setSettings] = useState(initialState.settings || defaultSettings)
   
   const { addSession } = usePomodoro()
@@ -69,6 +70,20 @@ export function PomodoroProvider({ children }) {
     }
   )
 
+  // Calcula o tempo total baseado no modo atual
+  const getTotalTime = () => {
+    switch (mode) {
+      case 'focus':
+        return settings.focusTime * 60
+      case 'shortBreak':
+        return settings.shortBreakTime * 60
+      case 'longBreak':
+        return settings.longBreakTime * 60
+      default:
+        return settings.focusTime * 60
+    }
+  }
+
   // Salva o estado no localStorage sempre que houver mudanças
   useEffect(() => {
     const state = {
@@ -83,66 +98,89 @@ export function PomodoroProvider({ children }) {
   }, [timeLeft, isRunning, mode, sessionsCompleted, startTime, settings])
 
   useEffect(() => {
-    let interval = null
-    if (isRunning && timeLeft > 0) {
-      const startTime = Date.now()
-      interval = setInterval(() => {
-        const elapsedTime = Math.floor((Date.now() - startTime) / 1000)
-        if (elapsedTime >= 1) {
-          setTimeLeft((time) => time - 1)
-        }
-      }, 100)
-    } else if (timeLeft === 0 && isRunning) {
-      // Toca o som apropriado apenas se estiver habilitado
-      if (settings.soundEnabled) {
-        if (mode === 'focus') {
-          playBreak()
-        } else {
-          playAlarm()
-        }
-      }
-      
-      // Salva a sessão completada no Firestore
-      const sessionDuration = mode === 'focus' 
-        ? settings.focusTime * 60 
-        : mode === 'shortBreak' 
-          ? settings.shortBreakTime * 60 
-          : settings.longBreakTime * 60
+    let animationFrameId
 
-      addSession({
-        type: mode,
-        duration: sessionDuration,
-        startedAt: startTime,
-        completedAt: new Date(),
-        settings: { ...settings }
-      })
-      
-      // Switch modes
-      if (mode === 'focus') {
-        const newSessions = sessionsCompleted + 1
-        setSessionsCompleted(newSessions)
+    const updateTimer = () => {
+      if (isRunning && timeLeft > 0) {
+        const now = Date.now()
         
-        if (newSessions % settings.sessionsUntilLongBreak === 0) {
-          setMode('longBreak')
-          setTimeLeft(settings.longBreakTime * 60)
+        if (!lastTickTime) {
+          setLastTickTime(now)
         } else {
-          setMode('shortBreak')
-          setTimeLeft(settings.shortBreakTime * 60)
+          const deltaTime = Math.floor((now - lastTickTime) / 1000)
+          
+          if (deltaTime >= 1) {
+            const newTimeLeft = Math.max(0, timeLeft - deltaTime)
+            setTimeLeft(newTimeLeft)
+            setLastTickTime(now)
+          }
         }
-      } else {
-        setMode('focus')
-        setTimeLeft(settings.focusTime * 60)
+
+        animationFrameId = requestAnimationFrame(updateTimer)
+      } else if (timeLeft === 0 && isRunning) {
+        // Toca o som apropriado apenas se estiver habilitado
+        if (settings.soundEnabled) {
+          if (mode === 'focus') {
+            playBreak()
+          } else {
+            playAlarm()
+          }
+        }
+        
+        // Salva a sessão completada no Firestore
+        const sessionDuration = mode === 'focus' 
+          ? settings.focusTime * 60 
+          : mode === 'shortBreak' 
+            ? settings.shortBreakTime * 60 
+            : settings.longBreakTime * 60
+
+        addSession({
+          type: mode,
+          duration: sessionDuration,
+          startedAt: startTime,
+          completedAt: new Date(),
+          settings: { ...settings }
+        })
+        
+        // Switch modes
+        if (mode === 'focus') {
+          const newSessions = sessionsCompleted + 1
+          setSessionsCompleted(newSessions)
+          
+          if (newSessions % settings.sessionsUntilLongBreak === 0) {
+            setMode('longBreak')
+            setTimeLeft(settings.longBreakTime * 60)
+          } else {
+            setMode('shortBreak')
+            setTimeLeft(settings.shortBreakTime * 60)
+          }
+        } else {
+          setMode('focus')
+          setTimeLeft(settings.focusTime * 60)
+        }
+        setIsRunning(false)
+        setStartTime(null)
+        setLastTickTime(null)
       }
-      setIsRunning(false)
-      setStartTime(null)
     }
 
-    return () => clearInterval(interval)
-  }, [isRunning, timeLeft, mode, sessionsCompleted, settings, addSession, startTime, playAlarm, playBreak])
+    if (isRunning) {
+      animationFrameId = requestAnimationFrame(updateTimer)
+    }
+
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+      }
+    }
+  }, [isRunning, timeLeft, mode, sessionsCompleted, settings, addSession, startTime, playAlarm, playBreak, lastTickTime])
 
   const toggleTimer = () => {
-    if (!isRunning && !startTime) {
+    if (!isRunning) {
       setStartTime(new Date())
+      setLastTickTime(Date.now())
+    } else {
+      setLastTickTime(null)
     }
     setIsRunning(!isRunning)
   }
@@ -153,6 +191,7 @@ export function PomodoroProvider({ children }) {
     setTimeLeft(settings.focusTime * 60)
     setSessionsCompleted(0)
     setStartTime(null)
+    setLastTickTime(null)
   }
 
   const updateSettings = (newSettings) => {
@@ -185,7 +224,8 @@ export function PomodoroProvider({ children }) {
         toggleTimer,
         resetTimer,
         updateSettings,
-        clearSavedState
+        clearSavedState,
+        totalTime: getTotalTime()
       }}
     >
       {children}

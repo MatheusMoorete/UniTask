@@ -4,9 +4,19 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 // const CLIENT_SECRET = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
 const DISCOVERY_DOCS = [
   'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest',
-  'https://www.googleapis.com/discovery/v1/apis/oauth2/v2/rest'
+  'https://www.googleapis.com/discovery/v1/apis/oauth2/v2/rest',
+  'https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest'
 ]
-const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email'
+
+// Definindo os escopos separadamente para melhor organização
+const CALENDAR_SCOPES = ['https://www.googleapis.com/auth/calendar']
+const TASKS_SCOPES = [
+  'https://www.googleapis.com/auth/tasks',
+  'https://www.googleapis.com/auth/tasks.readonly'
+]
+const OTHER_SCOPES = ['https://www.googleapis.com/auth/userinfo.email']
+
+const SCOPES = [...CALENDAR_SCOPES, ...TASKS_SCOPES, ...OTHER_SCOPES].join(' ')
 
 let tokenClient = null
 let gapiInited = false
@@ -68,7 +78,6 @@ function initTokenClient() {
 
 export async function initializeGoogleCalendar() {
   return new Promise((resolve, reject) => {
-    // Primeiro, carregamos a API do Google
     const loadGapi = new Promise((resolveGapi, rejectGapi) => {
       if (window.gapi) {
         console.log('GAPI já está carregado')
@@ -83,13 +92,28 @@ export async function initializeGoogleCalendar() {
       script.defer = true
       script.onload = () => {
         console.log('Script GAPI carregado, inicializando cliente...')
-        window.gapi.load('client', async () => {
+        window.gapi.load('client:auth2', async () => {
           try {
             console.log('Inicializando cliente GAPI...')
             await window.gapi.client.init({
+              apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
+              clientId: CLIENT_ID,
               discoveryDocs: DISCOVERY_DOCS,
+              scope: SCOPES
             })
-            console.log('Cliente GAPI inicializado com sucesso')
+            
+            // Carrega todas as APIs necessárias
+            try {
+              await Promise.all([
+                window.gapi.client.load('tasks', 'v1'),
+                window.gapi.client.load('calendar', 'v3')
+              ])
+              console.log('APIs carregadas com sucesso')
+            } catch (apiError) {
+              console.error('Erro ao carregar APIs:', apiError)
+              rejectGapi(apiError)
+              return
+            }
             
             // Tenta restaurar o token salvo
             const savedToken = loadToken()
@@ -197,6 +221,40 @@ export async function authenticateAndGetEvents() {
           const token = window.gapi.client.getToken()
           console.log('Token obtido:', { ...token, access_token: 'REDACTED' })
           saveToken(token)
+
+          // Verifica se o usuário está autenticado e tem os escopos necessários
+          const auth2 = window.gapi.auth2.getAuthInstance()
+          const currentUser = auth2.currentUser.get()
+          const hasTasksScope = currentUser.hasGrantedScopes(TASKS_SCOPES.join(' '))
+          
+          if (!hasTasksScope) {
+            console.log('Solicitando permissões adicionais para Tasks...')
+            await new Promise((resolveAuth) => {
+              tokenClient.requestAccessToken({
+                scope: TASKS_SCOPES.join(' '),
+                prompt: 'consent'
+              })
+              tokenClient.callback = (response) => {
+                if (response.error !== undefined) {
+                  console.error('Erro ao solicitar permissões adicionais:', response)
+                  reject(response)
+                  return
+                }
+                resolveAuth()
+              }
+            })
+          }
+
+          // Recarrega as APIs necessárias
+          try {
+            await Promise.all([
+              window.gapi.client.load('tasks', 'v1'),
+              window.gapi.client.load('calendar', 'v3')
+            ])
+            console.log('APIs recarregadas com sucesso')
+          } catch (err) {
+            console.error('Erro ao recarregar APIs:', err)
+          }
 
           console.log('Buscando eventos e calendários...')
           const [events, calendars] = await Promise.all([
@@ -357,14 +415,18 @@ export const initializeGoogleCalendarWithToken = async (tokens) => {
     await window.gapi.client.init({
       apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
       clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      scope: 'https://www.googleapis.com/auth/calendar',
+      scope: SCOPES,
+      discoveryDocs: DISCOVERY_DOCS
     })
 
     // Set the tokens
     window.gapi.client.setToken(tokens)
 
-    // Initialize calendar API
-    await window.gapi.client.load('calendar', 'v3')
+    // Initialize APIs
+    await Promise.all([
+      window.gapi.client.load('calendar', 'v3'),
+      window.gapi.client.load('tasks', 'v1')
+    ])
     
     return true
   } catch (error) {
@@ -382,7 +444,7 @@ export const authenticateWithGoogle = async () => {
   try {
     const auth2 = window.gapi.auth2.getAuthInstance()
     const googleUser = await auth2.signIn({
-      scope: 'https://www.googleapis.com/auth/calendar'
+      scope: SCOPES
     })
     
     const authResponse = googleUser.getAuthResponse(true)
@@ -408,6 +470,88 @@ export const clearGoogleCalendarTokens = async () => {
     window.gapi.client.setToken(null)
   } catch (error) {
     console.error('Erro ao limpar tokens:', error)
+    throw error
+  }
+}
+
+export async function addTaskToCalendar(task) {
+  try {
+    // Verifica se o cliente está autenticado
+    if (!window.gapi?.auth2?.getAuthInstance()?.isSignedIn.get()) {
+      throw new Error('Usuário não está autenticado')
+    }
+
+    // Verifica se a API do Tasks está disponível
+    if (!window.gapi?.client?.tasks) {
+      console.log('API de Tasks não encontrada, tentando carregar...')
+      try {
+        await window.gapi.client.load('tasks', 'v1')
+        console.log('API de Tasks carregada com sucesso')
+      } catch (loadError) {
+        console.error('Erro ao carregar API de Tasks:', loadError)
+        throw new Error('Não foi possível carregar a API de Tasks')
+      }
+    }
+
+    console.log('Iniciando criação da task...')
+
+    // Formata a data para RFC 3339 com timezone local
+    const dueDate = new Date(task.date)
+    // Ajusta para o final do dia
+    dueDate.setHours(23, 59, 59, 999)
+    
+    const taskData = {
+      'title': task.title,
+      'notes': task.description || '',
+      'due': dueDate.toISOString(),
+      'status': 'needsAction'
+    }
+
+    console.log('Criando task com dados:', taskData)
+
+    // Primeiro, vamos listar as tasklists existentes
+    console.log('Buscando listas de tarefas...')
+    const taskLists = await window.gapi.client.request({
+      path: 'https://tasks.googleapis.com/tasks/v1/users/@me/lists',
+      method: 'GET'
+    })
+    
+    console.log('Listas encontradas:', taskLists.result)
+
+    let taskListId
+
+    // Se não houver listas, cria uma nova
+    if (!taskLists.result.items || taskLists.result.items.length === 0) {
+      console.log('Nenhuma lista encontrada, criando nova lista...')
+      const newList = await window.gapi.client.request({
+        path: 'https://tasks.googleapis.com/tasks/v1/users/@me/lists',
+        method: 'POST',
+        body: {
+          title: 'UniTask'
+        }
+      })
+      taskListId = newList.result.id
+    } else {
+      // Usa a primeira lista disponível
+      taskListId = taskLists.result.items[0].id
+    }
+
+    console.log('Usando lista de tarefas:', taskListId)
+
+    // Cria a task na lista selecionada
+    const response = await window.gapi.client.request({
+      path: `https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks`,
+      method: 'POST',
+      body: taskData
+    })
+
+    console.log('Task criada com sucesso:', response.result)
+    return response.result
+  } catch (error) {
+    console.error('Erro ao adicionar task ao Google Calendar:', error)
+    if (error.result) {
+      console.error('Detalhes do erro:', error.result)
+    }
     throw error
   }
 } 
