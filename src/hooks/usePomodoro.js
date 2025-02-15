@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useFirestore } from '../contexts/FirestoreContext'
 import { useTimeFilter } from '../contexts/TimeFilterContext'
@@ -13,6 +13,73 @@ import {
 } from 'firebase/firestore'
 
 const STORAGE_KEY = 'pomodoro_sessions'
+
+const usePomodoroSound = (soundEnabled = true, volume = 50) => {
+  const [audio] = useState(() => new Audio('/sounds/alarmclock-bell-ringing-clear-windingdown-000212_0029s3_d-095-099-031-042-35592.mp3'))
+
+  useEffect(() => {
+    audio.volume = volume / 100
+  }, [volume, audio])
+
+  const playSoundSafely = useCallback(() => {
+    if (soundEnabled) {
+      try {
+        audio.currentTime = 0 // Reinicia o áudio
+        audio.volume = volume / 100 // Define o volume inicial
+        audio.play()
+        
+        // Implementa fade out suave nos últimos 400ms
+        const fadeOutDuration = 400 // duração do fade em ms
+        const fadeOutStart = 3000 // quando começar o fade (3.4s - 0.4s)
+        const fadeOutInterval = 10 // intervalo de atualização do fade em ms
+        
+        // Timer para iniciar o fade out
+        setTimeout(() => {
+          const initialVolume = audio.volume
+          const steps = fadeOutDuration / fadeOutInterval
+          const volumeStep = initialVolume / steps
+          
+          const fadeInterval = setInterval(() => {
+            if (audio.volume > volumeStep) {
+              audio.volume -= volumeStep
+            } else {
+              audio.volume = 0
+              clearInterval(fadeInterval)
+              audio.pause()
+              audio.currentTime = 0
+              // Restaura o volume original para a próxima vez
+              audio.volume = volume / 100
+            }
+          }, fadeOutInterval)
+          
+          // Garante que o intervalo seja limpo
+          setTimeout(() => {
+            clearInterval(fadeInterval)
+          }, fadeOutDuration + 100)
+        }, fadeOutStart)
+
+        // Timer final para garantir que o som pare
+        setTimeout(() => {
+          audio.pause()
+          audio.currentTime = 0
+          audio.volume = volume / 100 // Restaura o volume original
+        }, 3400) // Tempo total de 3.4 segundos
+      } catch (error) {
+        console.error('Erro ao tocar som:', error)
+      }
+    }
+  }, [soundEnabled, audio, volume])
+
+  // Limpa o áudio quando o componente é desmontado
+  useEffect(() => {
+    return () => {
+      audio.pause()
+      audio.currentTime = 0
+    }
+  }, [audio])
+
+  return playSoundSafely
+}
 
 export function usePomodoro() {
   const [sessions, setSessions] = useState([])
@@ -366,4 +433,6 @@ export function usePomodoro() {
     getTodayFocusTime,
     formatTime
   }
-} 
+}
+
+export { usePomodoroSound } 

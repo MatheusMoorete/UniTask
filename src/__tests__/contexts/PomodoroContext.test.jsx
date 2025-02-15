@@ -9,6 +9,28 @@ vi.mock('../../contexts/FirestoreContext', () => ({
   useFirestore: vi.fn()
 }))
 
+// Mock do use-sound
+vi.mock('use-sound', () => ({
+  default: () => [vi.fn(), { stop: vi.fn() }]
+}))
+
+// Mock do usePomodoro
+vi.mock('../../hooks/usePomodoro', () => ({
+  usePomodoro: vi.fn(() => ({
+    addSession: vi.fn(),
+    getTotalFocusTime: () => 0,
+    getAccessDays: () => 0,
+    getStreak: () => 0,
+    getDailyAverage: () => 0,
+    getProductivityTrend: () => 0,
+    getDistributionData: () => [],
+    getWeeklyChartData: () => [],
+    getMonthlyChartData: () => [],
+    getSemesterChartData: () => [],
+    formatTime: (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+  }))
+}))
+
 // Mock do onSnapshot
 const mockOnSnapshot = vi.fn()
 const mockCollection = vi.fn()
@@ -65,7 +87,13 @@ describe('PomodoroContext', () => {
       localStorage.setItem('pomodoro_state', JSON.stringify({
         timeLeft: 1200,
         mode: 'shortBreak',
-        sessionsCompleted: 2
+        sessionsCompleted: 2,
+        settings: {
+          focusTime: 25,
+          shortBreakTime: 5,
+          longBreakTime: 15,
+          sessionsUntilLongBreak: 4
+        }
       }))
 
       renderWithProvider(<TestComponent />)
@@ -167,6 +195,23 @@ describe('PomodoroContext', () => {
       
       const state = JSON.parse(localStorage.getItem('pomodoro_settings'))
       expect(state.focusTime).toBe(30)
+    })
+  })
+
+  describe('Controle do Timer', () => {
+    it('deve iniciar o timer ao clicar no botão', () => {
+      renderWithProvider(<TestComponent />)
+      
+      fireEvent.click(screen.getByText('Iniciar'))
+      expect(screen.getByText('Pausar')).toBeInTheDocument()
+    })
+
+    it('deve pausar o timer ao clicar novamente', () => {
+      renderWithProvider(<TestComponent />)
+      
+      fireEvent.click(screen.getByText('Iniciar'))
+      fireEvent.click(screen.getByText('Pausar'))
+      expect(screen.getByText('Iniciar')).toBeInTheDocument()
     })
   })
 }) 

@@ -4,6 +4,25 @@ import PomodoroSettings from '../../../components/pomodoro/PomodoroSettings'
 import { PomodoroProvider } from '../../../contexts/PomodoroContext'
 import { AuthProvider } from '../../../__mocks__/AuthContext'
 
+const defaultSettings = {
+  focusTime: 25,
+  shortBreakTime: 5,
+  longBreakTime: 15,
+  sessionsUntilLongBreak: 4,
+  soundEnabled: true,
+  notificationsEnabled: true,
+  dndEnabled: false,
+  volume: 50
+}
+
+vi.mock('../../../contexts/PomodoroContext', () => ({
+  ...vi.importActual('../../../contexts/PomodoroContext'),
+  useGlobalPomodoro: () => ({
+    settings: defaultSettings,
+    updateSettings: vi.fn()
+  })
+}))
+
 const renderSettings = () => {
   return render(
     <AuthProvider>

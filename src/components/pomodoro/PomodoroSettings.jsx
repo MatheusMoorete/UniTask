@@ -240,4 +240,6 @@ export function PomodoroSettings() {
       </DialogContent>
     </Dialog>
   )
-} 
+}
+
+export default PomodoroSettings 

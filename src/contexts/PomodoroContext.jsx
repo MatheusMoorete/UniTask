@@ -1,6 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react'
-import { usePomodoro } from '../hooks/usePomodoro'
-import { useSound } from '../hooks/useSound'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { usePomodoro, usePomodoroSound } from '../hooks/usePomodoro'
 import PropTypes from 'prop-types'
 
 const PomodoroContext = createContext({})
@@ -57,23 +56,48 @@ export function PomodoroProvider({ children }) {
   const [settings, setSettings] = useState(initialState.settings || defaultSettings)
   const [worker, setWorker] = useState(null)
   
-  // Inicializa os sons com o caminho correto e configurações de tempo
-  const { play: playAlarm } = useSound(
-    '/public/sounds/alarmclock-bell-ringing-clear-windingdown-000212_0029s3_d-095-099-031-042-35592.mp3', 
-    { 
-      volume: settings.volume / 100,
-      startTime: 3,
-      duration: 2
+  const playSound = usePomodoroSound(settings.soundEnabled, settings.volume)
+
+  // Função para solicitar permissão de notificação
+  const requestNotificationPermission = useCallback(async () => {
+    if (!("Notification" in window)) {
+      console.log("Este navegador não suporta notificações desktop")
+      return false
     }
-  )
-  const { play: playBreak } = useSound(
-    '/public/sounds/alarmclock-bell-ringing-clear-windingdown-000212_0029s3_d-095-099-031-042-35592.mp3', 
-    { 
-      volume: settings.volume / 100,
-      startTime: 3,
-      duration: 2
+
+    if (Notification.permission === "granted") {
+      return true
     }
-  )
+
+    if (Notification.permission !== "denied") {
+      const permission = await Notification.requestPermission()
+      return permission === "granted"
+    }
+
+    return false
+  }, [])
+
+  // Verifica permissão quando as notificações são habilitadas
+  useEffect(() => {
+    if (settings.notificationsEnabled) {
+      requestNotificationPermission()
+    }
+  }, [settings.notificationsEnabled, requestNotificationPermission])
+
+  // Função para enviar notificação com tratamento de erro
+  const sendNotification = useCallback((title, body) => {
+    if (settings.notificationsEnabled && "Notification" in window && Notification.permission === "granted") {
+      try {
+        new Notification(title, {
+          body,
+          icon: '/favicon.ico',
+          silent: !settings.soundEnabled
+        })
+      } catch (error) {
+        console.error('Erro ao enviar notificação:', error)
+      }
+    }
+  }, [settings.notificationsEnabled, settings.soundEnabled])
 
   // Calcula o tempo total baseado no modo atual
   const getTotalTime = () => {
@@ -114,47 +138,34 @@ export function PomodoroProvider({ children }) {
   const handleTimerComplete = async () => {
     // Toca o som apropriado apenas se estiver habilitado
     if (settings.soundEnabled) {
-      if (mode === 'focus') {
-        playBreak()
-      } else {
-        playAlarm()
+      try {
+        playSound()
+      } catch (error) {
+        console.error('Erro ao tocar som:', error)
       }
     }
 
     // Envia notificação se habilitado
-    if (settings.notificationsEnabled && "Notification" in window) {
-      let title, body
-
-      switch (mode) {
-        case 'focus':
-          title = 'Tempo de foco concluído!'
-          body = 'Hora de fazer uma pausa!'
-          break
-        case 'shortBreak':
-          title = 'Pausa curta concluída!'
-          body = 'Vamos voltar ao foco?'
-          break
-        case 'longBreak':
-          title = 'Pausa longa concluída!'
-          body = 'Descansou bem? Hora de voltar aos estudos!'
-          break
-        default:
-          title = 'Sessão concluída!'
-          body = 'Hora de continuar!'
-      }
-      
-      try {
-        if (Notification.permission === "granted") {
-          new Notification(title, {
-            body,
-            icon: '/favicon.ico',
-            silent: !settings.soundEnabled
-          })
-        }
-      } catch (error) {
-        console.error('Erro ao enviar notificação:', error)
-      }
+    let title, body
+    switch (mode) {
+      case 'focus':
+        title = 'Tempo de foco concluído!'
+        body = 'Hora de fazer uma pausa!'
+        break
+      case 'shortBreak':
+        title = 'Pausa curta concluída!'
+        body = 'Vamos voltar ao foco?'
+        break
+      case 'longBreak':
+        title = 'Pausa longa concluída!'
+        body = 'Descansou bem? Hora de voltar aos estudos!'
+        break
+      default:
+        title = 'Sessão concluída!'
+        body = 'Hora de continuar!'
     }
+    
+    sendNotification(title, body)
     
     // Salva a sessão completada no Firestore
     const sessionDuration = mode === 'focus' 
@@ -163,13 +174,20 @@ export function PomodoroProvider({ children }) {
         ? settings.shortBreakTime * 60 
         : settings.longBreakTime * 60
 
-    await addSession({
-      type: mode,
-      duration: sessionDuration,
-      startedAt: startTime,
-      completedAt: new Date(),
-      settings: { ...settings }
-    })
+    // Verifica se startTime existe, caso contrário usa um timestamp de sessionDuration atrás
+    const effectiveStartTime = startTime || new Date(Date.now() - sessionDuration * 1000)
+
+    try {
+      await addSession({
+        type: mode,
+        duration: sessionDuration,
+        startedAt: effectiveStartTime,
+        completedAt: new Date(),
+        settings: { ...settings }
+      })
+    } catch (error) {
+      console.error('Erro ao salvar sessão:', error)
+    }
     
     // Switch modes
     if (mode === 'focus') {
@@ -222,8 +240,10 @@ export function PomodoroProvider({ children }) {
   const toggleTimer = () => {
     if (!isRunning) {
       setStartTime(new Date())
+      setIsRunning(true)
+    } else {
+      setIsRunning(false)
     }
-    setIsRunning(!isRunning)
   }
 
   const resetTimer = () => {
@@ -250,20 +270,20 @@ export function PomodoroProvider({ children }) {
     }
   }
 
+  const value = {
+    timeLeft,
+    isRunning,
+    mode,
+    sessionsCompleted,
+    settings,
+    totalTime: getTotalTime(),
+    toggleTimer,
+    resetTimer,
+    updateSettings
+  }
+
   return (
-    <PomodoroContext.Provider
-      value={{
-        timeLeft,
-        isRunning,
-        mode,
-        sessionsCompleted,
-        settings,
-        toggleTimer,
-        resetTimer,
-        updateSettings,
-        totalTime: getTotalTime()
-      }}
-    >
+    <PomodoroContext.Provider value={value}>
       {children}
     </PomodoroContext.Provider>
   )

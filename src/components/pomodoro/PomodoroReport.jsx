@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { Brain, Calendar, Flame, Target, Clock, TrendingUp } from 'lucide-react'
 import { usePomodoro } from '../../hooks/usePomodoro'
 import { useTimeFilter } from '../../contexts/TimeFilterContext'
@@ -53,7 +52,7 @@ StatCard.propTypes = {
   trend: PropTypes.number
 }
 
-const TimeChart = ({ data, dataKey = "hours" }) => (
+const TimeChart = ({ data }) => (
   <div className="h-[300px] w-full">
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -76,7 +75,7 @@ const TimeChart = ({ data, dataKey = "hours" }) => (
         />
         <Area
           type="monotone"
-          dataKey={dataKey}
+          dataKey="hours"
           stroke="hsl(var(--primary))"
           fillOpacity={1}
           fill="url(#colorHours)"
@@ -90,8 +89,7 @@ TimeChart.propTypes = {
   data: PropTypes.arrayOf(PropTypes.shape({
     name: PropTypes.string.isRequired,
     hours: PropTypes.number.isRequired
-  })).isRequired,
-  dataKey: PropTypes.string
+  })).isRequired
 }
 
 const DistributionChart = ({ data }) => (
@@ -143,7 +141,7 @@ const PomodoroReport = () => {
     getDistributionData,
     getProductivityTrend,
     getDailyAverage,
-    formatTime,
+    formatTime
   } = usePomodoro()
 
   const totalFocusTime = getTotalFocusTime()

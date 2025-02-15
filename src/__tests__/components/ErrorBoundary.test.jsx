@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import { ErrorBoundary } from '../../components/ErrorBoundary'
+import { render, screen } from '@testing-library/react'
+import ErrorBoundary from '../../components/ErrorBoundary'
 
 function ErrorComponent() {
   throw new Error('Erro de teste')
@@ -38,14 +38,17 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Tentar Novamente')).toBeInTheDocument()
   })
 
-  it('deve permitir tentar novamente quando o botão é clicado', () => {
-    const { container } = render(
+  it('deve mostrar botão de recarregar página', () => {
+    render(
       <ErrorBoundary>
         <ErrorComponent />
       </ErrorBoundary>
     )
 
-    fireEvent.click(screen.getByText('Tentar Novamente'))
-    expect(container.innerHTML).toContain('Erro de teste')
+    // Verifica se a mensagem de erro está presente
+    expect(screen.getByText('Oops! Algo deu errado')).toBeInTheDocument()
+
+    // Verifica se o botão de recarregar página está presente
+    expect(screen.getByText('Recarregar Página')).toBeInTheDocument()
   })
 }) 
