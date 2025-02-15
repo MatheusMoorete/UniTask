@@ -15,6 +15,13 @@ const toastStyles = {
       border: '1px solid #fca5a5',
       color: '#991b1b'
     }
+  },
+  info: {
+    style: {
+      backgroundColor: '#e0f2fe',
+      border: '1px solid #7dd3fc',
+      color: '#075985'
+    }
   }
 }
 
@@ -30,6 +37,13 @@ export const showToast = {
     toast.error(message, {
       style: toastStyles.error.style,
       className: 'error-toast'
+    })
+  },
+  info: (message, options = {}) => {
+    toast(message, {
+      style: toastStyles.info.style,
+      className: 'info-toast',
+      ...options
     })
   },
   custom: (render) => {

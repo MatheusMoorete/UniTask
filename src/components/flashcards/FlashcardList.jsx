@@ -49,11 +49,29 @@ export default function FlashcardList({ deckId }) {
           card.front.toLowerCase().includes(searchQuery.toLowerCase()) ||
           card.back.toLowerCase().includes(searchQuery.toLowerCase())
 
-        const matchesFilter = filterBy === 'all' || 
-          (filterBy === 'due' && card.isDue) ||
-          (filterBy === 'learned' && !card.isDue)
+        // Verifica se o card está para revisão
+        const isDue = () => {
+          if (!card.repetitionData?.nextReview) return true
+          const nextReview = new Date(card.repetitionData.nextReview?.toDate?.() || card.repetitionData.nextReview)
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          nextReview.setHours(0, 0, 0, 0)
+          return card.repetitionData.repetitions === 0 || nextReview <= today
+        }
 
-        return matchesSearch && matchesFilter
+        // Verifica se o card foi aprendido
+        const isLearned = () => {
+          return card.repetitionData && card.repetitionData.repetitions > 0
+        }
+
+        switch (filterBy) {
+          case 'due':
+            return matchesSearch && isDue()
+          case 'learned':
+            return matchesSearch && isLearned()
+          default:
+            return matchesSearch
+        }
       })
       .sort((a, b) => {
         const order = sortOrder === 'asc' ? 1 : -1
