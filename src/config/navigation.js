@@ -1,12 +1,73 @@
-import { LayoutDashboard, ListTodo, Calendar, Timer, GraduationCap, Book, BookOpen, Brain } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Calendar,
+  Clock,
+  GraduationCap,
+  BookOpen,
+  Brain,
+  CheckSquare,
+  CalendarRange
+} from 'lucide-react'
 
 export const navigationItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
-  { icon: ListTodo, label: 'Lista de Tarefas', href: '/todo' },
-  { icon: Calendar, label: 'Calendário', href: '/calendar' },
-  { icon: Timer, label: 'Timer Pomodoro', href: '/pomodoro' },
-  { icon: GraduationCap, label: 'Faltômetro', href: '/attendance' },
-  { icon: Book, label: 'Caderno Virtual', href: '/caderno-virtual' },
-  { icon: BookOpen, label: 'Sala de Estudos', href: '/study-room' },
-  { icon: Brain, label: 'Flashcards', href: '/flashcards' }
+  {
+    title: null, // Seção principal sem título
+    items: [
+      {
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        href: '/'
+      }
+    ]
+  },
+  {
+    title: 'ORGANIZAÇÃO',
+    items: [
+      {
+        label: 'Calendário',
+        icon: CalendarRange,
+        href: '/calendar'
+      },
+      {
+        label: 'Tarefas',
+        icon: CheckSquare,
+        href: '/todo'
+      },
+      {
+        label: 'Faltômetro',
+        icon: Calendar,
+        href: '/attendance'
+      }
+    ]
+  },
+  {
+    title: 'PRODUTIVIDADE',
+    items: [
+      {
+        label: 'Pomodoro',
+        icon: Clock,
+        href: '/pomodoro'
+      },
+      {
+        label: 'Sala de Estudos',
+        icon: GraduationCap,
+        href: '/study-room'
+      }
+    ]
+  },
+  {
+    title: 'MATERIAIS',
+    items: [
+      {
+        label: 'Cadernos',
+        icon: BookOpen,
+        href: '/notebooks'
+      },
+      {
+        label: 'Flashcards',
+        icon: Brain,
+        href: '/flashcards'
+      }
+    ]
+  }
 ] 
