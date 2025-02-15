@@ -1,12 +1,9 @@
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
-import { Play, Pause, RotateCcw, Coffee, Brain, Target } from 'lucide-react'
+import { Play, Pause, RotateCcw, Coffee, Brain } from 'lucide-react'
 import { PomodoroSettings } from './PomodoroSettings'
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useGlobalPomodoro } from '../../contexts/PomodoroContext'
-import { Input } from '../ui/input'
-import { Label } from '../ui/label'
-import { motion, AnimatePresence } from 'framer-motion'
 
 const PomodoroTimer = () => {
   const {
@@ -18,9 +15,6 @@ const PomodoroTimer = () => {
     resetTimer,
     totalTime
   } = useGlobalPomodoro()
-
-  const [sessionGoal, setSessionGoal] = useState('')
-  const [showGoalInput, setShowGoalInput] = useState(false)
 
   // Calcular progresso em porcentagem
   const radius = 120
@@ -102,48 +96,6 @@ const PomodoroTimer = () => {
               </div>
             </div>
           </div>
-
-          {/* Objetivo da Sessão */}
-          <AnimatePresence mode="wait">
-            {!showGoalInput ? (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="w-full"
-              >
-                <Button 
-                  variant="outline" 
-                  className="w-full flex items-center gap-2 h-auto py-3"
-                  onClick={() => setShowGoalInput(true)}
-                >
-                  <Target className="h-4 w-4" />
-                  <span className="text-sm">
-                    {sessionGoal ? sessionGoal : "Definir objetivo da sessão"}
-                  </span>
-                </Button>
-              </motion.div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="w-full space-y-2"
-              >
-                <Label>Objetivo da Sessão</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={sessionGoal}
-                    onChange={(e) => setSessionGoal(e.target.value)}
-                    placeholder="Ex: Estudar capítulo 3"
-                    onKeyPress={(e) => e.key === 'Enter' && setShowGoalInput(false)}
-                    className="flex-1"
-                  />
-                  <Button onClick={() => setShowGoalInput(false)}>OK</Button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* Controls */}
           <div className="flex gap-3 w-full">
