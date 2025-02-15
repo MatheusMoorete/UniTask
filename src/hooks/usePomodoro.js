@@ -430,6 +430,8 @@ export function usePomodoro() {
     getProductivityTrend,
     getDistributionData,
     getWeeklyChartData,
+    getMonthlyChartData,
+    getSemesterChartData,
     getTodayFocusTime,
     formatTime
   }

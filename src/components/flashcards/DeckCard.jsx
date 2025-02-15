@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
-import { Card } from '../ui/card'
+import { Card, CardHeader, CardContent } from '../ui/card'
+import PropTypes from 'prop-types'
 import { 
   Brain, 
   Book, 
@@ -13,8 +14,10 @@ import {
   Rocket,
   Atom,
   Code,
-  Palette
+  Palette,
+  Clock
 } from 'lucide-react'
+import { cn } from '../../lib/utils'
 
 // Função para gerar um número consistente baseado no ID
 function hashCode(str) {
@@ -82,28 +85,54 @@ export function DeckCard({ deck, onClick }) {
 
   return (
     <Card
-      className="p-6 cursor-pointer hover:bg-accent/5 transition-colors"
+      className={cn(
+        "group relative overflow-hidden transition-all h-[160px]",
+        "cursor-pointer hover:border-primary/50 flex flex-col",
+        "hover:shadow-lg hover:shadow-primary/5",
+        "bg-gradient-to-br from-card to-card/50"
+      )}
       onClick={onClick}
     >
-      <div className="flex items-center gap-4">
-        <div className="p-2 bg-primary/10 rounded-lg">
-          {IconComponent && <IconComponent className="h-6 w-6 text-primary" />}
+      <CardHeader className="pb-3 flex-none">
+        <div className="flex items-start gap-4">
+          <div className={cn(
+            "p-2.5 rounded-xl transition-all duration-300",
+            "bg-primary/5 group-hover:bg-primary/10",
+            "group-hover:scale-105"
+          )}>
+            {IconComponent && <IconComponent className="h-5 w-5 text-primary" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-lg tracking-tight truncate">{deck.name}</h3>
+            <p className="text-sm text-muted-foreground/80 line-clamp-1">
+              {deck.description || "Sem descrição"}
+            </p>
+          </div>
         </div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-lg">{deck.name}</h3>
-          <p className="text-sm text-muted-foreground line-clamp-1">{deck.description}</p>
+      </CardHeader>
+      
+      <CardContent className="flex items-center justify-between pb-3 text-sm flex-1">
+        <div className="flex items-center gap-2.5 text-muted-foreground/90 bg-muted/30 px-3 py-2 rounded-md transition-colors group-hover:bg-muted/50">
+          <Brain className="h-4 w-4 flex-none text-primary/70" />
+          <span className="font-medium">{stats.totalCards} cards no total</span>
         </div>
-      </div>
-      <div className="mt-4 flex gap-4 text-sm">
-        <div>
-          <span className="font-medium">Cards: </span>
-          <span className="text-muted-foreground">{stats.totalCards}</span>
-        </div>
-        <div>
-          <span className="font-medium">Para revisar: </span>
-          <span className="text-muted-foreground">{stats.dueCards}</span>
-        </div>
-      </div>
+        
+        {stats.dueCards > 0 && (
+          <div className="flex items-center gap-2.5 text-primary bg-primary/10 px-3 py-2 rounded-md transition-colors group-hover:bg-primary/15">
+            <Clock className="h-4 w-4 flex-none" />
+            <span className="font-medium">{stats.dueCards} para revisar</span>
+          </div>
+        )}
+      </CardContent>
     </Card>
   )
+}
+
+DeckCard.propTypes = {
+  deck: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    description: PropTypes.string
+  }).isRequired,
+  onClick: PropTypes.func.isRequired
 }

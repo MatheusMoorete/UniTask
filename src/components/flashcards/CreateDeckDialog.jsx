@@ -8,40 +8,51 @@ import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
 import { useDecks } from '../../hooks/useDecks'
 import { showToast } from '../../lib/toast'
+import PropTypes from 'prop-types'
 
 export function CreateDeckDialog({ open, onOpenChange }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { createDeck } = useDecks()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     
     if (!name.trim()) {
-      showToast('O nome do deck é obrigatório')
+      showToast.error('O nome do deck é obrigatório')
       return
     }
 
+    setIsSubmitting(true)
     try {
       await createDeck({ 
-        name, 
-        description,
+        name: name.trim(), 
+        description: description.trim(),
         totalCards: 0,
         dueCards: 0
       })
       
-      showToast('Deck criado com sucesso!')
-      onOpenChange(false)
+      showToast.success('Deck criado com sucesso!')
       setName('')
       setDescription('')
+      onOpenChange(false)
     } catch (error) {
       console.error('Erro ao criar deck:', error)
-      showToast('Erro ao criar deck')
+      showToast.error('Erro ao criar deck')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
+  const handleClose = () => {
+    setName('')
+    setDescription('')
+    onOpenChange(false)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Novo Deck</DialogTitle>
@@ -54,6 +65,7 @@ export function CreateDeckDialog({ open, onOpenChange }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Matemática Básica"
+              disabled={isSubmitting}
             />
           </div>
           <div className="space-y-2">
@@ -64,20 +76,32 @@ export function CreateDeckDialog({ open, onOpenChange }) {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ex: Flashcards sobre operações básicas de matemática"
               rows={3}
+              disabled={isSubmitting}
             />
           </div>
           <div className="flex justify-end gap-2">
             <Button 
               type="button" 
               variant="outline" 
-              onClick={() => onOpenChange(false)}
+              onClick={handleClose}
+              disabled={isSubmitting}
             >
               Cancelar
             </Button>
-            <Button type="submit">Criar</Button>
+            <Button 
+              type="submit"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Criando...' : 'Criar'}
+            </Button>
           </div>
         </form>
       </DialogContent>
     </Dialog>
   )
+}
+
+CreateDeckDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onOpenChange: PropTypes.func.isRequired
 } 

@@ -1,12 +1,13 @@
 //Estrutura da lista de flashcards de um deck
 
 import { useState, useMemo } from 'react'
+import PropTypes from 'prop-types'
 import { useFlashcards } from '@/hooks/useFlashcards'
-import { Card, CardContent } from '../ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Badge } from '../ui/badge'
-import { Pencil, Trash2, Search, Filter, SortAsc, Clock, Brain, ArrowUpNarrowWide } from 'lucide-react'
+import { Pencil, Trash2, Search, Filter, Clock, Brain, ArrowUpNarrowWide } from 'lucide-react'
 import { EditFlashcardDialog } from './EditFlashcardDialog'
 import {
   AlertDialog,
@@ -17,6 +18,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '../ui/alert-dialog'
 import {
   DropdownMenu,
@@ -28,10 +30,10 @@ import {
 } from "../ui/dropdown-menu"
 import { Checkbox } from '../ui/checkbox'
 import { showToast } from '../../lib/toast'
+import { cn } from '../../lib/utils'
 
 export default function FlashcardList({ deckId }) {
   const { flashcards, deleteFlashcards } = useFlashcards(deckId)
-  const [flashcardToDelete, setFlashcardToDelete] = useState(null)
   const [flashcardToEdit, setFlashcardToEdit] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCards, setSelectedCards] = useState([])
@@ -68,31 +70,6 @@ export default function FlashcardList({ deckId }) {
       })
   }, [flashcards, searchQuery, filterBy, sortBy, sortOrder])
 
-  const handleDelete = async (id) => {
-    try {
-      await deleteFlashcards(id)
-      setFlashcardToDelete(null)
-    } catch (error) {
-      console.error('Erro ao deletar flashcard:', error)
-    }
-  }
-
-  const getStatusBadge = (card) => {
-    const nextReview = new Date(card.repetitionData.nextReview?.toDate?.() || card.repetitionData.nextReview)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    if (nextReview <= today) {
-      return <Badge variant="destructive">Para Revisar</Badge>
-    }
-    if (card.repetitionData.repetitions === 0) {
-      return <Badge variant="secondary">Novo</Badge>
-    }
-    return <Badge variant="outline">
-      Próxima revisão: {nextReview.toLocaleDateString('pt-BR')}
-    </Badge>
-  }
-
   const handleSelectCard = (cardId) => {
     setSelectedCards(prev => {
       if (prev.includes(cardId)) {
@@ -123,15 +100,20 @@ export default function FlashcardList({ deckId }) {
     }
   }
 
-  if (flashcards.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-        <h3 className="text-xl font-medium mb-2">Nenhum flashcard criado</h3>
-        <p className="text-muted-foreground">
-          Comece criando seu primeiro flashcard usando o botão acima
-        </p>
-      </div>
-    )
+  const getStatusBadge = (card) => {
+    const nextReview = new Date(card.repetitionData.nextReview?.toDate?.() || card.repetitionData.nextReview)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (nextReview <= today) {
+      return <Badge variant="destructive">Para Revisar</Badge>
+    }
+    if (card.repetitionData.repetitions === 0) {
+      return <Badge variant="secondary">Novo</Badge>
+    }
+    return <Badge variant="outline">
+      Próxima revisão: {nextReview.toLocaleDateString('pt-BR')}
+    </Badge>
   }
 
   return (
@@ -149,15 +131,34 @@ export default function FlashcardList({ deckId }) {
         
         <div className="flex gap-2">
           {selectedCards.length > 0 && (
-            <Button 
-              variant="destructive" 
-              onClick={() => setShowDeleteDialog(true)}
-              className="gap-2"
-            >
-              <Trash2 className="h-4 w-4" />
-              Excluir ({selectedCards.length})
-            </Button>
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Excluir ({selectedCards.length})
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir Cards</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir {selectedCards.length} cards?
+                    Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleDeleteSelected}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
@@ -197,21 +198,55 @@ export default function FlashcardList({ deckId }) {
               <DropdownMenuItem onClick={() => setSortBy('back')}>
                 Verso
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setSortOrder(order => order === 'asc' ? 'desc' : 'asc')}>
+                {sortOrder === 'asc' ? 'Mais recentes primeiro' : 'Mais antigos primeiro'}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      {/* Lista de cards */}
+      {filteredCards.length > 0 && (
+        <div className="flex items-center gap-2 py-2">
+          <Checkbox
+            checked={selectedCards.length === filteredCards.length}
+            onCheckedChange={handleSelectAll}
+          />
+          <span className="text-sm text-muted-foreground">
+            {selectedCards.length > 0 
+              ? `${selectedCards.length} cards selecionados`
+              : 'Selecionar todos'}
+          </span>
+        </div>
+      )}
+
       <div className="grid gap-4">
-        {filteredCards.map((card) => (
-          <Card key={card.id} className="p-4">
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="space-y-1">
-                    <h4 className="font-medium">Frente</h4>
-                    <p className="text-sm text-muted-foreground">{card.front}</p>
+        {filteredCards.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+              <Brain className="h-12 w-12 text-muted-foreground mb-4" />
+              <CardTitle className="text-xl mb-2">Nenhum card encontrado</CardTitle>
+              <CardDescription>
+                {searchQuery 
+                  ? 'Tente mudar os filtros ou termos de busca'
+                  : 'Crie seu primeiro card para começar a estudar'}
+              </CardDescription>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredCards.map((card) => (
+            <Card key={card.id} className={cn(
+              "transition-all duration-200",
+              selectedCards.includes(card.id) && "border-primary"
+            )}>
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1 flex-1">
+                    <CardTitle className="text-base font-medium">Frente</CardTitle>
+                    <CardDescription className="whitespace-pre-wrap">
+                      {card.front}
+                    </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
                     {getStatusBadge(card)}
@@ -229,61 +264,24 @@ export default function FlashcardList({ deckId }) {
                     />
                   </div>
                 </div>
+              </CardHeader>
+              <CardContent>
                 <div className="space-y-1">
-                  <h4 className="font-medium">Verso</h4>
-                  <p className="text-sm text-muted-foreground">{card.back}</p>
+                  <CardTitle className="text-base font-medium">Verso</CardTitle>
+                  <CardDescription className="whitespace-pre-wrap">
+                    {card.back}
+                  </CardDescription>
                 </div>
-                <div className="text-xs text-muted-foreground pt-2 border-t">
-                  <div className="flex items-center gap-4">
-                    <span>Repetições: {card.repetitionData.repetitions}</span>
-                    <span>Intervalo: {card.repetitionData.interval} dias</span>
-                    <span>Fator de Facilidade: {card.repetitionData.easeFactor.toFixed(2)}</span>
-                  </div>
+                <div className="flex items-center gap-4 mt-4 pt-2 border-t text-xs text-muted-foreground">
+                  <span>Repetições: {card.repetitionData.repetitions}</span>
+                  <span>Intervalo: {card.repetitionData.interval} dias</span>
+                  <span>Fator de Facilidade: {card.repetitionData.easeFactor.toFixed(2)}</span>
                 </div>
-              </div>
-            </div>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
-
-      {/* Opção "Selecionar todos" movida para baixo */}
-      {filteredCards.length > 0 && (
-        <Card className="p-4">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              checked={selectedCards.length === filteredCards.length}
-              onCheckedChange={handleSelectAll}
-            />
-            <span className="text-sm text-muted-foreground">
-              {selectedCards.length > 0 
-                ? `${selectedCards.length} cards selecionados`
-                : 'Selecionar todos os cards'}
-            </span>
-          </div>
-        </Card>
-      )}
-
-      {/* Dialogs */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir cards selecionados?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você está prestes a excluir {selectedCards.length} cards.
-              Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={handleDeleteSelected}
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <EditFlashcardDialog
         open={!!flashcardToEdit}
@@ -292,4 +290,8 @@ export default function FlashcardList({ deckId }) {
       />
     </div>
   )
+}
+
+FlashcardList.propTypes = {
+  deckId: PropTypes.string.isRequired
 }
