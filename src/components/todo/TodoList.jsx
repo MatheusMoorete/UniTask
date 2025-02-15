@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
-import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns'
+import { format, addDays, subDays, startOfWeek } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, MapPin, ChevronDown } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
-import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
 import { CreateTaskDialog } from './CreateTaskDialog'
 import { EditTaskDialog } from './EditTaskDialog'
 import { CustomCalendar } from '../ui/custom-calendar'
@@ -20,6 +19,26 @@ import { useAuth } from '../../contexts/AuthContext'
 import { Calendar } from 'lucide-react'
 import { Badge } from '../ui/badge'
 import confetti from 'canvas-confetti'
+import { motion } from 'framer-motion'
+
+// Animação para os elementos da página
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+}
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1
+  }
+}
 
 function TodoList() {
   const { user } = useAuth()
@@ -27,7 +46,6 @@ function TodoList() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
-  const { events = [] } = useGoogleCalendar()
   const [tags, setTags] = useState([])
   const [tasks, setTasks] = useState([])
   const defaultColumnId = 'todo'
@@ -235,29 +253,6 @@ function TodoList() {
     setIsEditDialogOpen(false)
   }
 
-  const handleAddFromCalendar = (event) => {
-    if (!event) return
-
-    const newTask = {
-      id: Date.now().toString(),
-      title: event.summary || '',
-      description: event.description || '',
-      date: toValidDate(event.start?.dateTime || event.start?.date),
-      priority: 'P2',
-      completed: false,
-      subtasks: [],
-      tags: [],
-      location: event.location || '',
-      calendarEventId: event.id,
-      userId: user?.uid,
-      defaultColumnId: 'todo',
-      position: tasks?.length || 0,
-      updatedAt: new Date()
-    }
-
-    handleAddTask(newTask)
-  }
-
   const handlePreviousDay = () => {
     setSelectedDate(prev => subDays(prev, 1))
   }
@@ -269,12 +264,6 @@ function TodoList() {
   const handleToday = () => {
     setSelectedDate(new Date())
   }
-
-  // Gera os dias do mês atual
-  const monthDays = eachDayOfInterval({
-    start: startOfMonth(selectedDate),
-    end: endOfMonth(selectedDate)
-  })
 
   // Gera os dias da semana a partir do domingo
   const weekDays = selectedDate ? Array.from({ length: 7 }).map((_, index) => {
@@ -304,16 +293,6 @@ function TodoList() {
       return false
     }
   }
-
-  // Filtrar tarefas do dia selecionado
-  const filteredTasks = tasks.filter(task => {
-    try {
-      return task && task.date && isSameDay(task.date, selectedDate)
-    } catch (error) {
-      console.error('Error filtering task:', error)
-      return false
-    }
-  })
 
   // Função para obter a cor da prioridade
   const getPriorityColor = (priority) => {
@@ -358,13 +337,23 @@ function TodoList() {
   }
 
   return (
-    <div className="h-full p-4 md:p-6">
+    <motion.div 
+      className="h-full p-4 md:p-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <motion.div 
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
+        variants={itemVariants}
+      >
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Lista de Tarefas</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gerencie suas tarefas e prazos
+          <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Tarefas
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            Organize suas atividades e acompanhe seus prazos
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -423,10 +412,13 @@ function TodoList() {
             Nova Tarefa
           </Button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Week Days */}
-      <div className="grid grid-cols-7 gap-2 mb-6">
+      <motion.div 
+        className="grid grid-cols-7 gap-2 mb-6"
+        variants={itemVariants}
+      >
         {weekDays.map(({ date, dayNameShort, dayNameLong, dayNumber, isSelected, isToday }) => (
           <button
             key={date.toString()}
@@ -455,13 +447,16 @@ function TodoList() {
             )}
           </button>
         ))}
-      </div>
+      </motion.div>
 
       {/* Tasks List */}
-      <div className="w-full max-w-full sm:max-w-[90%] mx-auto space-y-2 mt-4">
+      <motion.div 
+        className="w-full max-w-full sm:max-w-[90%] mx-auto space-y-2 mt-4"
+        variants={itemVariants}
+      >
         <div className="space-y-2">
           {tasks
-            .filter(task => task.defaultColumnId === defaultColumnId)
+            .filter(task => task.defaultColumnId === defaultColumnId && isSameDay(task.date, selectedDate))
             .sort((a, b) => {
               if (a.completed === b.completed) {
                 return new Date(b.updatedAt) - new Date(a.updatedAt)
@@ -596,7 +591,7 @@ function TodoList() {
               </div>
             ))}
         </div>
-      </div>
+      </motion.div>
 
       {/* Task Dialogs */}
       <CreateTaskDialog
@@ -625,7 +620,7 @@ function TodoList() {
         onTagDelete={handleDeleteTag}
         onDelete={handleDeleteTask}
       />
-    </div>
+    </motion.div>
   )
 }
 
