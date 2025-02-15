@@ -19,7 +19,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { Calendar } from 'lucide-react'
 import { Badge } from '../ui/badge'
 import confetti from 'canvas-confetti'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 // Animação para os elementos da página
 const containerVariants = {
@@ -419,34 +419,51 @@ function TodoList() {
         className="grid grid-cols-7 gap-2 mb-6"
         variants={itemVariants}
       >
-        {weekDays.map(({ date, dayNameShort, dayNameLong, dayNumber, isSelected, isToday }) => (
-          <button
-            key={date.toString()}
-            onClick={() => setSelectedDate(date)}
-            className={cn(
-              "group relative flex flex-col items-center justify-center py-2 rounded-xl transition-all duration-200",
-              "hover:bg-transparent",
-              isSelected ? "text-blue-600" : "text-muted-foreground",
-              isToday && !isSelected && "text-blue-500"
-            )}
-          >
-            <span className="text-[0.65rem] sm:text-xs font-medium mb-1 opacity-60 group-hover:opacity-100 transition-opacity">
-              <span className="sm:hidden">{dayNameShort}</span>
-              <span className="hidden sm:inline">{dayNameLong}</span>
-            </span>
-            <span className={cn(
-              "flex items-center justify-center w-8 h-8 text-sm rounded-full transition-all",
-              "group-hover:bg-blue-50/50",
-              isSelected && "bg-blue-600 text-white font-medium group-hover:bg-blue-600",
-              isToday && !isSelected && "bg-blue-100/50 group-hover:bg-blue-100"
-            )}>
-              {dayNumber}
-            </span>
-            {isSelected && (
-              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-600" />
-            )}
-          </button>
-        ))}
+        {weekDays.map(({ date, dayNameShort, dayNameLong, dayNumber, isSelected, isToday }) => {
+          // Calcula o número de tarefas para este dia
+          const tasksCount = tasks.filter(task => 
+            task.defaultColumnId === defaultColumnId && 
+            !task.completed && 
+            isSameDay(task.date, date)
+          ).length
+
+          return (
+            <button
+              key={date.toString()}
+              onClick={() => setSelectedDate(date)}
+              className={cn(
+                "group relative flex flex-col items-center justify-center py-2 rounded-xl transition-all duration-200",
+                "hover:bg-transparent",
+                isSelected ? "text-blue-600" : "text-muted-foreground",
+                isToday && !isSelected && "text-blue-500"
+              )}
+            >
+              <span className="text-[0.65rem] sm:text-xs font-medium mb-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                <span className="sm:hidden">{dayNameShort}</span>
+                <span className="hidden sm:inline">{dayNameLong}</span>
+              </span>
+              <span className={cn(
+                "flex items-center justify-center w-8 h-8 text-sm rounded-full transition-all relative",
+                "group-hover:bg-blue-50/50",
+                isSelected && "bg-blue-600 text-white font-medium group-hover:bg-blue-600",
+                isToday && !isSelected && "bg-blue-100/50 group-hover:bg-blue-100"
+              )}>
+                {dayNumber}
+                {tasksCount > 0 && (
+                  <span className={cn(
+                    "absolute -top-1 -right-1 w-4 h-4 text-[10px] flex items-center justify-center rounded-full",
+                    isSelected ? "bg-white text-blue-600" : "bg-blue-600 text-white"
+                  )}>
+                    {tasksCount}
+                  </span>
+                )}
+              </span>
+              {isSelected && (
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-600" />
+              )}
+            </button>
+          )
+        })}
       </motion.div>
 
       {/* Tasks List */}
@@ -454,143 +471,176 @@ function TodoList() {
         className="w-full max-w-full sm:max-w-[90%] mx-auto space-y-2 mt-4"
         variants={itemVariants}
       >
-        <div className="space-y-2">
-          {tasks
-            .filter(task => task.defaultColumnId === defaultColumnId && isSameDay(task.date, selectedDate))
-            .sort((a, b) => {
-              if (a.completed === b.completed) {
-                return new Date(b.updatedAt) - new Date(a.updatedAt)
-              }
-              return a.completed ? 1 : -1
-            })
-            .map(task => (
-              <div
-                key={task.id}
-                className={cn(
-                  "group flex items-start gap-3 p-3 rounded-lg transition-colors border border-border/50",
-                  "cursor-pointer shadow-sm hover:shadow-md",
-                  getHoverColor(task.priority),
-                  task.completed && "opacity-50"
-                )}
-                onClick={() => handleTaskClick(task)}
+        <AnimatePresence mode="wait">
+          <motion.div 
+            key={selectedDate.toISOString()}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-2"
+          >
+            {tasks.filter(task => task.defaultColumnId === defaultColumnId && isSameDay(task.date, selectedDate)).length === 0 ? (
+              <motion.div 
+                className="text-center p-8 border rounded-lg bg-card"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
               >
-                <Checkbox
-                  checked={task.completed}
-                  onCheckedChange={() => handleToggleComplete(task.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mt-1"
-                />
-                <div className="flex-1 min-w-0">
-                  {/* Cabeçalho do Card */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <h3 className={cn(
-                        "font-medium leading-none",
-                        task.completed && "line-through"
-                      )}>
-                        {task.title}
-                      </h3>
-                      {task.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {task.description}
-                        </p>
+                <p className="text-muted-foreground">
+                  Nenhuma tarefa para {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}.
+                </p>
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={handleNewTask}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Tarefa
+                </Button>
+              </motion.div>
+            ) : (
+              tasks.filter(task => task.defaultColumnId === defaultColumnId && isSameDay(task.date, selectedDate))
+                .sort((a, b) => {
+                  if (a.completed === b.completed) {
+                    return new Date(b.updatedAt) - new Date(a.updatedAt)
+                  }
+                  return a.completed ? 1 : -1
+                })
+                .map(task => (
+                  <motion.div
+                    key={task.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <div
+                      className={cn(
+                        "group flex items-start gap-3 p-3 rounded-lg transition-colors border border-border/50",
+                        "cursor-pointer shadow-sm hover:shadow-md",
+                        getHoverColor(task.priority),
+                        task.completed && "opacity-50"
                       )}
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          "text-xs px-2 py-0.5 rounded-full font-medium",
-                          getPriorityColor(task.priority)
-                        )}>
-                          {task.priority}
-                        </span>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          <span>
-                            {format(toValidDate(task.date), "dd/MM/yyyy", { locale: ptBR })}
-                            {task.date instanceof Date && task.date.getHours() !== 0 && (
-                              <> • {format(task.date, "HH:mm")}</>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                      {task.location && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          <span className="truncate max-w-[150px]">{task.location}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Botão de Expandir Subtarefas */}
-                  {task.subtasks?.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => toggleCardExpansion(task.id, e)}
-                      className="flex items-center gap-2 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => handleTaskClick(task)}
                     >
-                      <ChevronDown 
-                        className={cn(
-                          "h-4 w-4 transition-transform duration-200",
-                          expandedCards.has(task.id) && "rotate-180"
-                        )}
+                      <Checkbox
+                        checked={task.completed}
+                        onCheckedChange={() => handleToggleComplete(task.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1"
                       />
-                      <span>{task.subtasks.length} subtarefa{task.subtasks.length !== 1 ? 's' : ''}</span>
-                    </button>
-                  )}
-
-                  {/* Subtarefas */}
-                  {task.subtasks?.length > 0 && expandedCards.has(task.id) && (
-                    <div className="mt-2 space-y-1.5 pl-4 border-l-2 border-accent">
-                      {task.subtasks.map((subtask, index) => (
-                        <div 
-                          key={index}
-                          className="flex items-center gap-2 text-sm text-muted-foreground"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Checkbox
-                            checked={subtask.completed}
-                            onCheckedChange={() => {
-                              const newSubtasks = [...task.subtasks]
-                              newSubtasks[index].completed = !newSubtasks[index].completed
-                              handleTaskUpdate({
-                                ...task,
-                                subtasks: newSubtasks
-                              })
-                            }}
-                            className="h-3.5 w-3.5"
-                          />
-                          <span className={cn(
-                            "text-sm",
-                            subtask.completed && "line-through"
-                          )}>
-                            {subtask.title}
-                          </span>
+                      <div className="flex-1 min-w-0">
+                        {/* Cabeçalho do Card */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <h3 className={cn(
+                              "font-medium leading-none",
+                              task.completed && "line-through"
+                            )}>
+                              {task.title}
+                            </h3>
+                            {task.description && (
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                {task.description}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className={cn(
+                                "text-xs px-2 py-0.5 rounded-full font-medium",
+                                getPriorityColor(task.priority)
+                              )}>
+                                {task.priority}
+                              </span>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                <span>
+                                  {format(toValidDate(task.date), "dd/MM/yyyy", { locale: ptBR })}
+                                  {task.date instanceof Date && task.date.getHours() !== 0 && (
+                                    <> • {format(task.date, "HH:mm")}</>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                            {task.location && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <MapPin className="h-3 w-3" />
+                                <span className="truncate max-w-[150px]">{task.location}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
 
-                  {/* Tags */}
-                  {task.tags?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {task.tags.map(tag => (
-                        <Badge
-                          key={tag.id}
-                          variant="secondary"
-                          className="text-xs"
-                          style={{ backgroundColor: tag.color + '20', color: tag.color }}
-                        >
-                          {tag.name}
-                        </Badge>
-                      ))}
+                        {/* Botão de Expandir Subtarefas */}
+                        {task.subtasks?.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => toggleCardExpansion(task.id, e)}
+                            className="flex items-center gap-2 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <ChevronDown 
+                              className={cn(
+                                "h-4 w-4 transition-transform duration-200",
+                                expandedCards.has(task.id) && "rotate-180"
+                              )}
+                            />
+                            <span>{task.subtasks.length} subtarefa{task.subtasks.length !== 1 ? 's' : ''}</span>
+                          </button>
+                        )}
+
+                        {/* Subtarefas */}
+                        {task.subtasks?.length > 0 && expandedCards.has(task.id) && (
+                          <div className="mt-2 space-y-1.5 pl-4 border-l-2 border-accent">
+                            {task.subtasks.map((subtask, index) => (
+                              <div 
+                                key={index}
+                                className="flex items-center gap-2 text-sm text-muted-foreground"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Checkbox
+                                  checked={subtask.completed}
+                                  onCheckedChange={() => {
+                                    const newSubtasks = [...task.subtasks]
+                                    newSubtasks[index].completed = !newSubtasks[index].completed
+                                    handleTaskUpdate({
+                                      ...task,
+                                      subtasks: newSubtasks
+                                    })
+                                  }}
+                                  className="h-3.5 w-3.5"
+                                />
+                                <span className={cn(
+                                  "text-sm",
+                                  subtask.completed && "line-through"
+                                )}>
+                                  {subtask.title}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Tags */}
+                        {task.tags?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {task.tags.map(tag => (
+                              <Badge
+                                key={tag.id}
+                                variant="secondary"
+                                className="text-xs"
+                                style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                              >
+                                {tag.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            ))}
-        </div>
+                  </motion.div>
+                ))
+            )}
+          </motion.div>
+        </AnimatePresence>
       </motion.div>
 
       {/* Task Dialogs */}
