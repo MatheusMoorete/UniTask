@@ -136,7 +136,7 @@ export function PomodoroProvider({ children }) {
 
   // Função para lidar com a conclusão do timer
   const handleTimerComplete = async () => {
-    // Toca o som apropriado apenas se estiver habilitado
+    // Toca o som de finalização
     if (settings.soundEnabled) {
       try {
         playSound()
@@ -145,7 +145,7 @@ export function PomodoroProvider({ children }) {
       }
     }
 
-    // Envia notificação se habilitado
+    // Prepara notificação baseada no modo atual
     let title, body
     switch (mode) {
       case 'focus':
@@ -167,21 +167,19 @@ export function PomodoroProvider({ children }) {
     
     sendNotification(title, body)
     
-    // Salva a sessão completada no Firestore
+    // Calcula a duração da sessão atual
     const sessionDuration = mode === 'focus' 
       ? settings.focusTime * 60 
       : mode === 'shortBreak' 
         ? settings.shortBreakTime * 60 
         : settings.longBreakTime * 60
 
-    // Verifica se startTime existe, caso contrário usa um timestamp de sessionDuration atrás
-    const effectiveStartTime = startTime || new Date(Date.now() - sessionDuration * 1000)
-
+    // Registra a sessão no Firestore
     try {
       await addSession({
         type: mode,
         duration: sessionDuration,
-        startedAt: effectiveStartTime,
+        startedAt: startTime || new Date(Date.now() - sessionDuration * 1000),
         completedAt: new Date(),
         settings: { ...settings }
       })
@@ -189,22 +187,30 @@ export function PomodoroProvider({ children }) {
       console.error('Erro ao salvar sessão:', error)
     }
     
-    // Switch modes
+    // Lógica de transição entre modos
     if (mode === 'focus') {
+      // Incrementa contador apenas quando completa um período de foco
       const newSessions = sessionsCompleted + 1
       setSessionsCompleted(newSessions)
       
-      if (newSessions % settings.sessionsUntilLongBreak === 0) {
-        setMode('longBreak')
-        setTimeLeft(settings.longBreakTime * 60)
-      } else {
-        setMode('shortBreak')
-        setTimeLeft(settings.shortBreakTime * 60)
-      }
+      // Determina o próximo modo (pausa curta ou longa)
+      const isLongBreakDue = newSessions % settings.sessionsUntilLongBreak === 0
+      const nextMode = isLongBreakDue ? 'longBreak' : 'shortBreak'
+      const nextDuration = isLongBreakDue ? settings.longBreakTime : settings.shortBreakTime
+      
+      setMode(nextMode)
+      setTimeLeft(nextDuration * 60)
+      
+      console.log(`Sessão de foco ${newSessions} completada. Iniciando ${nextMode}`)
     } else {
+      // Após qualquer pausa, sempre volta para foco
       setMode('focus')
       setTimeLeft(settings.focusTime * 60)
+      
+      console.log('Pausa completada. Voltando para foco')
     }
+    
+    // Para o timer e limpa o tempo inicial
     setIsRunning(false)
     setStartTime(null)
   }
@@ -226,16 +232,33 @@ export function PomodoroProvider({ children }) {
   useEffect(() => {
     if (!worker) return
 
+    const handleWorkerMessage = (e) => {
+      const { type, timeLeft: newTimeLeft } = e.data
+      if (type === 'tick') {
+        setTimeLeft(newTimeLeft)
+      } else if (type === 'complete') {
+        handleTimerComplete()
+      }
+    }
+
+    worker.onmessage = handleWorkerMessage
+
     if (isRunning) {
+      console.log(`Iniciando timer: ${timeLeft} segundos`)
       worker.postMessage({
         type: 'start',
         timeLeft,
         interval: 1000
       })
     } else {
+      console.log('Parando timer')
       worker.postMessage({ type: 'stop' })
     }
-  }, [isRunning, worker])
+
+    return () => {
+      worker.onmessage = null
+    }
+  }, [isRunning, worker, timeLeft, handleTimerComplete])
 
   const toggleTimer = () => {
     if (!isRunning) {
