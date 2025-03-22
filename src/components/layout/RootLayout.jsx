@@ -6,6 +6,7 @@ import { Menu, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { NotificationProvider } from '../../contexts/NotificationContext'
 import { NotificationButton } from '../NotificationButton'
+import ThemeToggle from '../ThemeToggle'
 import Sidebar from './Sidebar'
 import { navigationItems } from '../../config/navigation'
 
@@ -59,7 +60,10 @@ export default function RootLayout() {
                 Organize seus estudos e alcance seus objetivos
               </p>
             </div>
-            <NotificationButton />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <NotificationButton />
+            </div>
           </div>
 
           {/* Page Content */}

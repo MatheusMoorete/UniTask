@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { format, addDays, subDays, startOfWeek } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, MapPin, ChevronDown } from 'lucide-react'
+import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, MapPin, ChevronDown, GripVertical, Filter, Search } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import { CreateTaskDialog } from './CreateTaskDialog'
@@ -20,6 +20,20 @@ import { Calendar } from 'lucide-react'
 import { Badge } from '../ui/badge'
 import confetti from 'canvas-confetti'
 import { motion, AnimatePresence } from 'framer-motion'
+import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable, useDraggable } from '@dnd-kit/core'
+import { restrictToWindowEdges } from '@dnd-kit/modifiers'
+import { showToast } from '../../lib/toast'
+import PropTypes from 'prop-types'
+import { Input } from '../ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+} from "../ui/dropdown-menu"
+import { useLocalStorage } from '../../hooks/useLocalStorage'
 
 // Animação para os elementos da página
 const containerVariants = {
@@ -40,6 +54,84 @@ const itemVariants = {
   }
 }
 
+// Definição dos PropTypes para task
+const TaskPropType = PropTypes.shape({
+  id: PropTypes.string.isRequired,
+  title: PropTypes.string.isRequired,
+  description: PropTypes.string,
+  date: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.object]),
+  priority: PropTypes.string,
+  completed: PropTypes.bool,
+  subtasks: PropTypes.arrayOf(PropTypes.shape({
+    title: PropTypes.string,
+    completed: PropTypes.bool
+  })),
+  tags: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.string,
+    name: PropTypes.string,
+    color: PropTypes.string
+  })),
+  location: PropTypes.string
+})
+
+// Componente para o item arrastável
+function DraggableTaskItem({ task, children }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: task.id,
+    data: { type: 'task', task }
+  })
+
+  return (
+    <div
+      className={cn(
+        "relative group",
+        isDragging && "opacity-50"
+      )}
+    >
+      <div
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        className="absolute left-0 top-0 h-full flex items-center px-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical className="h-5 w-5 text-muted-foreground" />
+      </div>
+      {children}
+    </div>
+  )
+}
+
+DraggableTaskItem.propTypes = {
+  task: TaskPropType.isRequired,
+  children: PropTypes.node.isRequired
+}
+
+// Componente para a área de soltar
+function DroppableDay({ date, children, isOver }) {
+  const { setNodeRef } = useDroppable({
+    id: date.toISOString(),
+    data: { type: 'day', date }
+  })
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      className={cn(
+        "h-full transition-colors duration-200",
+        isOver && "bg-accent/30 rounded-xl"
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+DroppableDay.propTypes = {
+  date: PropTypes.instanceOf(Date).isRequired,
+  children: PropTypes.node.isRequired,
+  isOver: PropTypes.bool
+}
+
 function TodoList() {
   const { user } = useAuth()
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -50,6 +142,20 @@ function TodoList() {
   const [tasks, setTasks] = useState([])
   const defaultColumnId = 'todo'
   const [expandedCards, setExpandedCards] = useState(new Set())
+  const [activeDragTask, setActiveDragTask] = useState(null)
+  const [dragOverDay, setDragOverDay] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterPriority, setFilterPriority] = useState([])
+  const [showCompleted, setShowCompleted] = useLocalStorage('showCompleted', true)
+  
+  // Configurar sensores do DnD
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  )
 
   // Função para converter para data válida
   const toValidDate = (date) => {
@@ -336,196 +442,393 @@ function TodoList() {
     })
   }
 
+  // Função para lidar com o início do drag
+  const handleDragStart = (event) => {
+    const { active } = event
+    const draggedTask = tasks.find(task => task.id === active.id)
+    setActiveDragTask(draggedTask)
+  }
+
+  // Função para lidar com o fim do drag
+  const handleDragEnd = async (event) => {
+    const { active, over } = event
+    setDragOverDay(null)
+    
+    if (!over) {
+      setActiveDragTask(null)
+      return
+    }
+
+    try {
+      const taskToMove = tasks.find(task => task.id === active.id)
+      if (!taskToMove) return
+
+      const targetDate = new Date(over.id)
+      
+      // Se a data for a mesma, não faz nada
+      if (isSameDay(taskToMove.date, targetDate)) {
+        setActiveDragTask(null)
+        return
+      }
+
+      const updatedTask = {
+        ...taskToMove,
+        date: targetDate,
+        updatedAt: new Date()
+      }
+
+      const taskRef = doc(db, 'tasks', taskToMove.id)
+      await updateDoc(taskRef, updatedTask)
+      
+      setTasks(tasks.map(task => 
+        task.id === taskToMove.id ? updatedTask : task
+      ))
+
+      // Mostrar feedback visual
+      showToast.success('Tarefa movida com sucesso!')
+    } catch (error) {
+      console.error('Erro ao mover tarefa:', error)
+      showToast.error('Erro ao mover tarefa')
+    }
+
+    setActiveDragTask(null)
+  }
+
+  // Função para lidar com o drag over
+  const handleDragOver = (event) => {
+    const { over } = event
+    setDragOverDay(over ? over.id : null)
+  }
+
+  // Função para filtrar tarefas com base nos filtros atuais
+  const filteredTasks = useCallback(() => {
+    return tasks.filter(task => {
+      // Filtro por data
+      if (!isSameDay(task.date, selectedDate)) return false
+      
+      // Filtro por coluna
+      if (task.defaultColumnId !== defaultColumnId) return false
+      
+      // Filtro de pesquisa
+      if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+        // Verifica também na descrição
+        if (!task.description || !task.description.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return false
+        }
+      }
+      
+      // Filtro por prioridade
+      if (filterPriority.length > 0 && !filterPriority.includes(task.priority)) {
+        return false
+      }
+      
+      // Filtro de tarefas concluídas
+      if (!showCompleted && task.completed) {
+        return false
+      }
+      
+      return true
+    }).sort((a, b) => {
+      // Ordenação: primeiro não concluídas, depois por prioridade (P1 > P2 > P3), depois por data de atualização
+      if (a.completed !== b.completed) {
+        return a.completed ? 1 : -1
+      }
+      
+      const priorityOrder = { P1: 1, P2: 2, P3: 3, P4: 4 }
+      if (a.priority !== b.priority) {
+        return priorityOrder[a.priority] - priorityOrder[b.priority]
+      }
+      
+      return new Date(b.updatedAt) - new Date(a.updatedAt)
+    })
+  }, [tasks, selectedDate, defaultColumnId, searchQuery, filterPriority, showCompleted, isSameDay])
+
   return (
-    <motion.div 
-      className="h-full p-4 md:p-6"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      modifiers={[restrictToWindowEdges]}
     >
-      {/* Header */}
       <motion.div 
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
-        variants={itemVariants}
+        className="h-full p-4 md:p-6"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
       >
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Tarefas
-          </h2>
-          <p className="text-muted-foreground mt-1">
-            Organize suas atividades e acompanhe seus prazos
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full sm:w-auto"
-            onClick={handleToday}
-          >
-            Hoje
-          </Button>
-          <div className="flex items-center gap-2">
+        {/* Header */}
+        <motion.div 
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
+          variants={itemVariants}
+        >
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Tarefas
+            </h2>
+            <p className="text-muted-foreground mt-1">
+              Organize suas atividades e acompanhe seus prazos
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
               size="sm"
               className="w-full sm:w-auto"
-              onClick={handlePreviousDay}
+              onClick={handleToday}
             >
-              <ChevronLeft className="h-4 w-4" />
+              Hoje
             </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto min-w-[120px]"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="center">
-                <CustomCalendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={handlePreviousDay}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto min-w-[120px]"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="center">
+                  <CustomCalendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={handleNextDay}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
             <Button
-              variant="outline"
+              onClick={handleNewTask}
               size="sm"
               className="w-full sm:w-auto"
-              onClick={handleNextDay}
             >
-              <ChevronRight className="h-4 w-4" />
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Tarefa
             </Button>
           </div>
-          <Button
-            onClick={handleNewTask}
-            size="sm"
-            className="w-full sm:w-auto"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Tarefa
-          </Button>
-        </div>
-      </motion.div>
+        </motion.div>
 
-      {/* Week Days */}
-      <motion.div 
-        className="grid grid-cols-7 gap-2 mb-6"
-        variants={itemVariants}
-      >
-        {weekDays.map(({ date, dayNameShort, dayNameLong, dayNumber, isSelected, isToday }) => {
-          // Calcula o número de tarefas para este dia
-          const tasksCount = tasks.filter(task => 
-            task.defaultColumnId === defaultColumnId && 
-            !task.completed && 
-            isSameDay(task.date, date)
-          ).length
+        {/* Week Days */}
+        <motion.div 
+          className="grid grid-cols-7 gap-2 mb-6 relative z-10"
+          variants={itemVariants}
+        >
+          {weekDays.map(({ date, dayNameShort, dayNameLong, dayNumber, isSelected, isToday }) => {
+            const tasksCount = tasks.filter(task => 
+              task.defaultColumnId === defaultColumnId && 
+              !task.completed && 
+              isSameDay(task.date, date)
+            ).length
 
-          return (
-            <button
-              key={date.toString()}
-              onClick={() => setSelectedDate(date)}
-              className={cn(
-                "group relative flex flex-col items-center justify-center py-2 rounded-xl transition-all duration-200",
-                "hover:bg-transparent",
-                isSelected ? "text-blue-600" : "text-muted-foreground",
-                isToday && !isSelected && "text-blue-500"
-              )}
-            >
-              <span className="text-[0.65rem] sm:text-xs font-medium mb-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                <span className="sm:hidden">{dayNameShort}</span>
-                <span className="hidden sm:inline">{dayNameLong}</span>
-              </span>
-              <span className={cn(
-                "flex items-center justify-center w-8 h-8 text-sm rounded-full transition-all relative",
-                "group-hover:bg-blue-50/50",
-                isSelected && "bg-blue-600 text-white font-medium group-hover:bg-blue-600",
-                isToday && !isSelected && "bg-blue-100/50 group-hover:bg-blue-100"
-              )}>
-                {dayNumber}
-                {tasksCount > 0 && (
-                  <span className={cn(
-                    "absolute -top-1 -right-1 w-4 h-4 text-[10px] flex items-center justify-center rounded-full",
-                    isSelected ? "bg-white text-blue-600" : "bg-blue-600 text-white"
-                  )}>
-                    {tasksCount}
-                  </span>
-                )}
-              </span>
-              {isSelected && (
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-600" />
-              )}
-            </button>
-          )
-        })}
-      </motion.div>
+            const isOverDay = dragOverDay === date.toISOString()
 
-      {/* Tasks List */}
-      <motion.div 
-        className="w-full max-w-full sm:max-w-[90%] mx-auto space-y-2 mt-4"
-        variants={itemVariants}
-      >
-        <AnimatePresence mode="wait">
-          <motion.div 
-            key={selectedDate.toISOString()}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="space-y-2"
-          >
-            {tasks.filter(task => task.defaultColumnId === defaultColumnId && isSameDay(task.date, selectedDate)).length === 0 ? (
-              <motion.div 
-                className="text-center p-8 border rounded-lg bg-card"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+            return (
+              <DroppableDay 
+                key={date.toString()} 
+                date={date}
+                isOver={isOverDay}
               >
-                <p className="text-muted-foreground">
-                  Nenhuma tarefa para {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}.
-                </p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4"
-                  onClick={handleNewTask}
+                <div
+                  className={cn(
+                    "group relative flex flex-col items-center justify-center py-2 rounded-xl transition-all duration-200 min-h-[80px]",
+                    "hover:bg-accent/20",
+                    isSelected ? "text-blue-600" : "text-muted-foreground",
+                    isToday && !isSelected && "text-blue-500",
+                    isOverDay && "ring-2 ring-primary ring-offset-2"
+                  )}
+                  onClick={() => setSelectedDate(date)}
+                  role="button"
+                  aria-label={`Selecionar ${dayNameLong}, ${dayNumber}`}
+                  aria-pressed={isSelected}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setSelectedDate(date)
+                    }
+                  }}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Tarefa
-                </Button>
-              </motion.div>
-            ) : (
-              tasks.filter(task => task.defaultColumnId === defaultColumnId && isSameDay(task.date, selectedDate))
-                .sort((a, b) => {
-                  if (a.completed === b.completed) {
-                    return new Date(b.updatedAt) - new Date(a.updatedAt)
-                  }
-                  return a.completed ? 1 : -1
-                })
-                .map(task => (
-                  <motion.div
-                    key={task.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
+                  <span className="text-[0.65rem] sm:text-xs font-medium mb-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <span className="sm:hidden">{dayNameShort}</span>
+                    <span className="hidden sm:inline">{dayNameLong}</span>
+                  </span>
+                  <span className={cn(
+                    "flex items-center justify-center w-8 h-8 text-sm rounded-full transition-all relative",
+                    "group-hover:bg-blue-50/50",
+                    isSelected && "bg-blue-600 text-white font-medium group-hover:bg-blue-600",
+                    isToday && !isSelected && "bg-blue-100/50 group-hover:bg-blue-100"
+                  )}>
+                    {dayNumber}
+                    {tasksCount > 0 && (
+                      <span className={cn(
+                        "absolute -top-1 -right-1 w-4 h-4 text-[10px] flex items-center justify-center rounded-full",
+                        isSelected ? "bg-white text-blue-600" : "bg-blue-600 text-white"
+                      )}>
+                        {tasksCount}
+                      </span>
+                    )}
+                  </span>
+                  {isSelected && (
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-600" />
+                  )}
+                </div>
+              </DroppableDay>
+            )
+          })}
+        </motion.div>
+
+        {/* Search and Filters */}
+        <motion.div 
+          className="mb-4"
+          variants={itemVariants}
+        >
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar tarefas" 
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Buscar tarefas"
+              />
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full sm:w-auto">
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filtros
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => {
+                    setSearchQuery('')
+                    setFilterPriority([])
+                    setShowCompleted(true)
+                  }}>
+                    Limpar filtros
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={showCompleted}
+                    onCheckedChange={setShowCompleted}
                   >
+                    Mostrar concluídas
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5 text-sm font-semibold">Prioridade</div>
+                  {['P1', 'P2', 'P3', 'P4'].map(priority => (
+                    <DropdownMenuCheckboxItem
+                      key={priority}
+                      checked={filterPriority.includes(priority) || filterPriority.length === 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFilterPriority(prev => 
+                            prev.includes(priority) ? prev : [...prev, priority]
+                          )
+                        } else {
+                          setFilterPriority(prev => prev.filter(p => p !== priority))
+                        }
+                      }}
+                    >
+                      <span className={cn(
+                        "inline-block w-2 h-2 rounded-full mr-2",
+                        priority === 'P1' && "bg-red-500",
+                        priority === 'P2' && "bg-yellow-500",
+                        priority === 'P3' && "bg-green-500",
+                        priority === 'P4' && "bg-gray-500"
+                      )}></span>
+                      {priority}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Tasks List */}
+        <motion.div 
+          className="w-full max-w-full sm:max-w-[90%] mx-auto space-y-2 mt-4 relative z-0"
+          variants={itemVariants}
+        >
+          <AnimatePresence mode="wait">
+            <motion.div 
+              key={selectedDate.toISOString()}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-2"
+            >
+              {filteredTasks().length === 0 ? (
+                <motion.div 
+                  className="text-center p-8 border rounded-lg bg-card"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <p className="text-muted-foreground">
+                    {searchQuery || filterPriority.length > 0 
+                      ? 'Nenhuma tarefa corresponde aos filtros aplicados.'
+                      : `Nenhuma tarefa para ${format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}.`}
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={handleNewTask}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Tarefa
+                  </Button>
+                </motion.div>
+              ) : (
+                filteredTasks().map(task => (
+                  <DraggableTaskItem key={task.id} task={task}>
                     <div
                       className={cn(
-                        "group flex items-start gap-3 p-3 rounded-lg transition-colors border border-border/50",
-                        "cursor-pointer shadow-sm hover:shadow-md",
+                        "group flex items-start gap-3 p-3 pl-7 rounded-lg transition-colors border border-border/50",
+                        "shadow-sm hover:shadow-md",
                         getHoverColor(task.priority),
                         task.completed && "opacity-50"
                       )}
                       onClick={() => handleTaskClick(task)}
+                      role="button"
+                      aria-label={`Tarefa: ${task.title}${task.completed ? ', concluída' : ''}`}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          handleTaskClick(task)
+                        }
+                      }}
                     >
                       <Checkbox
+                        id={`task-${task.id}`}
                         checked={task.completed}
                         onCheckedChange={() => handleToggleComplete(task.id)}
                         onClick={(e) => e.stopPropagation()}
                         className="mt-1"
+                        aria-label={`Marcar tarefa ${task.title} como ${task.completed ? 'não concluída' : 'concluída'}`}
                       />
                       <div className="flex-1 min-w-0">
                         {/* Cabeçalho do Card */}
@@ -576,6 +879,8 @@ function TodoList() {
                             type="button"
                             onClick={(e) => toggleCardExpansion(task.id, e)}
                             className="flex items-center gap-2 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            aria-expanded={expandedCards.has(task.id)}
+                            aria-controls={`subtasks-${task.id}`}
                           >
                             <ChevronDown 
                               className={cn(
@@ -589,7 +894,10 @@ function TodoList() {
 
                         {/* Subtarefas */}
                         {task.subtasks?.length > 0 && expandedCards.has(task.id) && (
-                          <div className="mt-2 space-y-1.5 pl-4 border-l-2 border-accent">
+                          <div 
+                            id={`subtasks-${task.id}`}
+                            className="mt-2 space-y-1.5 pl-4 border-l-2 border-accent"
+                          >
                             {task.subtasks.map((subtask, index) => (
                               <div 
                                 key={index}
@@ -597,6 +905,7 @@ function TodoList() {
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Checkbox
+                                  id={`subtask-${task.id}-${index}`}
                                   checked={subtask.completed}
                                   onCheckedChange={() => {
                                     const newSubtasks = [...task.subtasks]
@@ -607,13 +916,17 @@ function TodoList() {
                                     })
                                   }}
                                   className="h-3.5 w-3.5"
+                                  aria-label={`Marcar subtarefa ${subtask.title} como ${subtask.completed ? 'não concluída' : 'concluída'}`}
                                 />
-                                <span className={cn(
-                                  "text-sm",
-                                  subtask.completed && "line-through"
-                                )}>
+                                <label 
+                                  htmlFor={`subtask-${task.id}-${index}`}
+                                  className={cn(
+                                    "text-sm cursor-pointer",
+                                    subtask.completed && "line-through"
+                                  )}
+                                >
                                   {subtask.title}
-                                </span>
+                                </label>
                               </div>
                             ))}
                           </div>
@@ -636,44 +949,75 @@ function TodoList() {
                         )}
                       </div>
                     </div>
-                  </motion.div>
+                  </DraggableTaskItem>
                 ))
-            )}
-          </motion.div>
-        </AnimatePresence>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Task Dialogs */}
+        <CreateTaskDialog
+          isOpen={isCreateDialogOpen}
+          onOpenChange={(open) => {
+            setIsCreateDialogOpen(open)
+            if (!open) setSelectedTask(null)
+          }}
+          onSubmit={handleAddTask}
+          tags={tags}
+          onTagCreate={handleAddTag}
+          onTagDelete={handleDeleteTag}
+          columnId={defaultColumnId}
+        />
+
+        <EditTaskDialog
+          isOpen={isEditDialogOpen}
+          onOpenChange={(open) => {
+            setIsEditDialogOpen(open)
+            if (!open) setSelectedTask(null)
+          }}
+          onSubmit={handleTaskUpdate}
+          task={selectedTask}
+          tags={tags}
+          onTagCreate={handleAddTag}
+          onTagDelete={handleDeleteTag}
+          onDelete={handleDeleteTask}
+        />
+
+        {/* Drag Overlay */}
+        <DragOverlay>
+          {activeDragTask && (
+            <div
+              className={cn(
+                "flex items-start gap-3 p-3 pl-7 rounded-lg border border-border/50",
+                "cursor-grabbing shadow-lg max-w-[300px]",
+                getHoverColor(activeDragTask.priority),
+                "opacity-90 scale-105"
+              )}
+            >
+              <GripVertical className="absolute left-1 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Checkbox
+                checked={activeDragTask.completed}
+                className="mt-1 pointer-events-none"
+              />
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium leading-none truncate">
+                  {activeDragTask.title}
+                </h3>
+                {activeDragTask.description && (
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
+                    {activeDragTask.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </DragOverlay>
       </motion.div>
-
-      {/* Task Dialogs */}
-      <CreateTaskDialog
-        isOpen={isCreateDialogOpen}
-        onOpenChange={(open) => {
-          setIsCreateDialogOpen(open)
-          if (!open) setSelectedTask(null)
-        }}
-        onSubmit={handleAddTask}
-        tags={tags}
-        onTagCreate={handleAddTag}
-        onTagDelete={handleDeleteTag}
-        columnId={defaultColumnId}
-      />
-
-      <EditTaskDialog
-        isOpen={isEditDialogOpen}
-        onOpenChange={(open) => {
-          setIsEditDialogOpen(open)
-          if (!open) setSelectedTask(null)
-        }}
-        onSubmit={handleTaskUpdate}
-        task={selectedTask}
-        tags={tags}
-        onTagCreate={handleAddTag}
-        onTagDelete={handleDeleteTag}
-        onDelete={handleDeleteTask}
-      />
-    </motion.div>
+    </DndContext>
   )
 }
 
 TodoList.displayName = 'TodoList'
 
-export default TodoList 
+export default TodoList

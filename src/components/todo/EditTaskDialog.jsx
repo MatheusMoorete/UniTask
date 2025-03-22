@@ -59,12 +59,36 @@ const stepOneSchema = z.object({
   date: z.date({
     required_error: "A data de vencimento é obrigatória",
     invalid_type_error: "Data inválida"
-  }),
+  }).refine((date) => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    return date >= today
+  }, "A data não pode ser anterior a hoje"),
   time: z.string()
     .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Horário inválido')
     .optional()
     .nullable()
-    .or(z.literal('')),
+    .or(z.literal(''))
+    .refine((time, ctx) => {
+      if (!time) return true // Se não houver hora definida, é válido
+      
+      const date = ctx.parent.date
+      if (!date) return true // Se não houver data definida, validamos apenas o formato da hora
+      
+      const now = new Date()
+      const [hours, minutes] = time.split(':').map(Number)
+      const taskDateTime = new Date(date)
+      taskDateTime.setHours(hours, minutes)
+      
+      // Se for hoje, verifica se a hora já passou
+      if (date.getDate() === now.getDate() && 
+          date.getMonth() === now.getMonth() && 
+          date.getFullYear() === now.getFullYear()) {
+        return taskDateTime > now
+      }
+      
+      return true
+    }, "O horário selecionado já passou"),
   priority: z.enum(['P1', 'P2', 'P3', 'P4'], {
     required_error: "A prioridade é obrigatória",
     invalid_type_error: "Prioridade inválida"
@@ -93,8 +117,54 @@ const stepTwoSchema = z.object({
 
 // Componente para a primeira etapa
 function StepOne({ form, onNext }) {
+  // Função para verificar se a data/hora já passou
+  const isDateTimePast = () => {
+    const date = form.watch('date')
+    const time = form.watch('time')
+    
+    if (!date) return false
+    
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    
+    // Se a data for anterior a hoje
+    if (date < today) return true
+    
+    // Se for hoje e tiver horário definido
+    if (time && 
+        date.getDate() === now.getDate() && 
+        date.getMonth() === now.getMonth() && 
+        date.getFullYear() === now.getFullYear()) {
+      const [hours, minutes] = time.split(':').map(Number)
+      const taskDateTime = new Date(date)
+      taskDateTime.setHours(hours, minutes)
+      return taskDateTime <= now
+    }
+    
+    return false
+  }
+
   return (
     <div className="space-y-4">
+      {/* Alerta de data/hora passada */}
+      {isDateTimePast() && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <Bell className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                Atenção! Você está editando uma tarefa para uma data/hora que já passou.
+                {form.watch('time') 
+                  ? ' Considere ajustar a data e o horário.'
+                  : ' Considere ajustar a data.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Título */}
       <div>
         <Label htmlFor="title">

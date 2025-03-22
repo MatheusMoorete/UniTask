@@ -6,17 +6,32 @@ const defaultTheme = {
   name: 'default',
   primary: 'hsl(var(--primary))',
   secondary: 'hsl(var(--secondary))',
-  accent: 'hsl(var(--accent))'
+  accent: 'hsl(var(--accent))',
+  mode: 'light'
 }
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('app-theme')
-    return savedTheme ? JSON.parse(savedTheme) : defaultTheme
+    
+    // Verifica se deve usar o tema escuro baseado nas preferências do sistema
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const defaultMode = prefersDark ? 'dark' : 'light'
+    
+    return savedTheme 
+      ? JSON.parse(savedTheme) 
+      : { ...defaultTheme, mode: defaultMode }
   })
 
   useEffect(() => {
     localStorage.setItem('app-theme', JSON.stringify(theme))
+    
+    // Aplicar tema claro ou escuro
+    if (theme.mode === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
     
     // Atualiza as variáveis CSS
     if (theme.name === 'custom') {
@@ -36,9 +51,16 @@ export function ThemeProvider({ children }) {
       ...newTheme
     }))
   }
+  
+  const toggleDarkMode = () => {
+    setTheme(prev => ({
+      ...prev,
+      mode: prev.mode === 'dark' ? 'light' : 'dark'
+    }))
+  }
 
   return (
-    <ThemeContext.Provider value={{ theme, updateTheme }}>
+    <ThemeContext.Provider value={{ theme, updateTheme, toggleDarkMode }}>
       {children}
     </ThemeContext.Provider>
   )
