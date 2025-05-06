@@ -18,7 +18,6 @@ import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
 import { useAuth } from '../../contexts/AuthContext'
-import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
 import {
   Select,
   SelectContent,
@@ -46,7 +45,6 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog"
 import { cn } from '../../lib/utils'
-import { addTaskToCalendar } from '../../lib/googleCalendar'
 
 const PRIORITY_OPTIONS = [
   { value: 'P1', label: 'P1 - Alta' },
@@ -114,8 +112,7 @@ const stepTwoSchema = z.object({
       color: z.string().optional(),
       userId: z.string()
     })
-  ).optional().default([]),
-  addToCalendar: z.boolean().optional().default(false)
+  ).optional().default([])
 })
 
 // Componente para a primeira etapa
@@ -289,12 +286,11 @@ function StepTwo({
   onSubmit,
   isSubmitting,
   tags,
-  onTagCreate,
-  isAuthenticated,
-  handleAuth
+  onTagCreate
 }) {
-  const [showTagInput, setShowTagInput] = useState(false)
+  const [showCreateTagDialog, setShowCreateTagDialog] = useState(false)
   const [newTagName, setNewTagName] = useState('')
+  const [newTagColor, setNewTagColor] = useState('#1a73e8')
 
   const handleCreateTag = async (e) => {
     e.preventDefault()
@@ -305,12 +301,12 @@ function StepTwo({
     try {
       const newTag = await onTagCreate({
         name: newTagName.trim(),
-        color: '#1a73e8'
+        color: newTagColor
       })
       const currentTags = form.watch('tags')
       form.setValue('tags', [...currentTags, newTag])
       setNewTagName('')
-      setShowTagInput(false)
+      setShowCreateTagDialog(false)
       queueMicrotask(() => showToast.success('Tag criada com sucesso'))
     } catch (error) {
       queueMicrotask(() => showToast.error('Erro ao criar tag'))
@@ -343,199 +339,224 @@ function StepTwo({
     form.setValue('subtasks', currentSubtasks.filter((_, i) => i !== index))
   }
 
+  const handleRemoveTag = (id) => {
+    const currentTags = form.watch('tags')
+    form.setValue('tags', currentTags.filter(tag => tag.id !== id))
+  }
+
   return (
     <div className="space-y-4">
+      {/* Descrição */}
+      <div>
+        <Label htmlFor="description">Descrição</Label>
+        <Textarea
+          id="description"
+          {...form.register('description')}
+          placeholder="Descreva os detalhes da tarefa"
+          className="h-24"
+        />
+      </div>
+
       {/* Subtarefas */}
       <div>
-        <Label className="mb-1 block">
-          Subtarefas <span className="text-xs text-muted-foreground">(opcional)</span>
-        </Label>
-        <div className="space-y-1.5">
-          <div className="min-h-[80px] max-h-[100px] overflow-y-auto pr-2 space-y-1.5 scrollbar-thin scrollbar-thumb-secondary scrollbar-track-secondary/20">
-            {form.watch('subtasks').map((subtask, index) => (
-              <div key={index} className="flex items-center gap-1.5">
-                <Input
-                  value={subtask.title}
-                  onChange={(e) => handleSubtaskChange(index, e.target.value)}
-                  placeholder="Digite a subtarefa"
-                  className="h-7"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 flex-shrink-0"
-                  onClick={() => handleRemoveSubtask(index)}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
+        <Label>Subtarefas</Label>
+        <div className="space-y-2 mt-2">
+          {form.watch('subtasks')?.map((_, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <Input
+                value={form.watch(`subtasks.${index}.title`) || ''}
+                onChange={(e) => handleSubtaskChange(index, e.target.value)}
+                placeholder="Digite uma subtarefa"
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => handleRemoveSubtask(index)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="w-full h-7 text-xs"
+            className="w-full mt-2"
             onClick={handleAddSubtask}
           >
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            <Plus className="h-4 w-4 mr-2" />
             Adicionar subtarefa
           </Button>
         </div>
       </div>
 
-      {/* Descrição */}
+      {/* Localização */}
       <div>
-        <Label htmlFor="description" className="mb-1 block">
-          Descrição <span className="text-xs text-muted-foreground">(opcional)</span>
-        </Label>
-        <Textarea
-          id="description"
-          {...form.register('description')}
-          placeholder="Digite uma descrição (opcional)"
-          rows={2}
-          className="resize-none min-h-[60px]"
+        <Label htmlFor="location">Localização</Label>
+        <Input
+          id="location"
+          {...form.register('location')}
+          placeholder="Onde a tarefa ocorrerá?"
         />
       </div>
 
-      {/* Etiquetas */}
+      {/* Tags */}
       <div>
-        <Label className="mb-1 block">
-          Etiquetas <span className="text-xs text-muted-foreground">(opcional)</span>
-        </Label>
-        {showTagInput ? (
-          <div className="flex items-center gap-1.5">
-            <Input
-              value={newTagName}
-              onChange={(e) => setNewTagName(e.target.value)}
-              placeholder="Nome da nova tag"
-              className="flex-1 h-7"
-            />
-            <Button
-              type="button"
-              size="sm"
-              className="h-7"
-              onClick={handleCreateTag}
-            >
-              Criar
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7"
-              onClick={() => {
-                setShowTagInput(false)
-                setNewTagName('')
-              }}
-            >
-              Cancelar
-            </Button>
-          </div>
-        ) : (
+        <div className="flex items-center justify-between mb-2">
+          <Label>Tags</Label>
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="w-full h-7 text-xs"
-            onClick={() => setShowTagInput(true)}
+            onClick={() => setShowCreateTagDialog(true)}
           >
-            <Tag className="h-3.5 w-3.5 mr-1.5" />
-            Adicionar etiquetas
+            <Plus className="h-4 w-4 mr-1" />
+            Nova tag
           </Button>
-        )}
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {tags.map((tag) => (
+        </div>
+
+        {/* Lista de Tags Selecionadas */}
+        {form.watch('tags')?.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {form.watch('tags').map((tag) => (
               <Badge
                 key={tag.id}
-                variant="outline"
-                className={cn(
-                  "cursor-pointer flex items-center gap-1 text-xs py-0.5 h-5",
-                  form.watch('tags').some(t => t.id === tag.id) && "bg-primary text-primary-foreground"
-                )}
-                onClick={() => handleTagSelect(tag)}
+                variant="secondary"
+                className="pl-2 pr-1 py-1 flex items-center gap-1"
+                style={{
+                  backgroundColor: tag.color ? `${tag.color}20` : undefined,
+                  color: tag.color,
+                  borderColor: tag.color ? `${tag.color}40` : undefined
+                }}
               >
                 {tag.name}
-                {form.watch('tags').some(t => t.id === tag.id) && (
-                  <X 
-                    className="h-3 w-3 hover:text-red-500"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleTagSelect(tag)
-                    }}
-                  />
-                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-4 w-4 p-0 hover:bg-transparent"
+                  onClick={() => handleRemoveTag(tag.id)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
               </Badge>
             ))}
           </div>
         )}
+
+        {/* Seletor de Tags */}
+        <Select
+          value=""
+          onValueChange={handleTagSelect}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecione uma tag" />
+          </SelectTrigger>
+          <SelectContent>
+            {tags
+              .filter(
+                (tag) =>
+                  !form.watch('tags')?.some((selectedTag) => selectedTag.id === tag.id)
+              )
+              .map((tag) => (
+                <SelectItem key={tag.id} value={tag.id}>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: tag.color }}
+                    />
+                    {tag.name}
+                  </div>
+                </SelectItem>
+              ))}
+            {tags.length === 0 ||
+              (tags.length > 0 &&
+                tags.every((tag) =>
+                  form.watch('tags')?.some((selectedTag) => selectedTag.id === tag.id)
+                ) && (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                    Nenhuma tag disponível
+                  </div>
+                ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Localização */}
-      <div>
-        <Label htmlFor="location" className="mb-1 block">
-          Localização <span className="text-xs text-muted-foreground">(opcional)</span>
-        </Label>
-        <Input
-          id="location"
-          {...form.register('location')}
-          placeholder="Digite a localização (opcional)"
-          className="h-7"
-        />
-      </div>
+      {/* Diálogo para criar uma nova tag */}
+      <AlertDialog open={showCreateTagDialog} onOpenChange={setShowCreateTagDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Nova Tag</AlertDialogTitle>
+            <AlertDialogDescription>
+              Crie uma nova tag para organizar suas tarefas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div>
+              <Label htmlFor="tag-name">Nome da Tag</Label>
+              <Input
+                id="tag-name"
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                placeholder="Digite o nome da tag"
+              />
+            </div>
+            
+            <div>
+              <Label>Cor</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {TAG_COLORS.map((color) => (
+                  <div
+                    key={color}
+                    className={cn(
+                      "w-8 h-8 rounded-full cursor-pointer border-2 transition-all",
+                      newTagColor === color
+                        ? "border-gray-900 scale-110"
+                        : "border-transparent hover:border-gray-300"
+                    )}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setNewTagColor(color)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCreateTag}>
+              Criar Tag
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      {/* Google Calendar */}
-      <div className="flex items-center justify-between space-x-2">
-        <div className="flex flex-col">
-          <Label htmlFor="addToCalendar" className="text-sm font-medium">
-            Adicionar ao Google Calendar <span className="text-xs text-muted-foreground">(opcional)</span>
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            {isAuthenticated 
-              ? 'A tarefa será sincronizada com seu calendário' 
-              : 'Faça login no Google Calendar primeiro'}
-          </p>
-        </div>
-        <Switch
-          id="addToCalendar"
-          checked={form.watch('addToCalendar')}
-          onCheckedChange={(checked) => {
-            if (!isAuthenticated && checked) {
-              handleAuth()
-              return
-            }
-            form.setValue('addToCalendar', checked)
-          }}
-          disabled={!isAuthenticated && !form.watch('addToCalendar')}
-        />
-      </div>
-
-      {/* Botões */}
-      <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+      {/* Botões de navegação */}
+      <DialogFooter className="flex justify-between !mt-8">
         <Button
           type="button"
           variant="outline"
           onClick={onBack}
-          className="w-full sm:w-auto"
+          disabled={isSubmitting}
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
+          <ArrowLeft className="h-4 w-4 mr-2" />
           Voltar
         </Button>
-        <Button 
+        <Button
           type="button"
           onClick={onSubmit}
-          className="w-full sm:w-auto"
           disabled={isSubmitting}
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Criando...
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Salvando...
             </>
           ) : (
-            'Criar'
+            "Salvar Tarefa"
           )}
         </Button>
       </DialogFooter>
@@ -543,6 +564,7 @@ function StepTwo({
   )
 }
 
+// Componente principal
 export function CreateTaskDialog({ 
   isOpen, 
   onOpenChange,
@@ -553,100 +575,114 @@ export function CreateTaskDialog({
   columnId
 }) {
   const { user } = useAuth()
-  const { isAuthenticated, handleAuth, createEvent, calendars } = useGoogleCalendar()
-  const [currentStep, setCurrentStep] = useState(1)
+  const [step, setStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  // Form para a primeira etapa
+  
+  // Formulário da primeira etapa
   const stepOneForm = useForm({
     resolver: zodResolver(stepOneSchema),
     defaultValues: {
       title: '',
       date: new Date(),
       time: '',
-      priority: 'P2'
+      priority: 'P3'
     }
   })
 
-  // Form para a segunda etapa
+  // Formulário da segunda etapa
   const stepTwoForm = useForm({
     resolver: zodResolver(stepTwoSchema),
     defaultValues: {
       description: '',
       subtasks: [],
       location: '',
-      tags: [],
-      addToCalendar: false
+      tags: []
     }
   })
 
   const handleNext = () => {
     const isValid = stepOneForm.formState.isValid
     if (isValid) {
-      setCurrentStep(2)
+      setStep(2)
     }
   }
 
   const handleBack = () => {
-    setCurrentStep(1)
+    setStep(1)
   }
 
+  // Função para finalizar a submissão
   const handleSubmitForms = async () => {
-    if (!user?.uid) {
-      showToast.error('Usuário não autenticado')
-      return
-    }
-
+    setIsSubmitting(true)
     try {
-      setIsSubmitting(true)
-
-      const stepOneData = stepOneForm.getValues()
-      const stepTwoData = stepTwoForm.getValues()
-
-      const taskDate = new Date(
-        stepOneData.date.getFullYear(),
-        stepOneData.date.getMonth(),
-        stepOneData.date.getDate(),
-        stepOneData.time ? parseInt(stepOneData.time.split(':')[0]) : 0,
-        stepOneData.time ? parseInt(stepOneData.time.split(':')[1]) : 0
-      )
-
+      // Validar ambos os formulários
+      await stepOneForm.trigger()
+      await stepTwoForm.trigger()
+      
+      if (!stepOneForm.formState.isValid) {
+        setStep(1)
+        setIsSubmitting(false)
+        return
+      }
+      
+      if (!stepTwoForm.formState.isValid) {
+        setIsSubmitting(false)
+        return
+      }
+      
+      // Combinar os dados de ambos os formulários
+      const date = stepOneForm.getValues('date')
+      const time = stepOneForm.getValues('time')
+      
+      let taskDateTime = date
+      
+      // Se houver hora, definir no objeto Date
+      if (time) {
+        const [hours, minutes] = time.split(':').map(Number)
+        taskDateTime = new Date(date.setHours(hours, minutes, 0, 0))
+      } else {
+        // Se não houver hora, definir para 23:59:59
+        taskDateTime = new Date(date.setHours(23, 59, 59, 999))
+      }
+      
+      // Dados finais da tarefa
       const taskData = {
-        title: stepOneData.title.trim(),
-        date: taskDate,
-        priority: stepOneData.priority,
-        description: stepTwoData.description?.trim() || null,
-        subtasks: stepTwoData.subtasks || [],
-        location: stepTwoData.location?.trim() || null,
-        tags: stepTwoData.tags || [],
-        userId: user.uid,
-        columnId: columnId || 'default',
-        position: 0,
+        title: stepOneForm.getValues('title'),
+        dueDate: taskDateTime,
+        hasTime: !!time,
+        priority: stepOneForm.getValues('priority'),
+        description: stepTwoForm.getValues('description') || '',
+        subtasks: stepTwoForm.getValues('subtasks')?.filter(sub => sub.title) || [],
+        location: stepTwoForm.getValues('location') || '',
+        tags: stepTwoForm.getValues('tags') || [],
         completed: false,
         createdAt: new Date(),
-        updatedAt: new Date()
+        userId: user.uid,
+        // Se houver um columnId (Kanban), adicionar ao objeto
+        ...(columnId && { columnId })
       }
-
-      // Se addToCalendar estiver ativado, criar a task no Google Calendar
-      if (stepTwoData.addToCalendar) {
-        try {
-          await addTaskToCalendar({
-            title: taskData.title,
-            description: taskData.description,
-            date: taskDate
-          })
-          showToast.success('Task adicionada ao Google Calendar')
-        } catch (error) {
-          console.error('Erro ao adicionar task ao Google Calendar:', error)
-          showToast.error('Erro ao sincronizar com o Google Calendar')
-        }
-      }
-
-      await onSubmit(taskData)
+      
+      // Chamar função de submissão e receber o ID da tarefa criada
+      const taskId = await onSubmit(taskData)
+      
+      // Limpar formulário após submissão
+      stepOneForm.reset({
+        title: '',
+        date: new Date(),
+        time: '',
+        priority: 'P3'
+      })
+      
+      stepTwoForm.reset({
+        description: '',
+        subtasks: [],
+        location: '',
+        tags: []
+      })
+      
+      // Fechar modal e mostrar mensagem de sucesso
+      setStep(1)
       onOpenChange(false)
-      setCurrentStep(1)
-      stepOneForm.reset()
-      stepTwoForm.reset()
       showToast.success('Tarefa criada com sucesso!')
     } catch (error) {
       console.error('Erro ao criar tarefa:', error)
@@ -657,43 +693,35 @@ export function CreateTaskDialog({
   }
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onOpenChange={(open) => {
-        onOpenChange(open)
-        if (!open) {
-          setCurrentStep(1)
-          stepOneForm.reset()
-          stepTwoForm.reset()
-        }
-      }}
-    >
-      <DialogContent className="max-w-md">
-        <DialogHeader className="space-y-2 pb-4">
-          <DialogTitle>Nova Tarefa</DialogTitle>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      setStep(1)
+      onOpenChange(open)
+    }}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>
+            {step === 1 ? 'Nova Tarefa - Informações Básicas' : 'Nova Tarefa - Detalhes Adicionais'}
+          </DialogTitle>
           <DialogDescription>
-            {currentStep === 1 
-              ? 'Preencha as informações básicas da tarefa'
-              : 'Adicione detalhes adicionais à tarefa'
-            }
+            {step === 1
+              ? 'Adicione as informações básicas da sua tarefa.'
+              : 'Adicione detalhes complementares para sua tarefa.'}
           </DialogDescription>
         </DialogHeader>
-
-        {currentStep === 1 ? (
-          <StepOne 
-            form={stepOneForm} 
-            onNext={handleNext} 
+        
+        {step === 1 ? (
+          <StepOne
+            form={stepOneForm}
+            onNext={handleNext}
           />
         ) : (
-          <StepTwo 
+          <StepTwo
             form={stepTwoForm}
             onBack={handleBack}
             onSubmit={handleSubmitForms}
             isSubmitting={isSubmitting}
             tags={tags}
             onTagCreate={onTagCreate}
-            isAuthenticated={isAuthenticated}
-            handleAuth={handleAuth}
           />
         )}
       </DialogContent>

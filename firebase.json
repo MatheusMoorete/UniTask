@@ -3,8 +3,26 @@
     "rules": "firestore.rules",
     "indexes": "firestore.json"
   },
-  "functions": {
-    "predeploy": [],
-    "source": "functions"
-  }
+  "functions": [
+    {
+      "predeploy": [],
+      "source": "functions",
+      "codebase": "default"
+    },
+    {
+      "source": "(sec-2024)",
+      "codebase": "sec-2024",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ]
 }

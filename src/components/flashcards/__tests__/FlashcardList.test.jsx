@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import FlashcardList from '../FlashcardList'
-import { useFlashcards } from '@/hooks/useFlashcards'
+import { useFlashcards } from '../../../hooks/useFlashcards'
 
 // Mock do hook useFlashcards
-vi.mock('@/hooks/useFlashcards')
+vi.mock('../../../hooks/useFlashcards')
 
 // Mock do toast
 vi.mock('sonner', () => ({

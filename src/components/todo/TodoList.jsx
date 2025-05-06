@@ -16,6 +16,7 @@ import {
 } from "../ui/popover"
 import { cn } from "../../lib/utils"
 import { useAuth } from '../../contexts/AuthContext'
+import { useSemester } from '../../contexts/SemesterContext'
 import { Calendar } from 'lucide-react'
 import { Badge } from '../ui/badge'
 import confetti from 'canvas-confetti'
@@ -134,6 +135,7 @@ DroppableDay.propTypes = {
 
 function TodoList() {
   const { user } = useAuth()
+  const { activeSemesterId } = useSemester()
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -176,11 +178,15 @@ function TodoList() {
 
   // Carregar tarefas e tags do usuário
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.uid && activeSemesterId) {
       const loadUserData = async () => {
         try {
           // Carregar tags
-          const tagsQuery = query(collection(db, 'tags'), where('userId', '==', user.uid))
+          const tagsQuery = query(
+            collection(db, 'tags'), 
+            where('userId', '==', user.uid),
+            where('semesterId', '==', activeSemesterId)
+          )
           const tagsSnapshot = await getDocs(tagsQuery)
           const userTags = tagsSnapshot.docs.map(doc => ({
             id: doc.id,
@@ -189,7 +195,11 @@ function TodoList() {
           setTags(userTags || [])
 
           // Carregar tarefas
-          const tasksQuery = query(collection(db, 'tasks'), where('userId', '==', user.uid))
+          const tasksQuery = query(
+            collection(db, 'tasks'), 
+            where('userId', '==', user.uid),
+            where('semesterId', '==', activeSemesterId)
+          )
           const tasksSnapshot = await getDocs(tasksQuery)
           const userTasks = tasksSnapshot.docs.map(doc => {
             const data = doc.data()
@@ -210,14 +220,23 @@ function TodoList() {
       }
 
       loadUserData()
+    } else {
+      setTags([])
+      setTasks([])
     }
-  }, [user])
+  }, [user, activeSemesterId])
 
   const handleAddTask = async (taskData) => {
     try {
+      if (!activeSemesterId) {
+        showToast.error("Selecione um semestre antes de adicionar uma tarefa")
+        return
+      }
+      
       const newTask = {
         ...taskData,
         userId: user?.uid,
+        semesterId: activeSemesterId,
         defaultColumnId: 'todo',
         position: tasks?.length || 0,
         updatedAt: new Date(),
@@ -254,9 +273,15 @@ function TodoList() {
 
   const handleAddTag = async (tagData) => {
     try {
+      if (!activeSemesterId) {
+        showToast.error("Selecione um semestre antes de adicionar uma tag")
+        return
+      }
+      
       const newTag = {
         ...tagData,
         userId: user?.uid,
+        semesterId: activeSemesterId
       }
       const docRef = await addDoc(collection(db, 'tags'), newTag)
       const addedTag = { ...newTag, id: docRef.id }

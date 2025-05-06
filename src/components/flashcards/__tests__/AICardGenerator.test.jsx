@@ -4,7 +4,7 @@ import AICardGenerator from '../AICardGenerator'
 import { useFlashcards } from '../../../hooks/useFlashcards'
 import { useApiKey } from '../../../hooks/useApiKey'
 import { generateFlashcards } from '../../../services/flashcardService'
-import { toast } from 'sonner'
+import { showToast } from '../../../lib/toast'
 
 // Mocks dos hooks e serviços
 vi.mock('../../../hooks/useFlashcards', () => ({
@@ -20,8 +20,8 @@ vi.mock('../../../services/flashcardService', () => ({
 }))
 
 // Mock do toast
-vi.mock('sonner', () => ({
-  toast: {
+vi.mock('../../../lib/toast', () => ({
+  showToast: {
     success: vi.fn(),
     error: vi.fn()
   }
@@ -47,8 +47,8 @@ describe('AICardGenerator', () => {
       saveApiKey: vi.fn()
     })
 
-    toast.error.mockClear()
-    toast.success.mockClear()
+    showToast.error.mockClear()
+    showToast.success.mockClear()
   })
 
   it('deve renderizar o formulário de geração corretamente', () => {
@@ -176,7 +176,7 @@ describe('AICardGenerator', () => {
     
     // Verifica se o toast de erro foi chamado
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Erro ao gerar flashcards')
+      expect(showToast.error).toHaveBeenCalledWith('Erro ao gerar flashcards')
     })
   })
 

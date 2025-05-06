@@ -14,24 +14,40 @@ export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('app-theme')
     
-    // Verifica se deve usar o tema escuro baseado nas preferências do sistema
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    const defaultMode = prefersDark ? 'dark' : 'light'
-    
-    return savedTheme 
-      ? JSON.parse(savedTheme) 
-      : { ...defaultTheme, mode: defaultMode }
+    // Definindo o tema padrão como claro, independente das preferências do sistema
+    // Verificamos apenas se o usuário já configurou manualmente anteriormente
+    if (savedTheme) {
+      return JSON.parse(savedTheme)
+    } else {
+      return defaultTheme // Sempre inicia com tema claro
+    }
   })
 
-  useEffect(() => {
-    localStorage.setItem('app-theme', JSON.stringify(theme))
-    
+  // Função para aplicar o tema ao documento
+  const applyThemeToDocument = (themeMode) => {
     // Aplicar tema claro ou escuro
-    if (theme.mode === 'dark') {
+    if (themeMode === 'dark') {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
     }
+    
+    // Forçar um reflow para garantir que as alterações de CSS sejam aplicadas
+    document.body.style.display = 'none'
+    document.body.offsetHeight // Forçar reflow
+    document.body.style.display = ''
+    
+    // Log para debug em desenvolvimento
+    if (import.meta.env.MODE === 'development') {
+      console.log(`[UniTask Theme] Tema alterado para: ${themeMode}`)
+    }
+  }
+
+  useEffect(() => {
+    localStorage.setItem('app-theme', JSON.stringify(theme))
+    
+    // Aplicar tema usando a função auxiliar
+    applyThemeToDocument(theme.mode)
     
     // Atualiza as variáveis CSS
     if (theme.name === 'custom') {
@@ -53,9 +69,14 @@ export function ThemeProvider({ children }) {
   }
   
   const toggleDarkMode = () => {
+    const newMode = theme.mode === 'dark' ? 'light' : 'dark'
+    
+    // Aplicar imediatamente para feedback mais rápido
+    applyThemeToDocument(newMode)
+    
     setTheme(prev => ({
       ...prev,
-      mode: prev.mode === 'dark' ? 'light' : 'dark'
+      mode: newMode
     }))
   }
 

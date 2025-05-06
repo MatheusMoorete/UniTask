@@ -2,10 +2,10 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { Suspense } from 'react'
 import { AuthProvider } from './contexts/AuthContext'
 import { PomodoroProvider } from './contexts/PomodoroContext'
-import { GoogleCalendarProvider } from './contexts/GoogleCalendarContext'
 import { FirestoreProvider } from './contexts/FirestoreContext'
 import { TimeFilterProvider } from './contexts/TimeFilterContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { SemesterProvider } from './contexts/SemesterContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import { Toaster } from 'sonner'
 import { Loading } from './components/ui/loading'
@@ -165,6 +165,14 @@ function AppRoutes() {
             </SuspenseRoute>
           }
         />
+        <Route
+          path="/grade-calculator"
+          element={
+            <SuspenseRoute>
+              <LazyRoutes.GradeCalculator />
+            </SuspenseRoute>
+          }
+        />
       </Route>
 
       {/* Fallback Route */}
@@ -175,21 +183,21 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
+    <ThemeProvider defaultTheme="light">
+      <ErrorBoundary>
+        <Toaster {...toastConfig} />
         <AuthProvider>
           <FirestoreProvider>
-            <TimeFilterProvider>
-              <PomodoroProvider>
-                <GoogleCalendarProvider>
+            <SemesterProvider>
+              <TimeFilterProvider>
+                <PomodoroProvider>
                   <AppRoutes />
-                  <Toaster {...toastConfig} />
-                </GoogleCalendarProvider>
-              </PomodoroProvider>
-            </TimeFilterProvider>
+                </PomodoroProvider>
+              </TimeFilterProvider>
+            </SemesterProvider>
           </FirestoreProvider>
         </AuthProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </ThemeProvider>
   )
 }

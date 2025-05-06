@@ -1,6 +1,6 @@
 import * as React from "react"
 import * as TooltipPrimitive from "@radix-ui/react-tooltip"
-import { cn } from "@/lib/utils"
+import { cn } from "../../lib/utils"
 import PropTypes from 'prop-types'
 
 const TooltipProvider = TooltipPrimitive.Provider
@@ -71,3 +71,10 @@ Tooltip.propTypes = {
 }
 
 Tooltip.displayName = "Tooltip"
+
+export { 
+  TooltipProvider,
+  TooltipRoot,
+  TooltipTrigger,
+  TooltipContent
+}

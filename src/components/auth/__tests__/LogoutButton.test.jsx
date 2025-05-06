@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import LogoutButton from '../LogoutButton'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '../../../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 
 // Mock dos hooks
-vi.mock('@/contexts/AuthContext')
+vi.mock('../../../contexts/AuthContext')
 vi.mock('react-router-dom', () => ({
   useNavigate: vi.fn()
 }))

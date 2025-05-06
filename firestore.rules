@@ -15,6 +15,12 @@ service cloud.firestore {
       return date is timestamp;
     }
     
+    // Nova função auxiliar para verificar se um documento em qualquer coleção pertence ao usuário atual
+    function resourceExists(path, id) {
+      let doc = get(/databases/$(database)/documents/$(path)/$(id));
+      return doc != null && doc.data.userId == request.auth.uid;
+    }
+    
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
       
@@ -78,6 +84,7 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid;
     }
     
+    // Regras para os tópicos de estudo (planejamento)
     match /subjects/{subjectId} {
       allow read: if request.auth != null && (
         resource == null || resource.data.userId == request.auth.uid
@@ -267,9 +274,14 @@ service cloud.firestore {
         resource == null || resource.data.userId == request.auth.uid
       );
       allow create: if isAuthenticated() 
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && isValidMaterial()
+        && resourceExists("materias", request.resource.data.materiaId);
       allow update: if isAuthenticated() 
-        && resource.data.userId == request.auth.uid;
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.materiaId == resource.data.materiaId
+        && resourceExists("materias", request.resource.data.materiaId);
       allow delete: if isAuthenticated() 
         && resource.data.userId == request.auth.uid;
     }
@@ -294,8 +306,29 @@ service cloud.firestore {
     }
 
     match /anotacoes/{materialId} {
-      allow read, write: if request.auth != null && 
-        request.auth.uid == resource.data.userId;
+      function isValidAnotacao() {
+        let incoming = request.resource.data;
+        return incoming.userId == request.auth.uid
+          && incoming.materialId == materialId
+          && incoming.content is string
+          && (incoming.createdAt is timestamp || incoming.createdAt == null)
+          && (incoming.updatedAt is timestamp || incoming.updatedAt == null);
+      }
+      
+      allow read: if isAuthenticated() && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
+      
+      allow create: if isAuthenticated() 
+        && request.resource.data.userId == request.auth.uid
+        && isValidAnotacao();
+        
+      allow update: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid
+        && isValidAnotacao();
+        
+      allow delete: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid;
     }
 
     match /decks/{deckId} {
@@ -321,6 +354,65 @@ service cloud.firestore {
       );
     }
 
+    match /events/{eventId} {
+      function isValidEvent() {
+        let incoming = request.resource.data;
+        return incoming.title is string
+          && incoming.userId == request.auth.uid
+          && (incoming.start is timestamp || incoming.start is string)
+          && (incoming.end is timestamp || incoming.end is string)
+          && (incoming.description == null || incoming.description is string)
+          && (incoming.location == null || incoming.location is string)
+          && (incoming.color == null || incoming.color is string)
+          && (incoming.allDay == null || incoming.allDay is bool)
+          && (incoming.calendarId == null || incoming.calendarId is string)
+          && (incoming.createdAt == null || incoming.createdAt is timestamp)
+          && (incoming.updatedAt == null || incoming.updatedAt is timestamp);
+      }
+
+      allow read: if isAuthenticated() && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
+      
+      allow create: if isAuthenticated() 
+        && request.resource.data.userId == request.auth.uid
+        && isValidEvent();
+      
+      allow update: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      
+      allow delete: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid;
+    }
+
+    match /calendars/{calendarId} {
+      function isValidCalendar() {
+        let incoming = request.resource.data;
+        return incoming.name is string
+          && incoming.userId == request.auth.uid
+          && incoming.color is string
+          && incoming.showInDashboard is bool
+          && (incoming.createdAt is timestamp || incoming.createdAt == null)
+          && (incoming.updatedAt is timestamp || incoming.updatedAt == null);
+      }
+
+      allow read: if isAuthenticated() && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
+      
+      allow create: if isAuthenticated() 
+        && request.resource.data.userId == request.auth.uid
+        && isValidCalendar();
+      
+      allow update: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      
+      allow delete: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid;
+    }
+
     match /flashcards/{flashcardId} {
       function isValidFlashcard() {
         let incoming = request.resource.data;
@@ -338,7 +430,7 @@ service cloud.firestore {
       }
 
       allow read: if isAuthenticated() && (
-        true
+        resource == null || resource.data.userId == request.auth.uid
       );
       
       allow create: if isAuthenticated() 
@@ -347,10 +439,13 @@ service cloud.firestore {
           request.resource.data.front is string
           && request.resource.data.back is string
           && request.resource.data.deckId is string
-        );
+        )
+        && resourceExists("decks", request.resource.data.deckId);
       
       allow update: if isAuthenticated() 
         && resource.data.userId == request.auth.uid
+        && request.resource.data.deckId == resource.data.deckId
+        && resourceExists("decks", request.resource.data.deckId)
         && (
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['repetitionData', 'updatedAt'])
@@ -359,8 +454,118 @@ service cloud.firestore {
           || isValidFlashcard()
         );
       
-      allow delete: if isAuthenticated() && 
-        resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid;
+    }
+    
+    // Regras para a calculadora de médias - atualizadas para maior segurança
+    match /gradesubjects/{subjectId} {
+      // Função auxiliar para verificar propriedade de um documento
+      function isOwner(resource) {
+        return isAuthenticated() && resource.data.userId == request.auth.uid;
+      }
+      
+      // Função para validar os campos de uma matéria
+      function validSubject(subject) {
+        return subject.name is string && 
+              subject.name.size() >= 1 && 
+              subject.name.size() <= 100 && 
+              subject.semester is string && 
+              subject.semester.size() <= 20 && 
+              (subject.minGrade == null || (subject.minGrade is number && subject.minGrade >= 0 && subject.minGrade <= 10))
+      }
+
+      // Permitir leitura apenas para o proprietário
+      allow read: if isAuthenticated() && 
+                   (resource == null || resource.data.userId == request.auth.uid);
+      
+      // Permitir criação apenas por usuários autenticados e com validação
+      allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid &&
+                     validSubject(request.resource.data);
+      
+      // Permitir atualização apenas para o proprietário e com validação
+      allow update: if isAuthenticated() && 
+                     isOwner(resource) && 
+                     validSubject(request.resource.data) && 
+                     request.resource.data.userId == request.auth.uid;
+      
+      // Permitir exclusão apenas para o proprietário
+      allow delete: if isAuthenticated() && isOwner(resource);
+    }
+
+    match /grades/{gradeId} {
+      function isValidGrade() {
+        let incoming = request.resource.data;
+        return incoming.title is string
+          && incoming.title.size() <= 100
+          && incoming.userId == request.auth.uid
+          && incoming.subjectId is string
+          && incoming.value is number 
+          && incoming.value >= 0 
+          && incoming.value <= 10
+          && incoming.weight is number 
+          && incoming.weight > 0
+          && incoming.weight <= 10
+          && (incoming.createdAt is timestamp || incoming.createdAt == null)
+          && (incoming.updatedAt is timestamp || incoming.updatedAt == null);
+      }
+      
+      // Função para verificar se a matéria existe e pertence ao usuário
+      function subjectBelongsToUser() {
+        let subjectId = request.resource.data.subjectId;
+        let subjectDoc = get(/databases/$(database)/documents/gradesubjects/$(subjectId));
+        return subjectDoc != null 
+          && subjectDoc.data.userId == request.auth.uid;
+      }
+
+      allow read: if isAuthenticated() && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
+      
+      allow create: if isAuthenticated() 
+        && request.resource.data.userId == request.auth.uid
+        && isValidGrade()
+        && subjectBelongsToUser();
+      
+      allow update: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid
+        && isValidGrade()
+        && request.resource.data.subjectId == resource.data.subjectId;
+      
+      allow delete: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid;
+    }
+
+    match /semesters/{semesterId} {
+      function isValidSemester() {
+        let incoming = request.resource.data;
+        return incoming.name is string
+          && incoming.userId == request.auth.uid
+          && incoming.isActive is bool
+          && (incoming.createdAt is timestamp || incoming.createdAt == null)
+          && (incoming.updatedAt is timestamp || incoming.updatedAt == null);
+      }
+
+      allow read: if isAuthenticated() && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
+      
+      allow create: if isAuthenticated() 
+        && request.resource.data.userId == request.auth.uid
+        && isValidSemester();
+      
+      allow update: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && (
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'isActive', 'updatedAt'])
+          || isValidSemester()
+        );
+      
+      allow delete: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid;
     }
   }
 }

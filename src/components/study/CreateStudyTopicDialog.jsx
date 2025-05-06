@@ -42,7 +42,18 @@ export function CreateStudyTopicDialog({ open, onOpenChange, topicToEdit, mode =
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    
+    // Tratamento especial para datas para garantir consistência
+    if (name === 'examDate') {
+      // Garantir que a data seja armazenada no formato YYYY-MM-DD
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: value // O input type="date" já retorna no formato YYYY-MM-DD
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }))
+    }
+    
     // Limpa o erro do campo quando ele é modificado
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }))

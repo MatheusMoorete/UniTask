@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useFirestore } from '../contexts/FirestoreContext'
+import { useSemester } from '../contexts/SemesterContext'
 import {
   collection,
   query,
@@ -20,9 +21,10 @@ export function useTasks() {
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
   const { db } = useFirestore()
+  const { activeSemesterId } = useSemester()
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !activeSemesterId) {
       setTasks([])
       setLoading(false)
       return
@@ -32,6 +34,7 @@ export function useTasks() {
       const tasksQuery = query(
         collection(db, 'tasks'),
         where('userId', '==', user.uid),
+        where('semesterId', '==', activeSemesterId),
         orderBy('createdAt', 'desc'),
         limit(100)
       )
@@ -58,7 +61,7 @@ export function useTasks() {
       console.error('Erro ao configurar listener de tarefas:', error)
       setLoading(false)
     }
-  }, [user, db])
+  }, [user, db, activeSemesterId])
 
   const addTask = async (taskData) => {
     try {
@@ -68,6 +71,7 @@ export function useTasks() {
         moreInfo: taskData.moreInfo || '',
         completed: false,
         userId: user.uid,
+        semesterId: activeSemesterId,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       }

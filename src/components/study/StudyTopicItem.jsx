@@ -4,7 +4,7 @@ import { GripVertical, Trash2, Pencil } from 'lucide-react'
 import { Card } from '../ui/card'
 import { Button } from '../ui/button'
 import { Progress } from '../ui/progress'
-import { format } from 'date-fns'
+import { format, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import PropTypes from 'prop-types'
 
@@ -35,9 +35,27 @@ export function StudyTopicItem({ topic }) {
     opacity: isDragging ? 0.5 : 1,
   }
 
-  const formattedDate = topic.examDate ? 
-    format(new Date(topic.examDate), "d 'de' MMMM", { locale: ptBR }) : 
-    'Data não definida'
+  // Formatar a data da prova de forma consistente
+  const getFormattedDate = (examDate) => {
+    if (!examDate) return 'Data não definida';
+
+    let examDay;
+    if (typeof examDate === 'string') {
+      // Garantir que a string da data está no formato ISO
+      if (examDate.includes('T')) {
+        examDay = startOfDay(new Date(examDate));
+      } else {
+        // Se não tiver informação de hora, é uma data simples (YYYY-MM-DD)
+        examDay = startOfDay(new Date(`${examDate}T00:00:00`));
+      }
+    } else {
+      examDay = startOfDay(examDate);
+    }
+
+    return format(examDay, "d 'de' MMMM", { locale: ptBR });
+  };
+
+  const formattedDate = getFormattedDate(topic.examDate);
 
   return (
     <Card

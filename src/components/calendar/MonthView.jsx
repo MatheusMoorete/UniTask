@@ -13,7 +13,9 @@ export function MonthView({
   getEventsForDay,
   onEventClick,
   onShowMoreClick,
-  onAddEventClick
+  onAddEventClick,
+  onDelete,
+  onUpdate
 }) {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [showMoreDay, setShowMoreDay] = useState(null)
@@ -47,6 +49,8 @@ export function MonthView({
         <EditEventDialog 
           event={selectedEvent} 
           onClose={handleCloseDialog}
+          onDelete={onDelete}
+          onUpdate={onUpdate}
         />
       )}
 

@@ -176,9 +176,142 @@
 }
 
 /* Tema escuro */
-[data-theme="dark"] .calendar-container {
-  --fc-neutral-bg-color: transparent;
-  --fc-page-bg-color: transparent;
+[data-theme="dark"] .calendar-container,
+.dark .calendar-container {
+  --fc-neutral-bg-color: hsl(var(--background));
+  --fc-page-bg-color: hsl(var(--background));
   --fc-border-color: hsl(var(--border));
   --fc-neutral-text-color: hsl(var(--foreground));
+  --fc-event-bg-color: hsl(var(--primary));
+  --fc-event-border-color: hsl(var(--primary));
+  --fc-today-bg-color: hsl(var(--primary) / 0.15);
+  --fc-event-text-color: hsl(var(--primary-foreground));
+}
+
+/* Ajustes específicos para o tema escuro */
+.dark .rbc-toolbar button {
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+  background-color: transparent;
+}
+
+.dark .rbc-toolbar button:hover {
+  background-color: hsl(var(--secondary));
+  transition: background-color 0.2s;
+}
+
+.dark .rbc-toolbar button.rbc-active {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+.dark .rbc-today {
+  background-color: hsl(var(--primary) / 0.15);
+}
+
+.dark .rbc-off-range-bg {
+  background-color: hsl(var(--background) / 0.8);
+}
+
+.dark .rbc-time-view,
+.dark .rbc-month-view {
+  border-color: hsl(var(--border));
+}
+
+.dark .event-title {
+  color: hsl(var(--foreground));
+}
+
+.dark .event-time {
+  color: hsl(var(--muted-foreground));
+}
+
+.dark .fc .fc-col-header-cell {
+  background: hsl(var(--card));
+}
+
+.dark .fc .fc-highlight {
+  background: hsl(var(--primary) / 0.2) !important;
+}
+
+/* Ajustes adicionais para melhor visualização no tema escuro */
+.dark .event-container {
+  background-color: hsl(var(--secondary));
+  border-left-color: hsl(var(--primary));
+}
+
+.dark .calendar-cell {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+.dark .calendar-cell:hover {
+  background-color: hsl(var(--muted));
+}
+
+.dark .calendar-date {
+  color: hsl(var(--foreground));
+}
+
+.dark .calendar-date.other-month {
+  color: hsl(var(--muted-foreground));
+}
+
+.dark .calendar-date.today {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.dark .rbc-toolbar-label {
+  color: hsl(var(--foreground));
+}
+
+.dark .rbc-header {
+  background-color: hsl(var(--card));
+  border-bottom-color: hsl(var(--border));
+}
+
+.dark .rbc-day-bg {
+  background-color: hsl(var(--background));
+}
+
+.dark .rbc-month-row {
+  border-color: hsl(var(--border));
+}
+
+.dark .rbc-event {
+  background-color: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+/* Estilos para o botão do Google Calendar */
+.google-calendar-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  border: 2px solid #4285f4;
+  border-radius: 9999px;
+  transition: all 0.2s ease-in-out;
+  background-color: #e8f0fe;
+}
+
+.google-calendar-button:hover {
+  background-color: #d2e3fc;
+  border-color: #4285f4;
+  box-shadow: 0 1px 3px rgba(66, 133, 244, 0.3);
+}
+
+.dark .google-calendar-button {
+  background-color: #333333;
+  border-color: #4285f4;
+  color: #ffffff;
+}
+
+.dark .google-calendar-button:hover {
+  background-color: #444444;
+  border-color: #5c9bfa;
+  box-shadow: 0 1px 4px rgba(66, 133, 244, 0.4);
 }

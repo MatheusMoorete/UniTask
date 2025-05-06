@@ -15,7 +15,7 @@ import {
 import { Card, CardHeader, CardContent } from '../ui/card'
 import { cn } from '../../lib/utils'
 import { GenerateRevisionButton } from './GenerateRevisionButton'
-import { format } from 'date-fns'
+import { format, startOfDay } from 'date-fns'
 import { Separator } from '../ui/separator'
 import {
   DropdownMenu,
@@ -91,7 +91,12 @@ export function StudyTopicProgress({ topic, onProgressUpdate, onDelete, onEdit }
                 {topic.examDate && (
                   <div className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
-                    {format(new Date(topic.examDate), "dd/MM/yyyy")}
+                    {typeof topic.examDate === 'string' && topic.examDate.includes('T') ? 
+                      format(startOfDay(new Date(topic.examDate)), "dd/MM/yyyy") :
+                      typeof topic.examDate === 'string' ? 
+                        format(startOfDay(new Date(`${topic.examDate}T00:00:00`)), "dd/MM/yyyy") :
+                        format(startOfDay(topic.examDate), "dd/MM/yyyy")
+                    }
                   </div>
                 )}
                 <div className="flex items-center gap-1">

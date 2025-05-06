@@ -32,13 +32,20 @@ export function FirestoreProvider({ children }) {
             try {
                 logFirestore('Obtendo instância do Firestore')
                 const firestoreInstance = await setupFirestore()
+                
                 if (mounted) {
-                    logFirestore('Firestore inicializado com sucesso')
+                    logFirestore('Firestore inicializado com sucesso', {
+                        isInitialized: !!firestoreInstance
+                    })
                     setDb(firestoreInstance)
                     setLoading(false)
                 }
             } catch (err) {
-                logFirestore('Erro ao inicializar Firestore', { error: err.message })
+                logFirestore('Erro ao inicializar Firestore', { 
+                    error: err.message,
+                    code: err.code,
+                    stack: err.stack
+                })
                 if (mounted) {
                     setError(err)
                     setLoading(false)
@@ -55,19 +62,15 @@ export function FirestoreProvider({ children }) {
     }, [])
 
     if (loading) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-                <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-                <p className="mt-4 text-lg text-muted-foreground">Inicializando banco de dados...</p>
-            </div>
-        )
+        return <Loading fullScreen message="Inicializando banco de dados..." />
     }
 
     if (error) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-                <div className="text-destructive text-xl">Erro ao conectar ao banco de dados</div>
-                <p className="mt-4 text-muted-foreground">Por favor, recarregue a página</p>
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-red-500">
+                    Erro ao inicializar o banco de dados. Por favor, recarregue a página.
+                </div>
             </div>
         )
     }

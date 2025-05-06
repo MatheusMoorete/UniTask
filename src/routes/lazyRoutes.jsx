@@ -14,6 +14,7 @@ export const Attendance = lazy(() => import('../pages/Attendance'))
 export const CadernoVirtual = lazy(() => import('../pages/CadernoVirtual'))
 export const StudyRoom = lazy(() => import('../pages/StudyRoom'))
 export const Flashcards = lazy(() => import('../pages/Flashcards'))
+export const GradeCalculator = lazy(() => import('../pages/GradeCalculator'))
 
 // Componentes principais
 export const TodoList = lazy(() => import('../components/todo/TodoList'))

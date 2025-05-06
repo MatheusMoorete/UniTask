@@ -5,7 +5,7 @@ import { EditEventDialog } from './EditEventDialog'
 
 const HOURS = Array.from({ length: 19 }, (_, i) => i + 5) // Começa às 5h e vai até 23h
 
-export function DayView({ currentDate, events }) {
+export function DayView({ currentDate, events, onDelete, onUpdate }) {
   const [selectedEvent, setSelectedEvent] = useState(null)
 
   // Função para normalizar as datas dos eventos
@@ -35,6 +35,8 @@ export function DayView({ currentDate, events }) {
         <EditEventDialog 
           event={selectedEvent} 
           onClose={handleCloseDialog}
+          onDelete={onDelete}
+          onUpdate={onUpdate}
         />
       )}
 

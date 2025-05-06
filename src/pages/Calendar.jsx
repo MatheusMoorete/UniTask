@@ -1,15 +1,15 @@
-import { useState, useMemo, useEffect } from 'react'
-import { useGoogleCalendar } from '../contexts/GoogleCalendarContext'
-import { Button } from '../components/ui/button'
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Info, LogOut } from 'lucide-react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { 
+  Calendar as CalendarIcon, 
+  ChevronLeft, 
+  ChevronRight, 
+  Loader2
+} from 'lucide-react'
 import { 
   format, 
   startOfMonth, 
   endOfMonth, 
   eachDayOfInterval, 
-  isSameMonth, 
-  isToday, 
-  isSameDay,
   startOfWeek,
   endOfWeek,
   addDays,
@@ -17,271 +17,490 @@ import {
   addWeeks,
   subMonths,
   subWeeks,
-  subDays
+  subDays,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { CreateEventDialog } from '../components/calendar/CreateEventDialog'
-import { ConnectGoogleCalendar } from '../components/calendar/ConnectGoogleCalendar'
 import { EditEventDialog } from '../components/calendar/EditEventDialog'
-import { CalendarSettings } from '../components/calendar/CalendarSettings'
 import { capitalizeMonth } from '../lib/date-utils'
-import { CalendarLoading } from '../components/calendar/CalendarLoading'
-import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
-import { db } from '../lib/firebase'
+import { useFirestore } from '../contexts/FirestoreContext'
+import { showToast } from '../lib/toast'
+import { useSemester } from '../contexts/SemesterContext'
 import { WeekView } from '../components/calendar/WeekView'
 import { DayView } from '../components/calendar/DayView'
 import { MonthView } from '../components/calendar/MonthView'
+import { CalendarSettings } from '../components/calendar/CalendarSettings'
 
-const WEEKDAYS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
 const VIEW_OPTIONS = [
   { id: 'month', label: 'Mês' },
   { id: 'week', label: 'Semana' },
   { id: 'day', label: 'Dia' }
 ]
 
+// Cores disponíveis para eventos
+const EVENT_COLORS = [
+  { id: 'blue', value: '#1a73e8', label: 'Azul' },
+  { id: 'green', value: '#0b8043', label: 'Verde' },
+  { id: 'red', value: '#d50000', label: 'Vermelho' },
+  { id: 'orange', value: '#f4511e', label: 'Laranja' },
+  { id: 'purple', value: '#8e24aa', label: 'Roxo' },
+  { id: 'teal', value: '#009688', label: 'Turquesa' },
+]
+
 export default function Calendar() {
-  const { 
-    isAuthenticated, 
-    loading, 
-    events,
-    handleSignOut,
-  } = useGoogleCalendar()
-
   const { user } = useAuth()
-  const [isCalendarConnected, setIsCalendarConnected] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const { db } = useFirestore()
+  const { currentSemester } = useSemester()
 
+  // Estados do calendário
+  const [events, setEvents] = useState([])
+  const [calendars, setCalendars] = useState([])
   const [currentDate, setCurrentDate] = useState(new Date())
-
-  // Estado para controlar qual dia está mostrando todos os eventos
-  const [expandedDay, setExpandedDay] = useState(null)
+  const [currentView, setCurrentView] = useState('month')
+  const [isLoading, setIsLoading] = useState(true)
+  const [selectedDay, setSelectedDay] = useState(null)
   const [eventToEdit, setEventToEdit] = useState(null)
 
-  // Formatação dos eventos
+  // Função para buscar eventos (movida do useEffect para o escopo do componente)
+  const fetchEvents = useCallback(async () => {
+    if (!user?.uid) {
+      setEvents([])
+      setIsLoading(false)
+      return
+    }
+    
+    try {
+      setIsLoading(true)
+      
+      const eventsQuery = query(
+        collection(db, 'events'),
+        where('userId', '==', user.uid)
+      )
+      
+      const querySnapshot = await getDocs(eventsQuery)
+      const fetchedEvents = []
+      
+      querySnapshot.forEach((doc) => {
+        try {
+          const eventData = doc.data()
+          
+          // Verificar se temos dados de data válidos
+          if (!eventData.start || !eventData.end) {
+            console.error(`Evento ${doc.id} tem dados de data inválidos:`, eventData)
+            return // pular este evento
+          }
+          
+          // Converter Timestamp para Date
+          const startDate = eventData.start.toDate ? eventData.start.toDate() : new Date(eventData.start)
+          const endDate = eventData.end.toDate ? eventData.end.toDate() : new Date(eventData.end)
+          
+          // Verificar se as datas convertidas são válidas
+          if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            console.error(`Evento ${doc.id} tem datas inválidas após conversão:`, {
+              start: eventData.start,
+              end: eventData.end
+            })
+            return // pular este evento
+          }
+          
+          fetchedEvents.push({
+            id: doc.id,
+            title: eventData.title,
+            start: startDate,
+            end: endDate,
+            description: eventData.description || '',
+            location: eventData.location || '',
+            color: eventData.color || '#1a73e8',
+            allDay: eventData.allDay || false,
+            semesterId: eventData.semesterId || null,
+            calendarId: eventData.calendarId || null
+          })
+        } catch (err) {
+          console.error(`Erro ao processar evento ${doc.id}:`, err)
+        }
+      })
+      
+      setEvents(fetchedEvents)
+    } catch (error) {
+      console.error('Erro ao buscar eventos:', error)
+      showToast.error('Não foi possível carregar os eventos')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [user, db]);
+
+  // Função para buscar calendários
+  const fetchCalendars = useCallback(async () => {
+    if (!user?.uid) {
+      setCalendars([])
+      return
+    }
+    
+    try {
+      const calendarsQuery = query(
+        collection(db, 'calendars'),
+        where('userId', '==', user.uid)
+      )
+      
+      const querySnapshot = await getDocs(calendarsQuery)
+      const fetchedCalendars = []
+      
+      querySnapshot.forEach((doc) => {
+        const calendarData = doc.data()
+        fetchedCalendars.push({
+          id: doc.id,
+          name: calendarData.name,
+          color: calendarData.color,
+          showInDashboard: calendarData.showInDashboard ?? true
+        })
+      })
+      
+      // Se não houver calendários, cria um calendário padrão
+      if (fetchedCalendars.length === 0) {
+        const defaultCalendar = {
+          name: 'Meu Calendário',
+          color: '#1a73e8',
+          showInDashboard: true,
+          userId: user.uid,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+        
+        const docRef = await addDoc(collection(db, 'calendars'), defaultCalendar)
+        fetchedCalendars.push({
+          id: docRef.id,
+          ...defaultCalendar
+        })
+      }
+      
+      setCalendars(fetchedCalendars)
+    } catch (error) {
+      console.error('Erro ao buscar calendários:', error)
+      showToast.error('Não foi possível carregar os calendários')
+    }
+  }, [user, db]);
+
+  // Buscar eventos e calendários no Firestore
+  useEffect(() => {
+    fetchEvents()
+    fetchCalendars()
+  }, [fetchEvents, fetchCalendars])
+
+  // Formatar os eventos
   const formattedEvents = useMemo(() => {
     return events.map(event => ({
-      id: event.id,
-      title: event.title || event.summary,
+      ...event,
       start: new Date(event.start),
-      end: new Date(event.end),
-      allDay: event.allDay,
-      color: event.color || event.calendarColor,
-      calendarId: event.calendarId,
-      description: event.description,
-      location: event.location
+      end: new Date(event.end)
     }))
   }, [events])
 
-  // Função para filtrar eventos do dia
-  const getEventsForDay = (date) => {
-    return formattedEvents
-      .filter(event => {
-        // Normaliza as datas para comparação
-        const eventDate = new Date(event.start)
-        eventDate.setHours(0, 0, 0, 0)
-        
-        const compareDate = new Date(date)
-        compareDate.setHours(0, 0, 0, 0)
-        
-        return eventDate.getTime() === compareDate.getTime()
-      })
-      .sort((a, b) => {
-        // Coloca eventos de dia inteiro primeiro
-        if (a.allDay && !b.allDay) return -1
-        if (!a.allDay && b.allDay) return 1
-        
-        // Ordena por horário
-        return new Date(a.start).getTime() - new Date(b.start).getTime()
-      })
+  // Função para criar um novo evento
+  const createEvent = async (eventData) => {
+    if (!user?.uid) return null
+    try {
+      const calendarId = eventData.calendarId || null
+      // Buscar a cor atual da agenda
+      const calendarColor = calendars.find(c => c.id === calendarId)?.color || '#1a73e8'
+      const newEvent = {
+        ...eventData,
+        color: calendarColor,
+        userId: user.uid,
+        semesterId: currentSemester?.id || null,
+        calendarId: calendarId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      const docRef = await addDoc(collection(db, 'events'), newEvent)
+      setEvents(prev => [...prev, {
+        id: docRef.id,
+        ...eventData,
+        color: calendarColor,
+        calendarId
+      }])
+      return docRef.id
+    } catch (error) {
+      console.error('Erro ao criar evento:', error)
+      showToast.error('Erro ao criar evento')
+      return null
+    }
   }
 
+  // Função para atualizar um evento
+  const updateEvent = async (eventId, eventData) => {
+    if (!user?.uid) return false
+    try {
+      const calendarId = eventData.calendarId || null
+      // Buscar a cor atual da agenda
+      const calendarColor = calendars.find(c => c.id === calendarId)?.color || '#1a73e8'
+      const eventRef = doc(db, 'events', eventId)
+      await updateDoc(eventRef, {
+        ...eventData,
+        color: calendarColor,
+        updatedAt: new Date()
+      })
+      setEvents(prev => prev.map(event =>
+        event.id === eventId
+          ? { ...event, ...eventData, color: calendarColor }
+          : event
+      ))
+      showToast.success('Evento atualizado com sucesso!')
+      return true
+    } catch (error) {
+      console.error('Erro ao atualizar evento:', error)
+      showToast.error('Erro ao atualizar evento')
+      return false
+    }
+  }
+
+  // Função para excluir um evento
+  const deleteEvent = async (eventId) => {
+    if (!user?.uid) return false
+    
+    try {
+      await deleteDoc(doc(db, 'events', eventId))
+      
+      // Remover da lista local
+      setEvents(prev => prev.filter(event => event.id !== eventId))
+      
+      showToast.success('Evento excluído com sucesso!')
+      return true
+    } catch (error) {
+      console.error('Erro ao excluir evento:', error)
+      showToast.error('Erro ao excluir evento')
+      return false
+    }
+  }
+
+  // Função para filtrar eventos do dia
+  const getEventsForDay = (date) => {
+    // Normalizar a data de referência para meia-noite
+    const compareDate = new Date(date)
+    compareDate.setHours(0, 0, 0, 0)
+    const compareDateStr = compareDate.toISOString().split('T')[0] // YYYY-MM-DD
+    
+    // Filtrar eventos que ocorrem neste dia
+    const dayEvents = formattedEvents.filter(event => {
+      try {
+        // Normalizar a data do evento para comparação
+        const eventDateStart = new Date(event.start)
+        eventDateStart.setHours(0, 0, 0, 0)
+        const eventDateStartStr = eventDateStart.toISOString().split('T')[0] // YYYY-MM-DD
+        
+        // Normalizar a data de término do evento para comparação
+        const eventDateEnd = new Date(event.end)
+        eventDateEnd.setHours(0, 0, 0, 0)
+        const eventDateEndStr = eventDateEnd.toISOString().split('T')[0] // YYYY-MM-DD
+        
+        // Verificar se o evento ocorre no dia da data de referência
+        // Um evento ocorre no dia se:
+        // 1. A data de início é igual à data de referência, OU
+        // 2. A data de término é igual à data de referência, OU
+        // 3. A data de referência está entre a data de início e a data de término
+        return eventDateStartStr === compareDateStr || 
+               eventDateEndStr === compareDateStr || 
+               (eventDateStart < compareDate && eventDateEnd > compareDate);
+      } catch (err) {
+        console.error(`Erro ao filtrar evento para o dia ${compareDateStr}:`, err);
+        return false;
+      }
+    });
+    
+    return dayEvents;
+  }
+
+  // Navegação do calendário
   const handlePrevious = () => {
-    const newDate = new Date(currentDate)
     switch (currentView) {
       case 'month':
-        setCurrentDate(subMonths(newDate, 1))
+        setCurrentDate(subMonths(currentDate, 1))
         break
       case 'week':
-        setCurrentDate(subWeeks(newDate, 1))
+        setCurrentDate(subWeeks(currentDate, 1))
         break
       case 'day':
-        setCurrentDate(subDays(newDate, 1))
+        setCurrentDate(subDays(currentDate, 1))
         break
+      default:
+        setCurrentDate(subDays(currentDate, 1))
     }
   }
 
   const handleNext = () => {
-    const newDate = new Date(currentDate)
     switch (currentView) {
       case 'month':
-        setCurrentDate(addMonths(newDate, 1))
+        setCurrentDate(addMonths(currentDate, 1))
         break
       case 'week':
-        setCurrentDate(addWeeks(newDate, 1))
+        setCurrentDate(addWeeks(currentDate, 1))
         break
       case 'day':
-        setCurrentDate(addDays(newDate, 1))
+        setCurrentDate(addDays(currentDate, 1))
         break
+      default:
+        setCurrentDate(addDays(currentDate, 1))
     }
+  }
+
+  const goToToday = () => {
+    setCurrentDate(new Date())
   }
 
   const getHeaderTitle = () => {
+    let title = ''
+    let weekStart, weekEnd
+    
     switch (currentView) {
       case 'month':
-        return `${capitalizeMonth(currentDate)} de ${format(currentDate, 'yyyy')}`
+        title = `${capitalizeMonth(currentDate)} de ${format(currentDate, 'yyyy')}`;
+        break;
       case 'week':
-        const weekStart = startOfWeek(currentDate, { locale: ptBR })
-        const weekEnd = endOfWeek(currentDate, { locale: ptBR })
+        weekStart = startOfWeek(currentDate, { locale: ptBR });
+        weekEnd = endOfWeek(currentDate, { locale: ptBR });
         if (format(weekStart, 'MMM') === format(weekEnd, 'MMM')) {
-          return `${format(weekStart, "d")} - ${format(weekEnd, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}`
+          title = `${format(weekStart, "d")} - ${format(weekEnd, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}`;
+        } else {
+          title = `${format(weekStart, "d 'de' MMM", { locale: ptBR })} - ${format(weekEnd, "d 'de' MMM 'de' yyyy", { locale: ptBR })}`;
         }
-        return `${format(weekStart, "d 'de' MMM", { locale: ptBR })} - ${format(weekEnd, "d 'de' MMM 'de' yyyy", { locale: ptBR })}`
+        break;
       case 'day':
-        return format(currentDate, "d 'de' MMMM 'de' yyyy", { locale: ptBR })
+        title = format(currentDate, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
+        break;
       default:
-        return ''
+        title = '';
     }
+    
+    return title;
   }
 
-  // Gera os dias do mês atual
+  // Calcular dias do mês para visualização
   const daysInMonth = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentDate), { locale: ptBR })
     const end = endOfWeek(endOfMonth(currentDate), { locale: ptBR })
     return eachDayOfInterval({ start, end })
   }, [currentDate])
 
-  const goToToday = () => {
-    setCurrentDate(new Date())
-  }
-
-  // Verifica o estado da conexão ao carregar
-  useEffect(() => {
-    const checkCalendarConnection = async () => {
-      if (!user) return
-
-      try {
-        const userDocRef = doc(db, 'users', user.uid)
-        const userDoc = await getDoc(userDocRef)
-        
-        if (!userDoc.exists()) {
-          // Cria o documento do usuário se não existir
-          await setDoc(userDocRef, {
-            googleCalendar: {
-              connected: false,
-              tokens: null,
-              expiryDate: null,
-              lastSync: null
-            }
-          })
-          setIsCalendarConnected(false)
-        } else {
-          const userData = userDoc.data()
-          if (userData?.googleCalendar?.connected) {
-            const tokenExpiryDate = new Date(userData.googleCalendar.expiryDate)
-            if (tokenExpiryDate > new Date()) {
-              setIsCalendarConnected(true)
-              await initializeGoogleCalendarWithToken(userData.googleCalendar.tokens)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao verificar conexão do calendário:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    checkCalendarConnection()
-  }, [user])
-
-  // Função para salvar os tokens no Firestore
-  const saveCalendarTokens = async (tokens) => {
-    if (!user) return
-
+  // Criar novo calendário
+  const handleCreateCalendar = async (calendarData) => {
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        googleCalendar: {
-          connected: true,
-          tokens,
-          expiryDate: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-          lastSync: new Date().toISOString()
-        }
-      }, { merge: true })
-
-      setIsCalendarConnected(true)
+      const newCalendar = {
+        ...calendarData,
+        showInDashboard: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      
+      const docRef = await addDoc(collection(db, 'calendars'), newCalendar)
+      
+      // Adicionar à lista local
+      setCalendars(prev => [...prev, {
+        id: docRef.id,
+        ...newCalendar
+      }])
+      
+      showToast.success('Calendário criado com sucesso!')
+      return docRef.id
     } catch (error) {
-      console.error('Erro ao salvar tokens:', error)
+      console.error('Erro ao criar calendário:', error)
+      showToast.error('Erro ao criar calendário')
       throw error
     }
   }
 
-  // Função para desconectar o calendário
-  const handleDisconnectCalendar = async () => {
-    if (!user) return
-
+  // Atualizar calendário
+  const handleUpdateCalendar = async (calendarId, data) => {
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        googleCalendar: {
-          connected: false,
-          tokens: null,
-          expiryDate: null,
-          lastSync: null
+      const calendarRef = doc(db, 'calendars', calendarId)
+      
+      await updateDoc(calendarRef, {
+        ...data,
+        updatedAt: new Date()
+      })
+      
+      // Atualizar na lista local
+      setCalendars(prev => prev.map(calendar => 
+        calendar.id === calendarId 
+          ? { ...calendar, ...data }
+          : calendar
+      ))
+      
+      return true
+    } catch (error) {
+      console.error('Erro ao atualizar calendário:', error)
+      showToast.error('Erro ao atualizar calendário')
+      throw error
+    }
+  }
+
+  // Excluir calendário
+  const handleDeleteCalendar = async (calendarId) => {
+    try {
+      await deleteDoc(doc(db, 'calendars', calendarId))
+      
+      // Remover da lista local
+      setCalendars(prev => (Array.isArray(prev) ? prev.filter(calendar => calendar.id !== calendarId) : []))
+      
+      // Atualizar eventos associados a este calendário
+      const updatedEvents = events.map(event => {
+        if (event.calendarId === calendarId) {
+          // Atualizar o evento no Firestore para remover a referência ao calendário
+          updateDoc(doc(db, 'events', event.id), {
+            calendarId: null,
+            updatedAt: new Date()
+          }).catch(err => console.error('Erro ao atualizar evento:', err))
+          
+          // Retornar o evento atualizado para o estado local
+          return { ...event, calendarId: null }
         }
-      }, { merge: true })
-
-      setIsCalendarConnected(false)
-      // Limpa os tokens locais do Google Calendar
-      await clearGoogleCalendarTokens()
+        return event
+      })
+      
+      setEvents(prev => (Array.isArray(updatedEvents) ? updatedEvents : []))
+      
+      return true
     } catch (error) {
-      console.error('Erro ao desconectar calendário:', error)
+      console.error('Erro ao excluir calendário:', error)
+      showToast.error('Erro ao excluir calendário')
+      throw error
     }
   }
 
-  // Função para conectar o calendário
-  const handleConnectCalendar = async () => {
-    try {
-      setIsLoading(true)
-      const tokens = await authenticateWithGoogle()
-      await saveCalendarTokens(tokens)
-      // Inicializa o cliente do Google Calendar com os novos tokens
-      await initializeGoogleCalendarWithToken(tokens)
-    } catch (error) {
-      console.error('Erro ao conectar calendário:', error)
-    } finally {
-      setIsLoading(false)
+  // Importar eventos de arquivos ICS
+  const handleImportEvents = async (importedEvents) => {
+    if (!importedEvents || importedEvents.length === 0) {
+      return
     }
-  }
-
-  // Quando definir o eventToEdit, vamos garantir que tem todas as informações
-  const handleEventClick = (event) => {
-    if (!event.calendarId) return
     
-    setEventToEdit({
-      id: event.id,
-      title: event.title || event.summary,
-      start: event.start,
-      end: event.end,
-      description: event.description || '',
-      location: event.location || '',
-      calendarId: event.calendarId,
-      color: event.color || event.calendarColor
-    })
-  }
+    try {
+      // Processar cada evento importado
+      for (const event of importedEvents) {
+        // Garantir que o evento tenha todos os campos necessários
+        const eventToCreate = {
+          title: event.title,
+          start: new Date(event.start),
+          end: new Date(event.end),
+          description: event.description || '',
+          location: event.location || '',
+          color: event.color || '#1a73e8',
+          allDay: event.allDay || false,
+          calendarId: event.calendarId || (calendars.length > 0 ? calendars[0].id : null),
+          userId: user.uid,
+          semesterId: currentSemester?.id || null,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
 
-  const [currentView, setCurrentView] = useState('month')
-
-  // Mostra o loading enquanto está inicializando
-  if (loading) {
-    return (
-      <div className="h-full p-6">
-        <CalendarLoading />
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return <ConnectGoogleCalendar />
+        // Criar o evento no Firestore
+        await createEvent(eventToCreate)
+      }
+      
+      showToast.success(`${importedEvents.length} eventos importados com sucesso!`)
+    } catch (error) {
+      console.error('Erro ao importar eventos:', error)
+      showToast.error('Erro ao importar eventos')
+    }
   }
 
   return (
@@ -337,51 +556,91 @@ export default function Calendar() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <CreateEventDialog />
-            <div className="flex items-center gap-2">
-              <CalendarSettings />
-              <span className="w-px h-7 bg-gray-200"></span>
-              <button 
-                onClick={handleSignOut} 
-                className="p-3 text-gray-500 hover:text-gray-900"
-                title="Sair"
-              >
-                <LogOut className="h-5 w-5" />
-              </button>
-            </div>
+            <CreateEventDialog 
+              onEventCreate={createEvent} 
+              colors={EVENT_COLORS} 
+              calendars={calendars}
+            />
+            
+            <CalendarSettings 
+              events={events} 
+              calendars={calendars}
+              onCalendarCreate={handleCreateCalendar}
+              onCalendarUpdate={handleUpdateCalendar}
+              onCalendarDelete={handleDeleteCalendar}
+              onImportEvents={handleImportEvents}
+            />
           </div>
         </div>
       </div>
 
-      <div className="border border-gray-200 rounded-lg">
-        {currentView === 'month' && (
-          <MonthView 
-            currentDate={currentDate}
-            daysInMonth={daysInMonth}
-            getEventsForDay={getEventsForDay}
-          />
-        )}
+      {isLoading ? (
+        <div className="border border-gray-200 rounded-lg flex items-center justify-center h-[480px]">
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+            <p className="mt-2 text-gray-500">Carregando eventos...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="border border-gray-200 rounded-lg">
+          {currentView === 'month' && (
+            <MonthView 
+              currentDate={currentDate}
+              daysInMonth={daysInMonth}
+              getEventsForDay={getEventsForDay}
+              onEventClick={(event) => setEventToEdit(event)}
+              onShowMoreClick={() => {}}
+              onAddEventClick={(day) => setSelectedDay(day)}
+              onDelete={deleteEvent}
+              onUpdate={updateEvent}
+              calendars={calendars}
+            />
+          )}
+  
+          {currentView === 'week' && (
+            <WeekView 
+              currentDate={currentDate}
+              events={formattedEvents}
+              onEventClick={(event) => setEventToEdit(event)}
+              onDelete={deleteEvent}
+              onUpdate={updateEvent}
+              calendars={calendars}
+            />
+          )}
+  
+          {currentView === 'day' && (
+            <DayView 
+              currentDate={currentDate}
+              events={formattedEvents}
+              onEventClick={(event) => setEventToEdit(event)}
+              onDelete={deleteEvent}
+              onUpdate={updateEvent}
+              calendars={calendars}
+            />
+          )}
+        </div>
+      )}
 
-        {currentView === 'week' && (
-          <WeekView 
-            currentDate={currentDate}
-            events={formattedEvents}
-          />
-        )}
-
-        {currentView === 'day' && (
-          <DayView 
-            currentDate={currentDate}
-            events={formattedEvents}
-          />
-        )}
-      </div>
-
-      {/* Diálogo de edição */}
+      {/* Diálogo de edição de evento */}
       {eventToEdit && (
         <EditEventDialog
           event={eventToEdit}
           onClose={() => setEventToEdit(null)}
+          onUpdate={updateEvent}
+          onDelete={deleteEvent}
+          colors={EVENT_COLORS}
+          calendars={calendars}
+        />
+      )}
+      
+      {/* Diálogo para adicionar evento em um dia selecionado */}
+      {selectedDay && (
+        <CreateEventDialog 
+          initialDate={selectedDay}
+          onClose={() => setSelectedDay(null)}
+          onEventCreate={createEvent}
+          colors={EVENT_COLORS}
+          calendars={calendars}
         />
       )}
     </div>

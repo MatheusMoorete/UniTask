@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import './styles/calendar.css';
-
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -29,25 +27,25 @@
   }
 
   .dark {
-    --background: 20 14.3% 4.1%;
-    --foreground: 0 0% 95%;
-    --card: 24 9.8% 10%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 215 30% 20%;
+    --foreground: 0 0% 98%;
+    --card: 215 25% 27%;
+    --card-foreground: 0 0% 98%;
+    --popover: 215 25% 27%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 210 100% 65%;
+    --primary-foreground: 215 35% 15%;
+    --secondary: 215 25% 35%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 215 25% 30%;
+    --muted-foreground: 217 10% 80%;
+    --accent: 213 60% 45%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 70% 50%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --border: 215 25% 30%;
+    --input: 215 25% 25%;
+    --ring: 210 100% 65%;
   }
 }
 
@@ -205,125 +203,203 @@
 
 /* Estilos do calendário personalizado */
 .calendar-cell {
-  @apply p-3.5 bg-white border-b border-gray-200 flex flex-col min-h-[120px] transition-all duration-300 hover:bg-gray-50;
+  padding: 0.875rem;
+  background-color: white;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
+  transition-property: all;
+  transition-duration: 300ms;
+}
+
+.calendar-cell:hover {
+  background-color: #f9fafb;
 }
 
 .calendar-cell.other-month {
-  @apply bg-gray-50/50;
+  background-color: rgba(249, 250, 251, 0.5);
 }
 
 .calendar-cell.today {
-  @apply bg-blue-50/50;
+  background-color: rgba(239, 246, 255, 0.5);
 }
 
 .calendar-date {
-  @apply text-sm font-medium text-gray-900 flex items-center justify-center w-7 h-7 rounded-full;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
 }
 
 .calendar-date.other-month {
-  @apply text-gray-400;
+  color: #9ca3af;
 }
 
 .calendar-date.today {
-  @apply bg-blue-600 text-white;
+  background-color: #2563eb;
+  color: white;
 }
 
 /* Estilos para os eventos */
 .event-container {
-  @apply rounded px-2 py-1 text-xs space-y-0.5;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  margin-bottom: 0.125rem;
 }
 
 .event-title {
-  @apply font-medium text-gray-900 truncate;
+  font-weight: 500;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .event-time {
-  @apply text-[10px] text-gray-600 block;
+  font-size: 0.625rem;
+  color: #6B7280;
+  display: block;
 }
 
 /* Estilos para as visualizações de semana e dia */
 .week-view-container,
 .day-view-container {
-  @apply relative overflow-y-auto;
+  position: relative;
+  overflow-y: auto;
   height: calc(100vh - 200px);
 }
 
 .time-slot {
-  @apply relative border-t border-gray-200;
+  position: relative;
+  border-top: 1px solid #e5e7eb;
   height: 40px;
 }
 
 .time-label {
-  @apply absolute -top-3 left-2 text-xs text-gray-500;
+  position: absolute;
+  top: -0.75rem;
+  left: 0.5rem;
+  font-size: 0.75rem;
+  color: #6B7280;
 }
 
 .event-block {
-  @apply absolute left-1 right-1 rounded overflow-hidden shadow-sm;
+  position: absolute;
+  left: 0.25rem;
+  right: 0.25rem;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .event-block-content {
-  @apply p-1 text-white;
+  padding: 0.25rem;
+  color: white;
 }
 
 .event-block-title {
-  @apply text-xs font-medium truncate;
+  font-size: 0.75rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .event-block-time {
-  @apply text-[10px] opacity-90;
+  font-size: 0.625rem;
+  opacity: 0.9;
 }
 
 /* Ajustes para os cabeçalhos das visualizações */
 .week-header-cell {
-  @apply p-2 text-center border-l first:border-l-0;
+  padding: 0.5rem;
+  text-align: center;
+  border-left: 1px solid #e5e7eb;
+}
+
+.week-header-cell:first-child {
+  border-left: none;
 }
 
 .week-header-weekday {
-  @apply text-xs font-medium text-gray-500;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6B7280;
 }
 
 .week-header-date {
-  @apply text-xl mt-1 font-medium;
+  font-size: 1.25rem;
+  margin-top: 0.25rem;
+  font-weight: 500;
 }
 
 .day-header {
-  @apply p-4 border-b border-gray-200 bg-white;
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: white;
 }
 
 .day-header-weekday {
-  @apply text-sm font-medium text-gray-500;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6B7280;
 }
 
 .day-header-date {
-  @apply text-2xl font-medium text-gray-900;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: #111827;
 }
 
 /* Ajuste para o scroll da grade de eventos */
 .events-grid {
-  @apply flex-1 overflow-y-auto;
-  height: calc(100% - 60px); /* Altura total menos altura do cabeçalho */
+  flex: 1;
+  overflow-y: auto;
+  height: calc(100% - 60px);
 }
 
 /* Estilos para o botão de conexão do Google Calendar */
 .google-calendar-button {
-  @apply flex items-center justify-center gap-2 px-6 py-3 rounded-lg;
-  @apply bg-[#4285f4] hover:bg-[#3367d6] text-white;
-  @apply transition-colors duration-200;
-  @apply shadow-md hover:shadow-lg;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  background-color: #4285f4;
+  color: white;
+  transition-property: background-color;
+  transition-duration: 200ms;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.google-calendar-button:hover {
+  background-color: #3367d6;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 .google-calendar-button img {
-  @apply w-5 h-5;
+  width: 1.25rem;
+  height: 1.25rem;
   filter: brightness(0) invert(1);
 }
 
 .google-calendar-icon-container {
-  @apply p-4 rounded-full;
+  padding: 1rem;
+  border-radius: 9999px;
   background-color: rgba(66, 133, 244, 0.1);
 }
 
 .google-calendar-icon {
-  @apply h-8 w-8;
+  height: 2rem;
+  width: 2rem;
   color: #4285f4;
 }
 

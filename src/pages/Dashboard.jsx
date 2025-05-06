@@ -6,32 +6,31 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Clock, 
-  BookOpen, 
   TrendingUp,
-  Target,
-  Pencil,
-  Check
+  Target
 } from 'lucide-react'
 import { usePomodoro } from '../hooks/usePomodoro'
-import {useNavigate } from 'react-router-dom'
-import { Input } from '../components/ui/input'
+import { useNavigate } from 'react-router-dom'
 import { NextDeadlines } from '../components/dashboard/NextDeadlines'
-import { AttendanceWarning } from '@/components/dashboard/AttendanceWarning'
+import { AttendanceWarning } from '../components/dashboard/AttendanceWarning'
+import { SemesterSelector } from '../components/dashboard/SemesterSelector'
 import { useAuth } from '../contexts/AuthContext'
 import { useFirestore } from '../contexts/FirestoreContext'
+import { useSemester } from '../contexts/SemesterContext'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const TaskProgress = () => {
   const [tasks, setTasks] = useState([])
-  const [ setLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
   const { user } = useAuth()
   const { db } = useFirestore()
+  const { activeSemesterId } = useSemester()
 
   // Fetch TodoList tasks
   useEffect(() => {
-    if (!user?.uid) {
+    if (!user?.uid || !activeSemesterId) {
       setTasks([])
       setLoading(false)
       return
@@ -40,6 +39,7 @@ const TaskProgress = () => {
     const todoTasksQuery = query(
       collection(db, 'tasks'),
       where('userId', '==', user.uid),
+      where('semesterId', '==', activeSemesterId),
       where('date', '!=', null),
       where('defaultColumnId', '==', 'todo')
     )
@@ -54,7 +54,7 @@ const TaskProgress = () => {
     })
 
     return () => unsubscribe()
-  }, [user, db])
+  }, [user, db, activeSemesterId])
 
   // Calculate stats
   const completedTasks = tasks.filter(task => task.completed && task.defaultColumnId === 'todo').length
@@ -126,19 +126,17 @@ const FocusTime = () => {
 
 function Dashboard() {
   const { user } = useAuth()
-  const [isEditingSemester, setIsEditingSemester] = useState(false)
-  const [semester, setSemester] = useState('2º Semestre 2024')
-  const [tempSemester, setTempSemester] = useState(semester)
   const { getTodayFocusTime, formatTime, getStreak } = usePomodoro()
   const todayTime = getTodayFocusTime()
   const streak = getStreak()
   const [tasks, setTasks] = useState([])
-  const [setLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const { db } = useFirestore()
+  const { activeSemesterId } = useSemester()
 
   // Fetch TodoList tasks
   useEffect(() => {
-    if (!user?.uid) {
+    if (!user?.uid || !activeSemesterId) {
       setTasks([])
       setLoading(false)
       return
@@ -147,6 +145,7 @@ function Dashboard() {
     const todoTasksQuery = query(
       collection(db, 'tasks'),
       where('userId', '==', user.uid),
+      where('semesterId', '==', activeSemesterId),
       where('date', '!=', null),
       where('defaultColumnId', '==', 'todo')
     )
@@ -161,17 +160,10 @@ function Dashboard() {
     })
 
     return () => unsubscribe()
-  }, [user, db])
+  }, [user, db, activeSemesterId])
 
   // Calculate task stats
   const pendingTasks = tasks.filter(task => !task.completed && task.defaultColumnId === 'todo').length
-
-  const handleSemesterEdit = () => {
-    if (isEditingSemester) {
-      setSemester(tempSemester)
-    }
-    setIsEditingSemester(!isEditingSemester)
-  }
 
   // Animação para os elementos da página
   const containerVariants = {
@@ -212,28 +204,8 @@ function Dashboard() {
             Acompanhe seu progresso acadêmico e mantenha-se organizado
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-accent/10 px-4 py-2 rounded-lg">
-          <BookOpen className="h-5 w-5 text-primary" />
-          {isEditingSemester ? (
-            <div className="flex items-center gap-2">
-              <Input
-                value={tempSemester}
-                onChange={(e) => setTempSemester(e.target.value)}
-                className="h-8 text-sm"
-              />
-              <Button size="sm" variant="ghost" onClick={handleSemesterEdit}>
-                <Check className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{semester}</span>
-              <Button size="sm" variant="ghost" onClick={handleSemesterEdit}>
-                <Pencil className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-        </div>
+        
+        <SemesterSelector />
       </motion.div>
 
       {/* Cards Grid */}

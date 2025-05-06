@@ -1,52 +1,143 @@
-import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
 import { format, isAfter, isBefore, startOfDay, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Calendar } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { collection, query, where, getDocs } from 'firebase/firestore'
+import { useAuth } from '../../contexts/AuthContext'
+import { useFirestore } from '../../contexts/FirestoreContext'
 
 export function NextDeadlines() {
-  const { events, isAuthenticated, dashboardCalendars } = useGoogleCalendar()
+  const [events, setEvents] = useState([])
+  const [calendars, setCalendars] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const { user } = useAuth()
+  const { db } = useFirestore()
   const navigate = useNavigate()
 
-  // Filtra e ordena os próximos eventos (próximos 7 dias)
-  const upcomingEvents = events
-    .filter(event => {
-      // Verifica se o calendário do evento está visível no dashboard
-      if (!dashboardCalendars.includes(event.calendarId)) {
-        return false
+  // Buscar calendários do usuário
+  useEffect(() => {
+    const fetchCalendars = async () => {
+      if (!user?.uid) {
+        setCalendars([])
+        return
       }
-
-      // Ajuste na forma de acessar a data de início do evento
-      const eventDate = new Date(event.start instanceof Date ? event.start : event.start.dateTime || event.start.date)
-      const today = startOfDay(new Date())
-      const nextWeek = addDays(today, 7)
       
-      return isAfter(eventDate, today) && isBefore(eventDate, nextWeek)
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.start instanceof Date ? a.start : a.start.dateTime || a.start.date)
-      const dateB = new Date(b.start instanceof Date ? b.start : b.start.dateTime || b.start.date)
-      return dateA - dateB
-    })
-    .slice(0, 5)
-
-  const getEventDateTime = (event) => {
-    // Se o evento já é uma data
-    if (event.start instanceof Date) {
-      return event.start
+      try {
+        const calendarsQuery = query(
+          collection(db, 'calendars'),
+          where('userId', '==', user.uid)
+        )
+        
+        const querySnapshot = await getDocs(calendarsQuery)
+        const fetchedCalendars = []
+        
+        querySnapshot.forEach((doc) => {
+          const calendarData = doc.data()
+          fetchedCalendars.push({
+            id: doc.id,
+            name: calendarData.name,
+            color: calendarData.color,
+            showInDashboard: calendarData.showInDashboard !== false // Por padrão, mostrar no dashboard
+          })
+        })
+        
+        setCalendars(fetchedCalendars)
+      } catch (error) {
+        console.error('Erro ao buscar calendários:', error)
+      }
     }
-    // Se o evento tem dateTime (hora específica)
-    if (event.start.dateTime) {
-      return new Date(event.start.dateTime)
-    }
-    // Se o evento é de dia inteiro
-    return new Date(event.start.date)
-  }
+    
+    fetchCalendars()
+  }, [user, db])
 
-  const isAllDayEvent = (event) => {
-    return event.start instanceof Date ? false : !event.start.dateTime
-  }
+  // Buscar eventos do Firestore
+  useEffect(() => {
+    const fetchEvents = async () => {
+      if (!user?.uid) {
+        setEvents([])
+        setIsLoading(false)
+        return
+      }
+      
+      try {
+        setIsLoading(true)
+        
+        const today = startOfDay(new Date())
+        const nextWeek = addDays(today, 7)
+        
+        const eventsQuery = query(
+          collection(db, 'events'),
+          where('userId', '==', user.uid)
+        )
+        
+        const querySnapshot = await getDocs(eventsQuery)
+        const fetchedEvents = []
+        
+        // IDs dos calendários que devem aparecer no dashboard
+        const dashboardCalendarIds = calendars
+          .filter(cal => cal.showInDashboard)
+          .map(cal => cal.id)
+        
+        querySnapshot.forEach((doc) => {
+          try {
+            const eventData = doc.data()
+            
+            if (!eventData.start) return
+            
+            // Verificar se o evento pertence a um calendário exibido no dashboard
+            if (
+              !eventData.calendarId || 
+              dashboardCalendarIds.includes(eventData.calendarId) ||
+              dashboardCalendarIds.length === 0
+            ) {
+              const startDate = eventData.start.toDate ? eventData.start.toDate() : new Date(eventData.start)
+              
+              // Filtrar eventos para os próximos 7 dias
+              if (isAfter(startDate, today) && isBefore(startDate, nextWeek)) {
+                // Obter a cor do calendário associado, se disponível
+                let eventColor = eventData.color || '#1a73e8'
+                if (eventData.calendarId) {
+                  const associatedCalendar = calendars.find(cal => cal.id === eventData.calendarId)
+                  if (associatedCalendar) {
+                    eventColor = associatedCalendar.color
+                  }
+                }
+                
+                fetchedEvents.push({
+                  id: doc.id,
+                  title: eventData.title,
+                  start: startDate,
+                  color: eventColor,
+                  allDay: eventData.allDay || false,
+                  calendarId: eventData.calendarId,
+                  calendarName: eventData.calendarId ? 
+                    calendars.find(cal => cal.id === eventData.calendarId)?.name : 
+                    'Sem agenda'
+                })
+              }
+            }
+          } catch (err) {
+            console.error(`Erro ao processar evento ${doc.id}:`, err)
+          }
+        })
+        
+        // Ordenar por data
+        fetchedEvents.sort((a, b) => a.start - b.start)
+        
+        setEvents(fetchedEvents.slice(0, 5))
+      } catch (error) {
+        console.error('Erro ao buscar eventos:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    if (calendars.length > 0 || !user) {
+      fetchEvents()
+    }
+  }, [user, db, calendars])
 
   return (
     <Card 
@@ -60,45 +151,47 @@ export function NextDeadlines() {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1">
-        {!isAuthenticated ? (
+        {isLoading ? (
           <p className="text-sm text-gray-500">
-            Conecte seu Google Calendar para ver seus próximos prazos
+            Carregando prazos...
           </p>
-        ) : upcomingEvents.length === 0 ? (
+        ) : events.length === 0 ? (
           <p className="text-sm text-gray-500">
             Nenhum prazo para os próximos 7 dias
           </p>
         ) : (
           <div className="space-y-4">
-            {upcomingEvents.map(event => {
-              const eventDate = getEventDateTime(event)
-              const isAllDay = isAllDayEvent(event)
-
-              return (
+            {events.map(event => (
+              <div 
+                key={event.id} 
+                className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50"
+              >
                 <div 
-                  key={event.id} 
-                  className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50"
-                >
-                  <div 
-                    className="w-2 h-2 mt-2 rounded-full flex-shrink-0" 
-                    style={{ backgroundColor: event.calendarColor || '#1a73e8' }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {event.summary}
-                    </p>
+                  className="w-2 h-2 mt-2 rounded-full flex-shrink-0" 
+                  style={{ backgroundColor: event.color }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {event.title}
+                  </p>
+                  <div className="flex items-center justify-between">
                     <p className="text-xs text-gray-500">
-                      {format(eventDate, "dd/MM")}
-                      {!isAllDay && (
-                        <span className="ml-2">
-                          {format(eventDate, "HH:mm")}
+                      {format(event.start, "dd/MM")}
+                      {!event.allDay && (
+                        <span className="ml-1">
+                          {format(event.start, "HH:mm")}
                         </span>
                       )}
                     </p>
+                    {event.calendarName && (
+                      <span className="text-xs text-gray-400 truncate max-w-[100px]">
+                        {event.calendarName}
+                      </span>
+                    )}
                   </div>
                 </div>
-              )
-            })}
+              </div>
+            ))}
           </div>
         )}
       </CardContent>

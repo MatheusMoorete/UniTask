@@ -1,16 +1,41 @@
 import { useState } from 'react'
-import { addDays, differenceInDays, parseISO, setHours, setMinutes } from 'date-fns'
-import { useGoogleCalendar } from '../contexts/GoogleCalendarContext'
+import { addDays, parseISO, setHours, setMinutes, startOfDay, isSameDay, isAfter, differenceInCalendarDays } from 'date-fns'
 
 export function useStudyRevisions() {
-  const { createEvent } = useGoogleCalendar()
   const [isGenerating, setIsGenerating] = useState(false)
+
+  // Função para calcular dias até a prova de forma precisa
+  const getDaysUntil = (examDate) => {
+    // Garantir que a data de entrada é uma string ou data válida
+    if (!examDate) return 0;
+
+    // Criar objetos de data sem informações de hora (só a data)
+    const today = startOfDay(new Date());
+    
+    // Converter a data da prova para objeto Date se for string
+    let examDay;
+    if (typeof examDate === 'string') {
+      // Garantir que a string da data está no formato ISO
+      if (examDate.includes('T')) {
+        examDay = startOfDay(new Date(examDate));
+      } else {
+        // Se não tiver informação de hora, é uma data simples (YYYY-MM-DD)
+        examDay = startOfDay(new Date(`${examDate}T00:00:00`));
+      }
+    } else {
+      examDay = startOfDay(examDate);
+    }
+
+    // Calcular a diferença em dias de calendário (1, 2, 3...)
+    const days = differenceInCalendarDays(examDay, today);
+    
+    // Se negativo, está no passado, então retornar 0
+    return days < 0 ? 0 : days;
+  };
 
   // Calcula os intervalos de revisão baseado nos dias até a prova
   const calculateRevisionIntervals = (examDate) => {
-    const today = new Date()
-    const exam = parseISO(examDate)
-    const daysUntilExam = differenceInDays(exam, today)
+    const daysUntilExam = getDaysUntil(examDate)
 
     // Ajusta os intervalos baseado no tempo disponível
     if (daysUntilExam <= 7) {
@@ -22,14 +47,17 @@ export function useStudyRevisions() {
     }
   }
 
-  // Gera eventos de revisão no Google Calendar
-  const generateRevisionSchedule = async (topic, calendarId) => {
+  // Gera eventos de revisão
+  const generateRevisionSchedule = async (topic) => {
     try {
       setIsGenerating(true)
       console.log('Gerando cronograma para:', topic)
       const intervals = calculateRevisionIntervals(topic.examDate)
       console.log('Intervalos calculados:', intervals)
       const today = new Date()
+
+      // Garantir que subtopics exista
+      const subtopics = topic.subtopics || []
 
       // Cria eventos para cada intervalo de revisão
       const events = intervals.map((interval, index) => {
@@ -38,38 +66,20 @@ export function useStudyRevisions() {
         const endDate = setMinutes(setHours(addDays(today, interval), 15), 0)
 
         const event = {
-          summary: `Revisão ${index + 1}: ${topic.title}`,
+          title: `Revisão ${index + 1}: ${topic.title}`,
           description: [
             `Revisão ${index + 1} de ${topic.title}`,
             '',
             'Subtópicos:',
-            ...topic.subtopics.map(st => `- ${st.title}`)
+            ...subtopics.map(st => `- ${st.title || 'Sem título'}`)
           ].join('\n'),
-          start: {
-            dateTime: startDate.toISOString(),
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-          },
-          end: {
-            dateTime: endDate.toISOString(),
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-          },
-          calendarId: calendarId,
+          start: startDate,
+          end: endDate,
           colorId: '11', // Roxo
-          reminders: {
-            useDefault: false,
-            overrides: [
-              { method: 'popup', minutes: 30 }
-            ]
-          }
         }
         console.log(`Evento ${index + 1}:`, event)
         return event
       })
-
-      // Cria os eventos no Google Calendar
-      for (const event of events) {
-        await createEvent(event)
-      }
 
       return events
     } catch (error) {

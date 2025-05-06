@@ -119,8 +119,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     logAuth('Setting up auth state listener')
     
-    // Tenta configurar persistência local primeiro
+    // Configurar persistência local
     setPersistence(auth, browserLocalPersistence)
+      .then(() => {
+        logAuth('Local persistence configured successfully')
+      })
       .catch((error) => {
         logAuth('Local persistence failed, trying session persistence', { error: error.message })
         // Se falhar, tenta persistência de sessão
@@ -134,7 +137,8 @@ export function AuthProvider({ children }) {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       logAuth('Auth state changed', { 
         isAuthenticated: !!user,
-        displayName: user?.displayName
+        displayName: user?.displayName,
+        uid: user?.uid
       })
       setUser(user)
       setLoading(false)

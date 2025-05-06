@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getFunctions, httpsCallable } from 'firebase/functions'
 
 const baseURL = import.meta.env.DEV 
   ? 'http://localhost:3000'
@@ -39,5 +40,82 @@ api.interceptors.response.use(
     }
   }
 )
+
+const functions = getFunctions()
+
+// Serviço centralizado para API
+export const apiService = {
+  // Matérias
+  async createSubject(subjectData) {
+    try {
+      const validateAndCreateSubject = httpsCallable(functions, 'validateAndCreateSubject')
+      const result = await validateAndCreateSubject(subjectData)
+      return result.data
+    } catch (error) {
+      console.error('Erro ao criar matéria:', error.message)
+      throw error
+    }
+  },
+  
+  async updateSubject(subjectId, subjectData) {
+    try {
+      const validateAndUpdateSubject = httpsCallable(functions, 'validateAndUpdateSubject')
+      const result = await validateAndUpdateSubject({ id: subjectId, ...subjectData })
+      return result.data
+    } catch (error) {
+      console.error('Erro ao atualizar matéria:', error.message)
+      throw error
+    }
+  },
+  
+  async deleteSubject(subjectId) {
+    try {
+      const validateAndDeleteSubject = httpsCallable(functions, 'validateAndDeleteSubject')
+      const result = await validateAndDeleteSubject({ id: subjectId })
+      return result.data
+    } catch (error) {
+      console.error('Erro ao excluir matéria:', error.message)
+      throw error
+    }
+  },
+  
+  // Notas
+  async addGrade(subjectId, gradeData) {
+    try {
+      const validateAndAddGrade = httpsCallable(functions, 'validateAndAddGrade')
+      const result = await validateAndAddGrade({ subjectId, ...gradeData })
+      return result.data
+    } catch (error) {
+      console.error('Erro ao adicionar nota:', error.message)
+      throw error
+    }
+  },
+  
+  async updateGrade(subjectId, gradeId, gradeData) {
+    try {
+      const validateAndUpdateGrade = httpsCallable(functions, 'validateAndUpdateGrade')
+      const result = await validateAndUpdateGrade({ 
+        subjectId, 
+        gradeId, 
+        ...gradeData 
+      })
+      return result.data
+    } catch (error) {
+      console.error('Erro ao atualizar nota:', error.message)
+      throw error
+    }
+  },
+  
+  async deleteGrade(subjectId, gradeId) {
+    try {
+      const validateAndDeleteGrade = httpsCallable(functions, 'validateAndDeleteGrade')
+      const result = await validateAndDeleteGrade({ subjectId, gradeId })
+      return result.data
+    } catch (error) {
+      console.error('Erro ao excluir nota:', error.message)
+      throw error
+    }
+  }
+}
 
 export default api 

@@ -4,28 +4,13 @@ import { AlertTriangle } from 'lucide-react'
 import { useSubjects } from '../../hooks/useSubjects'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '../../lib/utils'
-import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
-import { isAfter, isBefore, startOfDay, addDays } from 'date-fns'
 
 export function AttendanceWarning() {
   const { subjects } = useSubjects()
   const navigate = useNavigate()
-  const { events, dashboardCalendars } = useGoogleCalendar()
 
-  // Filtra eventos dos próximos 7 dias
-  const upcomingEvents = events
-    .filter(event => {
-      if (!dashboardCalendars.includes(event.calendarId)) {
-        return false
-      }
-      const eventDate = new Date(event.start instanceof Date ? event.start : event.start.dateTime || event.start.date)
-      const today = startOfDay(new Date())
-      const nextWeek = addDays(today, 7)
-      return isAfter(eventDate, today) && isBefore(eventDate, nextWeek)
-    })
-
-  // Define o número de matérias a mostrar baseado na quantidade de eventos
-  const numSubjectsToShow = upcomingEvents.length > 5 ? 3 : 2
+  // Define o número de matérias a mostrar
+  const numSubjectsToShow = 3
 
   // Função para calcular a porcentagem de faltas utilizada
   const calculateAttendancePercentage = (subject) => {

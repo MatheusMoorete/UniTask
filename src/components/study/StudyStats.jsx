@@ -2,7 +2,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/card'
 import { Progress } from '../ui/progress'
 import { Separator } from '../ui/separator'
 import { Badge } from '../ui/badge'
-import { differenceInDays } from 'date-fns'
+import { parseISO, differenceInCalendarDays, format, differenceInHours, addDays, setHours, startOfDay, isSameDay, isAfter } from 'date-fns'
 import { useStudyRoom } from '../../hooks/useStudyRoom'
 import { motion } from 'framer-motion'
 import { Calendar, Brain, Target, Clock } from 'lucide-react'
@@ -22,15 +22,80 @@ StudyStats.propTypes = {
 export function StudyStats({ filteredTopics }) {
   const { topics: allTopics } = useStudyRoom()
 
+  // Função para calcular dias até a prova de forma precisa
+  const getDaysUntil = (examDate) => {
+    // Garantir que a data de entrada é uma string ou data válida
+    if (!examDate) return 0;
+
+    // Criar objetos de data sem informações de hora (só a data)
+    const today = startOfDay(new Date());
+    
+    // Converter a data da prova para objeto Date se for string
+    let examDay;
+    if (typeof examDate === 'string') {
+      // Garantir que a string da data está no formato ISO
+      if (examDate.includes('T')) {
+        examDay = startOfDay(new Date(examDate));
+      } else {
+        // Se não tiver informação de hora, é uma data simples (YYYY-MM-DD)
+        examDay = startOfDay(new Date(`${examDate}T00:00:00`));
+      }
+    } else {
+      examDay = startOfDay(examDate);
+    }
+
+    // Calcular a diferença em dias de calendário (1, 2, 3...)
+    const days = differenceInCalendarDays(examDay, today);
+    
+    // Se negativo, está no passado, então retornar 0
+    return days < 0 ? 0 : days;
+  };
+
   // Calcula próximas provas (ordenadas por data)
   const upcomingExams = filteredTopics
-    .filter(exam => exam.examDate && new Date(exam.examDate) >= new Date())
-    .sort((a, b) => new Date(a.examDate) - new Date(b.examDate))
-    .slice(0, 3)
-    .map(exam => ({
-      title: exam.title,
-      daysUntil: differenceInDays(new Date(exam.examDate), new Date())
-    }))
+    // Filtrar apenas provas que são hoje ou no futuro
+    .filter(exam => {
+      if (!exam.examDate) return false;
+      
+      const today = startOfDay(new Date());
+      let examDay;
+      
+      if (typeof exam.examDate === 'string') {
+        if (exam.examDate.includes('T')) {
+          examDay = startOfDay(new Date(exam.examDate));
+        } else {
+          examDay = startOfDay(new Date(`${exam.examDate}T00:00:00`));
+        }
+      } else {
+        examDay = startOfDay(exam.examDate);
+      }
+      
+      return examDay >= today;
+    })
+    // Mapear para o formato necessário
+    .map(exam => {
+      // Converter a data da prova para objeto Date
+      let examDay;
+      if (typeof exam.examDate === 'string') {
+        if (exam.examDate.includes('T')) {
+          examDay = startOfDay(new Date(exam.examDate));
+        } else {
+          examDay = startOfDay(new Date(`${exam.examDate}T00:00:00`));
+        }
+      } else {
+        examDay = startOfDay(exam.examDate);
+      }
+      
+      return {
+        id: exam.id,
+        title: exam.title,
+        examDate: examDay,
+        daysUntil: getDaysUntil(exam.examDate)
+      };
+    })
+    // Ordenar pela proximidade à data atual (menor número de dias primeiro)
+    .sort((a, b) => a.daysUntil - b.daysUntil)
+    .slice(0, 3);
 
   // Estatísticas dos tópicos filtrados
   const filteredStats = {
@@ -69,16 +134,16 @@ export function StudyStats({ filteredTopics }) {
   const revisionStats = {
     today: filteredTopics.reduce((count, exam) => {
       if (!exam.examDate) return count
-      const daysUntilExam = differenceInDays(new Date(exam.examDate), new Date())
-      if (daysUntilExam <= 1 && daysUntilExam >= 0) {
+      const daysUntil = getDaysUntil(exam.examDate)
+      if (daysUntil <= 1 && daysUntil >= 0) {
         return count + exam.topics.filter(t => t.completed && t.needsRevision).length
       }
       return count
     }, 0),
     week: filteredTopics.reduce((count, exam) => {
       if (!exam.examDate) return count
-      const daysUntilExam = differenceInDays(new Date(exam.examDate), new Date())
-      if (daysUntilExam <= 7 && daysUntilExam >= 0) {
+      const daysUntil = getDaysUntil(exam.examDate)
+      if (daysUntil <= 7 && daysUntil >= 0) {
         return count + exam.topics.filter(t => t.completed && t.needsRevision).length
       }
       return count
@@ -109,7 +174,7 @@ export function StudyStats({ filteredTopics }) {
             <div className="space-y-2">
               {upcomingExams.length > 0 ? (
                 upcomingExams.map((exam, index) => (
-                  <div key={index} className="flex justify-between items-center text-sm">
+                  <div key={exam.id || index} className="flex justify-between items-center text-sm">
                     <span className="truncate mr-2">{exam.title}</span>
                     <Badge variant={exam.daysUntil <= 7 ? "destructive" : "secondary"}>
                       {exam.daysUntil === 0 

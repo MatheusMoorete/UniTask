@@ -50,8 +50,23 @@ export function useStudyRoom() {
     try {
       const position = topics.length ? Math.max(...topics.map(t => t.position)) + 1000 : 1000
       
+      // Normalizar a data da prova para o formato YYYY-MM-DD
+      let normalizedExamDate = topicData.examDate;
+      if (normalizedExamDate) {
+        // Se for uma string sem 'T', mantém como está (YYYY-MM-DD)
+        // Se for uma string com 'T', remove a parte de hora e mantém só a data
+        if (typeof normalizedExamDate === 'string' && normalizedExamDate.includes('T')) {
+          normalizedExamDate = normalizedExamDate.split('T')[0];
+        } 
+        // Se for um objeto Date, converte para string YYYY-MM-DD
+        else if (normalizedExamDate instanceof Date) {
+          normalizedExamDate = normalizedExamDate.toISOString().split('T')[0];
+        }
+      }
+      
       const newTopic = {
         ...topicData,
+        examDate: normalizedExamDate, // Data normalizada
         userId: user.uid,
         position,
         progress: 0,
@@ -74,9 +89,24 @@ export function useStudyRoom() {
 
   const updateTopic = async (topicId, updates) => {
     try {
+      // Normalizar a data da prova para o formato YYYY-MM-DD
+      let normalizedUpdates = { ...updates };
+      
+      if (updates.examDate) {
+        // Se for uma string sem 'T', mantém como está (YYYY-MM-DD)
+        // Se for uma string com 'T', remove a parte de hora e mantém só a data
+        if (typeof updates.examDate === 'string' && updates.examDate.includes('T')) {
+          normalizedUpdates.examDate = updates.examDate.split('T')[0];
+        } 
+        // Se for um objeto Date, converte para string YYYY-MM-DD
+        else if (updates.examDate instanceof Date) {
+          normalizedUpdates.examDate = updates.examDate.toISOString().split('T')[0];
+        }
+      }
+      
       const topicRef = doc(db, 'studyTopics', topicId)
       const updatedData = {
-        ...updates,
+        ...normalizedUpdates,
         updatedAt: new Date().toISOString()
       }
       await updateDoc(topicRef, updatedData)

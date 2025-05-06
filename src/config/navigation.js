@@ -6,7 +6,8 @@ import {
   BookOpen,
   Brain,
   CheckSquare,
-  CalendarRange
+  CalendarRange,
+  Calculator
 } from 'lucide-react'
 
 export const navigationItems = [
@@ -37,6 +38,11 @@ export const navigationItems = [
         label: 'Faltômetro',
         icon: Calendar,
         href: '/attendance'
+      },
+      {
+        label: 'Calculadora de Médias',
+        icon: Calculator,
+        href: '/grade-calculator'
       }
     ]
   },

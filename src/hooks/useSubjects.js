@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useSemester } from '../contexts/SemesterContext'
 import {
   collection,
   query,
@@ -19,6 +20,7 @@ export function useSubjects() {
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
+  const { activeSemesterId } = useSemester()
 
   // Função auxiliar para calcular o máximo de faltas
   const calculateMaxAbsences = (totalHours, type1Hours, type2Hours, type1HoursPerClass, type2HoursPerClass, hasMultipleTypes, maxAbsencePercentage) => {
@@ -56,7 +58,7 @@ export function useSubjects() {
   }
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !activeSemesterId) {
       setSubjects([])
       setLoading(false)
       return
@@ -65,6 +67,7 @@ export function useSubjects() {
     const subjectsQuery = query(
       collection(db, 'subjects'),
       where('userId', '==', user.uid),
+      where('semesterId', '==', activeSemesterId),
       orderBy('createdAt', 'asc')
     )
 
@@ -87,11 +90,12 @@ export function useSubjects() {
     )
 
     return () => unsubscribe()
-  }, [user, db])
+  }, [user, db, activeSemesterId])
 
   const addSubject = async (subjectData) => {
     try {
       if (!user) throw new Error('Usuário não autenticado')
+      if (!activeSemesterId) throw new Error('Nenhum semestre selecionado')
 
       const totalHours = Number(subjectData.totalHours)
       const type1Hours = Number(subjectData.type1.hours)
@@ -129,6 +133,7 @@ export function useSubjects() {
         maxAbsencePercentage,
         maxAbsences,
         userId: user.uid,
+        semesterId: activeSemesterId,
         createdAt: serverTimestamp()
       }
 

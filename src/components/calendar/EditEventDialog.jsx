@@ -3,96 +3,206 @@ import {
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle,
-  DialogDescription 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
 } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
-import { format } from 'date-fns'
-import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
-import { capitalizeMonth } from '../../lib/date-utils'
+import { Textarea } from '../ui/textarea'
+import { Checkbox } from '../ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select"
+import { Loader2, Trash, Download } from 'lucide-react'
+import { createICSFile } from '../../utils/calendar'
 import { showToast } from '../../lib/toast'
+import { format } from 'date-fns'
 
-export function EditEventDialog({ event, onClose }) {
-  const [editedEvent, setEditedEvent] = useState({
-    title: event.title,
-    start: format(event.start, "yyyy-MM-dd'T'HH:mm"),
-    end: format(event.end, "yyyy-MM-dd'T'HH:mm"),
+export function EditEventDialog({ 
+  event, 
+  onClose, 
+  onUpdate, 
+  onDelete,
+  colors = [],
+  calendars = []
+}) {
+  const [formError, setFormError] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  
+  // Formatter para datas para o input datetime-local
+  const formatDateTime = (date) => {
+    if (!date) return ''
+    const d = new Date(date)
+    return format(d, "yyyy-MM-dd'T'HH:mm")
+  }
+
+  const [eventData, setEventData] = useState({
+    id: event.id,
+    title: event.title || '',
+    start: formatDateTime(event.start),
+    end: formatDateTime(event.end),
+    description: event.description || '',
     location: event.location || '',
-    description: event.description || ''
+    allDay: event.allDay || false,
+    color: event.color || (colors.length > 0 ? colors[0].value : '#1a73e8'),
+    calendarId: event.calendarId || (calendars.length > 0 ? calendars[0].id : null)
   })
-
-  const { updateEvent, deleteEvent } = useGoogleCalendar()
-  const [error, setError] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setIsLoading(true)
+    setFormError(null)
+    setIsSubmitting(true)
+
     try {
-      await updateEvent(event.id, editedEvent, event.calendarId)
+      // Validar dados
+      if (!eventData.title) {
+        setFormError('Título é obrigatório')
+        showToast.error('O título do evento é obrigatório')
+        setIsSubmitting(false)
+        return
+      }
+
+      // Preparar dados do evento
+      const start = new Date(eventData.start)
+      const end = new Date(eventData.end)
+      
+      if (start >= end) {
+        setFormError('A data de início deve ser anterior à data de fim')
+        showToast.error('A data de início deve ser anterior à data de fim')
+        setIsSubmitting(false)
+        return
+      }
+
+      const updatedEvent = {
+        title: eventData.title,
+        start,
+        end,
+        description: eventData.description,
+        location: eventData.location,
+        allDay: eventData.allDay,
+        color: eventData.color,
+        calendarId: eventData.calendarId
+      }
+
+      // Atualizar evento local
+      await onUpdate(eventData.id, updatedEvent)
+
       showToast.success('Evento atualizado com sucesso!')
       onClose()
     } catch (error) {
-      setError('Erro ao atualizar evento. Tente novamente.')
+      console.error('Erro ao atualizar evento:', error)
+      setFormError('Erro ao atualizar evento')
       showToast.error('Erro ao atualizar evento. Tente novamente.')
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
   const handleDelete = async () => {
+    setIsDeleting(true)
+    
     try {
-      if (!confirm('Tem certeza que deseja excluir este evento?')) {
-        return
-      }
-
-      setIsLoading(true)
-      await deleteEvent(event.id, event.calendarId)
+      // Excluir evento local
+      await onDelete(eventData.id)
+      
       showToast.success('Evento excluído com sucesso!')
       onClose()
     } catch (error) {
-      setError(error.message || 'Erro ao excluir evento. Tente novamente.')
-      showToast.error('Erro ao excluir evento. Tente novamente.')
+      console.error('Erro ao excluir evento:', error)
+      showToast.error('Erro ao excluir evento')
     } finally {
-      setIsLoading(false)
+      setIsDeleting(false)
+    }
+  }
+
+  const handleDownloadICS = () => {
+    try {
+      createICSFile({
+        title: eventData.title,
+        start: eventData.start,
+        end: eventData.end,
+        description: eventData.description,
+        location: eventData.location
+      })
+    } catch (error) {
+      console.error('Erro ao gerar arquivo ICS:', error)
+      showToast.error('Erro ao gerar arquivo ICS')
+    }
+  }
+
+  const handleAllDayChange = (checked) => {
+    if (checked) {
+      // Se for evento de dia inteiro, ajustar horários
+      const startDate = new Date(eventData.start)
+      startDate.setHours(0, 0, 0, 0)
+      
+      const endDate = new Date(eventData.end)
+      endDate.setHours(23, 59, 59, 999)
+      
+      setEventData({
+        ...eventData,
+        allDay: checked,
+        start: formatDateTime(startDate),
+        end: formatDateTime(endDate)
+      })
+    } else {
+      setEventData({
+        ...eventData,
+        allDay: checked
+      })
     }
   }
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Editar evento</DialogTitle>
           <DialogDescription>
-            Faça as alterações necessárias no evento
+            Modifique os detalhes do evento
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
+          {formError && (
             <div className="text-sm text-red-500 bg-red-50 p-2 rounded">
-              {error}
+              {formError}
             </div>
           )}
           <div className="space-y-2">
             <Label htmlFor="title">Título</Label>
             <Input
               id="title"
-              value={editedEvent.title}
-              onChange={(e) => setEditedEvent({ ...editedEvent, title: e.target.value })}
+              value={eventData.title}
+              onChange={(e) => setEventData({ ...eventData, title: e.target.value })}
               placeholder="Digite o título do evento"
               required
             />
           </div>
+          
+          <div className="flex items-center space-x-2 my-4">
+            <Checkbox 
+              id="allDay" 
+              checked={eventData.allDay}
+              onCheckedChange={handleAllDayChange}
+            />
+            <Label htmlFor="allDay" className="text-sm font-medium">Evento de dia inteiro</Label>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="start">Início</Label>
               <Input
                 id="start"
                 type="datetime-local"
-                value={editedEvent.start}
-                onChange={(e) => setEditedEvent({ ...editedEvent, start: e.target.value })}
+                value={eventData.start}
+                onChange={(e) => setEventData({ ...eventData, start: e.target.value })}
                 required
               />
             </div>
@@ -101,62 +211,124 @@ export function EditEventDialog({ event, onClose }) {
               <Input
                 id="end"
                 type="datetime-local"
-                value={editedEvent.end}
-                onChange={(e) => setEditedEvent({ ...editedEvent, end: e.target.value })}
+                value={eventData.end}
+                onChange={(e) => setEventData({ ...eventData, end: e.target.value })}
                 required
               />
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="color">Cor</Label>
+              <Select
+                value={eventData.color}
+                onValueChange={(value) => setEventData({ ...eventData, color: value })}
+              >
+                <SelectTrigger id="color">
+                  <SelectValue placeholder="Escolha uma cor..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {colors.map((color) => (
+                    <SelectItem key={color.id} value={color.value}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: color.value }}
+                        />
+                        <span>{color.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="calendar">Agenda</Label>
+              <Select
+                value={eventData.calendarId}
+                onValueChange={(value) => setEventData({ ...eventData, calendarId: value })}
+              >
+                <SelectTrigger id="calendar">
+                  <SelectValue placeholder="Escolha uma agenda..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {calendars.map((calendar) => (
+                    <SelectItem key={calendar.id} value={calendar.id}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: calendar.color }}
+                        />
+                        <span>{calendar.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="space-y-2">
-            <Label htmlFor="location">Localização</Label>
+            <Label htmlFor="location">Local</Label>
             <Input
               id="location"
-              value={editedEvent.location}
-              onChange={(e) => setEditedEvent({ ...editedEvent, location: e.target.value })}
-              placeholder="Digite a localização (opcional)"
+              value={eventData.location}
+              onChange={(e) => setEventData({ ...eventData, location: e.target.value })}
+              placeholder="Local do evento"
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="description">Descrição</Label>
-            <Input
+            <Textarea
               id="description"
-              value={editedEvent.description}
-              onChange={(e) => setEditedEvent({ ...editedEvent, description: e.target.value })}
-              placeholder="Digite uma descrição (opcional)"
+              value={eventData.description}
+              onChange={(e) => setEventData({ ...eventData, description: e.target.value })}
+              placeholder="Descrição do evento"
+              rows={3}
             />
           </div>
-          <div className="flex justify-between">
+
+          <DialogFooter className="flex flex-col md:flex-row justify-between w-full gap-4">
             <Button 
               type="button" 
-              variant="destructive" 
-              onClick={handleDelete}
-              disabled={isLoading}
+              variant="outline" 
+              onClick={handleDownloadICS}
+              className="flex items-center gap-2 justify-center w-full md:w-auto"
             >
-              {isLoading ? (
-                <>
-                  <span className="animate-spin mr-2">⭮</span>
-                  Sincronizando...
-                </>
-              ) : (
-                'Excluir'
-              )}
+              <Download className="h-4 w-4" />
+              Exportar ICS
             </Button>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2 w-full md:w-auto md:flex">
               <Button 
                 type="button" 
-                variant="outline" 
-                onClick={onClose}
-                disabled={isLoading}
+                variant="destructive" 
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex items-center gap-2 justify-center"
               >
-                Cancelar
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> 
+                    Excluindo...
+                  </>
+                ) : (
+                  <>
+                    <Trash className="h-4 w-4" /> 
+                    Excluir
+                  </>
+                )}
               </Button>
               <Button 
                 type="submit"
-                disabled={isLoading}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 justify-center"
               >
-                {isLoading ? (
+                {isSubmitting ? (
                   <>
-                    <span className="animate-spin mr-2">⭮</span>
+                    <Loader2 className="h-4 w-4 animate-spin" /> 
                     Salvando...
                   </>
                 ) : (
@@ -164,7 +336,7 @@ export function EditEventDialog({ event, onClose }) {
                 )}
               </Button>
             </div>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

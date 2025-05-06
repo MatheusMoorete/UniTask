@@ -2,14 +2,6 @@ import { Calendar } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useStudyRevisions } from '../../hooks/useStudyRevisions'
 import { useToast } from '../ui/use-toast'
-import { useGoogleCalendar } from '../../contexts/GoogleCalendarContext'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
 import {
   Dialog,
   DialogContent,
@@ -19,6 +11,9 @@ import {
 } from '../ui/dialog'
 import { useState } from 'react'
 import PropTypes from 'prop-types'
+import { addDoc, collection } from 'firebase/firestore'
+import { useFirestore } from '../../contexts/FirestoreContext'
+import { useAuth } from '../../contexts/AuthContext'
 
 GenerateRevisionButton.propTypes = {
   topic: PropTypes.shape({
@@ -32,10 +27,10 @@ GenerateRevisionButton.propTypes = {
 
 export function GenerateRevisionButton({ topic, id }) {
   const { generateRevisionSchedule, isGenerating } = useStudyRevisions()
-  const { calendars } = useGoogleCalendar()
   const { toast } = useToast()
+  const { db } = useFirestore()
+  const { user } = useAuth()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedCalendarId, setSelectedCalendarId] = useState('')
 
   const handleGenerateSchedule = async () => {
     if (!topic.examDate) {
@@ -47,7 +42,7 @@ export function GenerateRevisionButton({ topic, id }) {
       return
     }
 
-    const subtopicsToRevise = topic.subtopics.filter(st => st.needsRevision)
+    const subtopicsToRevise = (topic.subtopics || []).filter(st => st?.needsRevision)
     
     if (subtopicsToRevise.length === 0) {
       toast({
@@ -58,34 +53,43 @@ export function GenerateRevisionButton({ topic, id }) {
       return
     }
 
-    if (!selectedCalendarId) {
-      toast({
-        title: "Calendário não selecionado",
-        description: "Selecione um calendário para adicionar os eventos",
-        variant: "destructive"
-      })
-      return
-    }
-
     try {
-      await generateRevisionSchedule({
+      // Gerar cronograma de revisão
+      const events = await generateRevisionSchedule({
         ...topic,
         subtopics: subtopicsToRevise
-      }, selectedCalendarId)
+      })
+      
+      // Salvar eventos no calendário local (Firestore)
+      for (const event of events) {
+        await addDoc(collection(db, 'events'), {
+          ...event,
+          color: '#9c27b0', // Roxo
+          userId: user.uid,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+      }
+      
       toast({
         title: "Cronograma gerado!",
-        description: "Eventos de revisão foram adicionados ao seu Google Calendar",
+        description: `${events.length} eventos de revisão foram adicionados ao seu calendário`,
         variant: "default"
       })
       setIsDialogOpen(false)
     } catch (error) {
       toast({
         title: "Erro ao gerar cronograma",
-        description: "Verifique se você tem permissão para criar eventos no Google Calendar",
+        description: "Não foi possível criar os eventos de revisão",
         variant: "destructive"
       })
     }
   }
+
+  // Garantir que subtopics exista, usando um array vazio como fallback
+  const subtopics = topic.subtopics || []
+  // Filtrar os subtópicos que precisam de revisão
+  const subtopicsToRevise = subtopics.filter(st => st?.needsRevision)
 
   return (
     <>
@@ -106,36 +110,31 @@ export function GenerateRevisionButton({ topic, id }) {
           <DialogHeader>
             <DialogTitle>Gerar Cronograma de Revisão</DialogTitle>
             <DialogDescription>
-              Selecione o calendário onde deseja adicionar os eventos de revisão
+              Isso criará eventos de revisão no seu calendário para os tópicos selecionados
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <Select
-              value={selectedCalendarId}
-              onValueChange={setSelectedCalendarId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um calendário" />
-              </SelectTrigger>
-              <SelectContent>
-                {calendars.map((calendar) => (
-                  <SelectItem 
-                    key={calendar.id} 
-                    value={calendar.id}
-                    className="flex items-center gap-2"
-                  >
-                    <div 
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: calendar.backgroundColor }}
-                    />
-                    {calendar.summary}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-4 py-4">
+            <p className="text-sm">
+              Serão criados eventos para revisão do tópico: <strong>{topic.title}</strong>
+            </p>
+            
+            {subtopicsToRevise.length > 0 ? (
+              <div>
+                <p className="text-sm font-medium mb-1">Subtópicos para revisão:</p>
+                <ul className="text-sm list-disc pl-5">
+                  {subtopicsToRevise.map(st => (
+                    <li key={st.id || st.title}>{st.title}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm text-yellow-600">
+                Nenhum subtópico selecionado para revisão
+              </p>
+            )}
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-2">
               <Button
                 variant="outline"
                 onClick={() => setIsDialogOpen(false)}
@@ -144,9 +143,9 @@ export function GenerateRevisionButton({ topic, id }) {
               </Button>
               <Button
                 onClick={handleGenerateSchedule}
-                disabled={!selectedCalendarId || isGenerating}
+                disabled={isGenerating || subtopicsToRevise.length === 0}
               >
-                {isGenerating ? 'Gerando...' : 'Gerar'}
+                {isGenerating ? 'Gerando...' : 'Gerar Revisões'}
               </Button>
             </div>
           </div>

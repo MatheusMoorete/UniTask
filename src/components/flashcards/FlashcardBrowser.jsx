@@ -18,7 +18,7 @@ import {
 } from "../ui/alert-dialog"
 import { Badge } from '../ui/badge'
 import { useFlashcards } from '../../contexts/FlashcardsContext'
-import { toast } from 'react-hot-toast'
+import { showToast } from '../../lib/toast'
 
 export function FlashcardBrowser({ flashcards, deckId }) {
   const [search, setSearch] = useState('')
@@ -98,12 +98,12 @@ export function FlashcardBrowser({ flashcards, deckId }) {
   const handleDeleteSelected = async () => {
     try {
       await deleteFlashcard(selectedCards)
-      toast.success(`${selectedCards.length} cards excluídos com sucesso!`)
+      showToast.success(`${selectedCards.length} cards excluídos com sucesso!`)
       setSelectedCards([])
       setShowDeleteDialog(false)
     } catch (error) {
       console.error('Erro ao excluir cards:', error)
-      toast.error('Erro ao excluir cards')
+      showToast.error('Erro ao excluir cards')
     }
   }
 

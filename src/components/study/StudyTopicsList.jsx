@@ -42,7 +42,17 @@ export function StudyTopicsList({ searchQuery = '', filterStatus = 'all', sortBy
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'date':
-          return new Date(a.examDate || '9999-12-31') - new Date(b.examDate || '9999-12-31')
+          // Se não tiver data definida, considerar como data muito distante
+          const dateA = a.examDate ? new Date(a.examDate) : new Date('9999-12-31');
+          const dateB = b.examDate ? new Date(b.examDate) : new Date('9999-12-31');
+          
+          // Calcular a diferença de cada data para hoje
+          const today = new Date();
+          const diffA = Math.abs(dateA - today);
+          const diffB = Math.abs(dateB - today);
+          
+          // Ordenar pela diferença - a menor diferença (mais próxima) vem primeiro
+          return diffA - diffB;
         case 'progress':
           return b.progress - a.progress
         case 'topics':

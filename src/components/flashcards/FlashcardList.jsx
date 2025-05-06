@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { useFlashcards } from '@/hooks/useFlashcards'
+import { useFlashcards } from '../../hooks/useFlashcards'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
